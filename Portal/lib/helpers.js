@@ -1,0 +1,276 @@
+// Portal do Consultor — helpers e dicionários compartilhados.
+// Tudo aqui é síncrono e local: nenhuma chamada de rede, nenhuma persistência real.
+
+(function () {
+  function uid() {
+    return Math.random().toString(36).slice(2, 9);
+  }
+
+  function classNames(...args) {
+    return args.filter(Boolean).join(' ');
+  }
+
+  function formatCurrency(value) {
+    if (value === null || value === undefined) return '—';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
+  }
+
+  function formatCurrencySigned(value) {
+    const formatted = formatCurrency(Math.abs(value));
+    return value < 0 ? `- ${formatted}` : `+ ${formatted}`;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr.length <= 10 ? `${dateStr}T00:00:00-03:00` : dateStr);
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+  }
+
+  function formatDateTime(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
+  }
+
+  function daysUntil(dateStr, nowStr) {
+    const now = new Date(nowStr);
+    const target = new Date(`${dateStr}T00:00:00-03:00`);
+    return Math.round((target - now) / (1000 * 60 * 60 * 24));
+  }
+
+  function onlyDigits(value) {
+    return (value || '').replace(/\D/g, '');
+  }
+
+  function maskDocument(doc) {
+    const digits = onlyDigits(doc);
+    if (digits.length === 11) return `${digits.slice(0, 3)}.***.**${digits.slice(9, 11) ? '-' : ''}${digits.slice(9)}`;
+    if (digits.length === 14) return `${digits.slice(0, 2)}.***.***/****-${digits.slice(-2)}`;
+    return doc;
+  }
+
+  function download(filename, content, mime) {
+    const blob = new Blob([content], { type: mime || 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------------------------------------------------------------------
+  // Escopo por perfil (US-01 / seção 5 do épico)
+  // ---------------------------------------------------------------------
+  function clientsInScope(profile, clients) {
+    if (!profile || profile.scopeType === 'none') return [];
+    if (profile.scopeType === 'all') return clients;
+    if (profile.scopeType === 'office') return clients.filter((c) => c.escritorio === profile.escritorio);
+    if (profile.scopeType === 'own') return clients.filter((c) => c.ownerId === profile.id);
+    return [];
+  }
+
+  function canAccess(profile, menuKey) {
+    return !!profile && profile.permissions.menu.indexOf(menuKey) !== -1;
+  }
+
+  // ---------------------------------------------------------------------
+  // Elegibilidade de produto para um cliente (US-10 critério 5, US-11
+  // critério 4, US-13 critério 4) — centralizada para não divergir entre
+  // Hub de produtos, Simulador e Basket.
+  // ---------------------------------------------------------------------
+  function isEligible(client, product, now) {
+    const reasons = [];
+    if (!product.available) reasons.push(product.unavailableReason || 'Produto indisponível para novas aplicações.');
+    if (product.eligibleSegments.indexOf(client.segment) === -1) {
+      reasons.push(`Segmento ${client.segment} fora do público elegível (${product.eligibleSegments.join('/')}).`);
+    }
+    if (client.status !== 'ativo') reasons.push('Cliente sem conta ativa.');
+    if (daysUntil(client.suitabilityExpiry, now) < 0) reasons.push('Suitability vencido — é preciso renovar antes de recomendar.');
+    return { eligible: reasons.length === 0, reasons };
+  }
+
+  // ---------------------------------------------------------------------
+  // Dicionários de status / semântica visual
+  // ---------------------------------------------------------------------
+  const ALERT_TYPE_META = {
+    vencimento_proximo: { label: 'Vencimento próximo', icon: 'clock' },
+    novo_aporte: { label: 'Novo aporte', icon: 'trendingUp' },
+    saldo_parado: { label: 'Saldo parado', icon: 'wallet' },
+    retirada_relevante: { label: 'Retirada relevante', icon: 'trendingDown' },
+    suitability_vencendo: { label: 'Suitability vencendo', icon: 'shield' },
+    cadastro_pendente: { label: 'Cadastro pendente', icon: 'userPlus' },
+    sem_primeira_aplicacao: { label: 'Sem primeira aplicação', icon: 'flag' },
+    ordem_aguardando_aprovacao: { label: 'Ordem aguardando aprovação', icon: 'inbox' },
+    ordem_com_erro: { label: 'Ordem com erro', icon: 'alertTriangle' },
+    documento_disponivel: { label: 'Documento disponível', icon: 'file' },
+  };
+
+  const ALERT_PRIORITY_META = {
+    alta: { label: 'Alta', className: 'bg-alert-light text-alert-dark border border-alert/30' },
+    media: { label: 'Média', className: 'bg-warning-light text-warning-dark border border-warning/30' },
+    baixa: { label: 'Baixa', className: 'bg-neutral-100 text-neutral-600 border border-neutral-200' },
+  };
+
+  const ALERT_STATUS_META = {
+    novo: { label: 'Novo', className: 'bg-info-light text-info-dark' },
+    visualizado: { label: 'Visualizado', className: 'bg-neutral-100 text-neutral-600' },
+    em_tratamento: { label: 'Em tratamento', className: 'bg-warning-light text-warning-dark' },
+    concluido: { label: 'Concluído', className: 'bg-success-light text-success-dark' },
+  };
+
+  const ORDER_STATUS_META = {
+    rascunho: { label: 'Rascunho', className: 'bg-neutral-100 text-neutral-600' },
+    enviada: { label: 'Enviada', className: 'bg-info-light text-info-dark' },
+    aguardando_aprovacao: { label: 'Aguardando aprovação', className: 'bg-warning-light text-warning-dark' },
+    aprovada: { label: 'Aprovada', className: 'bg-info-light text-info-dark' },
+    em_processamento: { label: 'Em processamento', className: 'bg-warning-light text-warning-dark' },
+    executada: { label: 'Executada', className: 'bg-success-light text-success-dark' },
+    parcialmente_executada: { label: 'Parcialmente executada', className: 'bg-success-light text-success-dark' },
+    recusada: { label: 'Recusada', className: 'bg-alert-light text-alert-dark' },
+    cancelada: { label: 'Cancelada', className: 'bg-neutral-100 text-neutral-500' },
+    erro: { label: 'Erro', className: 'bg-alert-light text-alert-dark' },
+  };
+
+  const ONBOARDING_STATUS_META = {
+    convite_enviado: { label: 'Convite enviado', className: 'bg-info-light text-info-dark' },
+    aceite_pendente: { label: 'Aceite pendente', className: 'bg-warning-light text-warning-dark' },
+    em_validacao: { label: 'Em validação', className: 'bg-warning-light text-warning-dark' },
+    ativado: { label: 'Ativado', className: 'bg-success-light text-success-dark' },
+    pendencia: { label: 'Pendência', className: 'bg-alert-light text-alert-dark' },
+  };
+
+  const CASH_CATEGORY_META = {
+    transferencia: 'Transferência',
+    salario: 'Salário',
+    vencimento: 'Vencimento',
+    resgate: 'Resgate',
+    rendimento: 'Rendimento',
+    dividendo: 'Dividendo',
+    cashback: 'Cashback',
+    deposito: 'Depósito',
+    nao_classificado: 'Não classificado',
+  };
+
+  const CLIENT_STATUS_META = {
+    ativo: { label: 'Ativo', className: 'bg-success-light text-success-dark' },
+    pendente: { label: 'Pendente', className: 'bg-warning-light text-warning-dark' },
+    bloqueado: { label: 'Bloqueado', className: 'bg-alert-light text-alert-dark' },
+  };
+
+  const RISK_PROFILE_META = {
+    Conservador: { label: 'Conservador', className: 'bg-info-light text-info-dark' },
+    Moderado: { label: 'Moderado', className: 'bg-success-light text-success-dark' },
+    Agressivo: { label: 'Agressivo', className: 'bg-warning-light text-warning-dark' },
+    Sofisticado: { label: 'Sofisticado', className: 'bg-brand-lightest text-brand-dark' },
+  };
+
+  const ASSET_CLASS_ORDER = ['Pós-fixado', 'Prefixado', 'Inflação', 'Fundos', 'Ações', 'FIIs', 'Multimercado', 'Previdência', 'Global', 'Caixa'];
+
+  // Cores cíclicas para a barra de composição por classe (Portal/pages/ClientProfilePage.jsx
+  // → AssetClassBar), reaproveitando só tons já definidos no tailwind.config do Inter.
+  const ASSET_CLASS_COLOR = ['bg-brand', 'bg-info', 'bg-success', 'bg-warning', 'bg-neutral-700', 'bg-brand-light', 'bg-info-dark', 'bg-success-dark', 'bg-warning-dark', 'bg-neutral-400'];
+
+  // Mesma paleta em hex (mesma ordem/ciclo de ASSET_CLASS_COLOR) para uso no
+  // Chart.js, que precisa de cor real e não de classe Tailwind.
+  const ASSET_CLASS_HEX = ['#FF7A00', '#1E7FE6', '#00A868', '#FFB800', '#424242', '#FF9B3D', '#0F4A87', '#00754A', '#8A5A00', '#9E9E9E'];
+
+  const SIMULATION_STATUS_META = {
+    rascunho: { label: 'Rascunho', className: 'bg-neutral-100 text-neutral-600' },
+    em_revisao: { label: 'Em revisão', className: 'bg-warning-light text-warning-dark' },
+    enviada: { label: 'Enviada', className: 'bg-success-light text-success-dark' },
+  };
+
+  const PRODUCT_RISK_LABELS = { 1: 'Muito baixo', 2: 'Baixo', 3: 'Moderado', 4: 'Alto', 5: 'Muito alto' };
+
+  const SERVICE_TYPE_META = {
+    reset_credencial: { label: 'Reset de credencial', icon: 'shield' },
+    bloqueio_preventivo: { label: 'Bloqueio preventivo', icon: 'alertTriangle' },
+    consulta_documento: { label: 'Consulta de documento', icon: 'file' },
+    servico_bancario: { label: 'Serviço bancário', icon: 'wallet' },
+  };
+
+  const SERVICE_REQUEST_STATUS_META = {
+    aberta: { label: 'Aberta', className: 'bg-warning-light text-warning-dark' },
+    em_andamento: { label: 'Em andamento', className: 'bg-info-light text-info-dark' },
+    concluida: { label: 'Concluída', className: 'bg-success-light text-success-dark' },
+  };
+
+  const TICKET_STATUS_META = {
+    aberto: { label: 'Aberto', className: 'bg-warning-light text-warning-dark' },
+    em_andamento: { label: 'Em andamento', className: 'bg-info-light text-info-dark' },
+    resolvido: { label: 'Resolvido', className: 'bg-success-light text-success-dark' },
+  };
+
+  const TICKET_URGENCY_META = {
+    alta: { label: 'Alta', className: 'bg-alert-light text-alert-dark' },
+    media: { label: 'Média', className: 'bg-warning-light text-warning-dark' },
+    baixa: { label: 'Baixa', className: 'bg-neutral-100 text-neutral-600' },
+  };
+
+  const TICKET_IMPACT_META = {
+    alta: { label: 'Alto' },
+    media: { label: 'Médio' },
+    baixa: { label: 'Baixo' },
+  };
+
+  const TICKET_CONTEXT_META = {
+    client: { label: 'Cliente' },
+    order: { label: 'Ordem' },
+    onboarding: { label: 'Onboarding' },
+    service: { label: 'Serviço operacional' },
+  };
+
+  const HOLDING_ROLE_META = {
+    assinatura_individual: { label: 'Assinatura individual', className: 'bg-success-light text-success-dark' },
+    assinatura_conjunta: { label: 'Assinatura conjunta', className: 'bg-warning-light text-warning-dark' },
+    consulta: { label: 'Só consulta', className: 'bg-neutral-100 text-neutral-600' },
+  };
+
+  // Nomes para exibir "consultor responsável" mesmo quando o dono não é um
+  // dos 5 perfis selecionáveis no seletor de cenário (colegas fictícios de equipe).
+  const OWNER_NAME_MAP = {
+    consultor: 'Marina Ferraz',
+    consultor_2: 'Bruno Castilho',
+    alocador: 'Rafael Nunes',
+    daily_banker: 'Camila Duarte',
+    daily_banker_2: 'Diego Antunes',
+  };
+
+  window.PortalLib = {
+    uid,
+    classNames,
+    formatCurrency,
+    formatCurrencySigned,
+    formatDate,
+    formatDateTime,
+    daysUntil,
+    onlyDigits,
+    maskDocument,
+    download,
+    clientsInScope,
+    canAccess,
+    isEligible,
+    ALERT_TYPE_META,
+    ALERT_PRIORITY_META,
+    ALERT_STATUS_META,
+    ORDER_STATUS_META,
+    ONBOARDING_STATUS_META,
+    CASH_CATEGORY_META,
+    CLIENT_STATUS_META,
+    RISK_PROFILE_META,
+    ASSET_CLASS_ORDER,
+    ASSET_CLASS_COLOR,
+    ASSET_CLASS_HEX,
+    OWNER_NAME_MAP,
+    SIMULATION_STATUS_META,
+    PRODUCT_RISK_LABELS,
+    SERVICE_TYPE_META,
+    SERVICE_REQUEST_STATUS_META,
+    TICKET_STATUS_META,
+    TICKET_URGENCY_META,
+    TICKET_IMPACT_META,
+    TICKET_CONTEXT_META,
+    HOLDING_ROLE_META,
+  };
+})();

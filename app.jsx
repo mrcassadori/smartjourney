@@ -1219,6 +1219,12 @@ function App() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <h1 className="font-semibold text-lg">CX Journey Mapper</h1>
+            <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 text-xs font-medium">
+              <span className="px-3 py-1.5 rounded-full bg-white text-gray-900 shadow-sm">Jornada</span>
+              <a href="Portal/index.html" className="px-3 py-1.5 rounded-full text-gray-500 hover:text-gray-800">
+                Portal do Consultor
+              </a>
+            </div>
             <select
               value={currentId || ''}
               onChange={(e) => setCurrentId(e.target.value)}

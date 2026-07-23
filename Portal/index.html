@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portal do Consultor — Protótipo</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Tokens do design system do Inter (Portal/design.md) — laranja de marca,
+  // radius generoso, escala de cinzas e cores de feedback.
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { DEFAULT: '#FF7A00', light: '#FF9B3D', lightest: '#FFD9B3', dark: '#E56E00', darkest: '#CC6200' },
+          success: { DEFAULT: '#00A868', light: '#E6F9F0', dark: '#00754A' },
+          warning: { DEFAULT: '#FFB800', light: '#FFF8E6', dark: '#8A5A00' },
+          alert: { DEFAULT: '#E5222D', light: '#FDE8E9', dark: '#8F151D' },
+          info: { DEFAULT: '#1E7FE6', light: '#E8F2FD', dark: '#0F4A87' },
+          neutral: { 0: '#FFFFFF', 50: '#F5F5F7', 100: '#EBEBEB', 200: '#D6D6D6', 300: '#BDBDBD', 400: '#9E9E9E', 500: '#757575', 600: '#6B6B6B', 700: '#424242', 800: '#2E2E2E', 900: '#1D1D1D', 1000: '#0D0D0D' },
+        },
+        borderRadius: { none: '0px', small: '4px', medium: '8px', large: '12px', xLarge: '16px', xxLarge: '24px', pill: '999px' },
+      },
+    },
+  };
+</script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #D6D6D6; border-radius: 999px; }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body class="bg-neutral-50">
+<div id="root"></div>
+
+<!-- Dados sintéticos + helpers (JS puro, sem JSX) -->
+<script src="data/mock-data.js"></script>
+<script src="lib/helpers.js"></script>
+
+<!-- Componentes compartilhados -->
+<script type="text/babel" data-presets="react" src="components/Icon.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/StatusPill.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/EmptyState.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/Skeleton.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/Modal.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/Drawer.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/DataTable.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/ChartCanvas.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/ProductPicker.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/NewTicketModal.jsx"></script>
+<script type="text/babel" data-presets="react" src="components/Shell.jsx"></script>
+
+<!-- Páginas -->
+<script type="text/babel" data-presets="react" src="pages/HomePage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/ClientsListPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/ProductsPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/SimulatorPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/RecommendationsPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/ClientProfilePage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/AlertsPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/OnboardingPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/OrdersPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/OperationsPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/SupportPage.jsx"></script>
+<script type="text/babel" data-presets="react" src="pages/ComingSoonPage.jsx"></script>
+
+<!-- App raiz -->
+<script type="text/babel" data-presets="react" src="app.jsx"></script>
+</body>
+</html>
