@@ -181,10 +181,26 @@ function NextEvents({ client, positions, ordersAwaiting, now }) {
 }
 
 // ---------- Carteira ----------
+// Macro-categoria a partir da classe (usada no cabeçalho de grupo "Renda Fixa >
+// Pós-fixado" e no switch de conta Nacional/Internacional).
+const MACRO_BY_CLASS = {
+  'Pós-fixado': 'Renda Fixa', 'Prefixado': 'Renda Fixa', 'Inflação': 'Renda Fixa', 'Caixa': 'Renda Fixa',
+  'CDB': 'Renda Fixa', 'LCI': 'Renda Fixa', 'CRI': 'Renda Fixa', 'Tesouro Direto': 'Renda Fixa',
+  'Tesouro IPCA+': 'Renda Fixa', 'Tesouro Prefixado': 'Renda Fixa', 'Fundo de crédito privado': 'Renda Fixa',
+  'Ações': 'Renda Variável', 'Ações BR': 'Renda Variável', 'FIIs': 'Renda Variável', 'Fundo imobiliário': 'Renda Variável',
+  'Multimercado': 'Multimercado', 'Fundo multimercado': 'Multimercado', 'Fundos': 'Multimercado',
+  'Global': 'Internacional', 'ETF internacional': 'Internacional', 'Fundo cambial': 'Internacional',
+  'Previdência': 'Previdência', 'PGBL': 'Previdência', 'VGBL': 'Previdência',
+};
+function macroOf(cls) { return MACRO_BY_CLASS[cls] || 'Outros'; }
+function isInternational(p) { return macroOf(p.class) === 'Internacional' || /internacional|cambial|global/i.test(`${p.class || ''}${p.subclass || ''}${p.asset || ''}`); }
+
 function PortfolioTab({ client, positions, now, onExport, onOpenPosition, onSimulateRebalance }) {
   const { formatCurrency, formatDate, daysUntil, nextMaturity, ASSET_CLASS_ORDER } = window.PortalLib;
   const [groupBy, setGroupBy] = React.useState('class');
+  const [scope, setScope] = React.useState('nacional');
   const total = positions.reduce((s, p) => s + p.currentValue, 0);
+  const hasInternational = positions.some(isInternational);
 
   function groupKey(p) {
     if (groupBy === 'class') return p.class;
@@ -263,48 +279,87 @@ function PortfolioTab({ client, positions, now, onExport, onOpenPosition, onSimu
         )}
       </div>
 
-      {positions.length === 0 ? (
-        <window.EmptyState icon="layers" title="Sem posições registradas para este cliente" />
-      ) : (
-        groupKeys.map((k) => {
-          const items = groups[k];
-          const subtotal = items.reduce((s, p) => s + p.currentValue, 0);
-          return (
-            <div key={k} className="bg-white rounded-large border border-neutral-100 overflow-hidden">
-              <div className="px-4 py-2.5 bg-neutral-50 flex items-center justify-between text-sm">
-                <span className="font-medium text-neutral-800">{k}</span>
-                <span className="text-neutral-500">{formatCurrency(subtotal)} · {((subtotal / total) * 100).toFixed(1)}%</span>
-              </div>
-              <div className="divide-y divide-neutral-50">
+      {/* Switch de conta Nacional/Internacional */}
+      <div className="inline-flex items-center rounded-pill bg-neutral-100 p-0.5 text-sm font-medium">
+        {[['nacional', 'Nacional'], ['internacional', 'Internacional']].map(([v, label]) => (
+          <button key={v} onClick={() => setScope(v)} disabled={v === 'internacional' && !hasInternational} className={window.PortalLib.classNames('px-5 py-1.5 rounded-pill', scope === v ? 'bg-brand text-white shadow-sm' : v === 'internacional' && !hasInternational ? 'text-neutral-300 cursor-not-allowed' : 'text-neutral-500 hover:text-neutral-800')}>{label}</button>
+        ))}
+      </div>
+
+      <PositionsTable
+        positions={positions.filter((p) => (scope === 'internacional' ? isInternational(p) : !isInternational(p)))}
+        total={total}
+        now={now}
+        onOpenPosition={onOpenPosition}
+      />
+    </div>
+  );
+}
+
+// Tabela de posições com grupos "Macro > Classe" e colunas de % da carteira e
+// rentabilidade acumulada (ref. do usuário). Clique na linha abre o drawer.
+function PositionsTable({ positions, total, now, onOpenPosition }) {
+  const { formatCurrency, formatDate, daysUntil, ASSET_CLASS_ORDER } = window.PortalLib;
+  if (positions.length === 0) {
+    return <window.EmptyState icon="layers" title="Sem posições nesta conta" description="Nenhuma posição registrada para o escopo selecionado." />;
+  }
+  const groups = {};
+  positions.forEach((p) => (groups[p.class] = groups[p.class] || []).push(p));
+  const keys = ASSET_CLASS_ORDER.filter((c) => groups[c]).concat(Object.keys(groups).filter((c) => ASSET_CLASS_ORDER.indexOf(c) === -1));
+  const COLS = ['Ativo', 'Classe', 'Emissor', 'Aplicação', 'Qtd', 'Taxa', 'Liquidez', 'Vencimento', 'Valor atual', '% Carteira', 'Rentabilidade'];
+  const alignRight = { 'Aplicação': 1, 'Qtd': 1, 'Valor atual': 1, '% Carteira': 1, 'Rentabilidade': 1 };
+  return (
+    <div className="bg-white rounded-large border border-neutral-100 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px] min-w-[900px]">
+          <thead className="bg-neutral-50">
+            <tr>
+              {COLS.map((c) => (
+                <th key={c} className={window.PortalLib.classNames('px-3 py-2.5 border-b border-neutral-100 text-[10px] font-semibold uppercase tracking-wide text-neutral-500', alignRight[c] ? 'text-right' : 'text-left')}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          {keys.map((k) => {
+            const items = groups[k];
+            const subtotal = items.reduce((s, p) => s + p.currentValue, 0);
+            return (
+              <tbody key={k}>
+                <tr className="bg-neutral-50/60">
+                  <td colSpan={COLS.length} className="px-3 py-2 border-b border-neutral-100">
+                    <span className="text-sm font-medium text-neutral-700 flex items-center gap-1.5">
+                      <Icon name="chevronDown" size={13} className="text-neutral-400" /> {macroOf(k)} <span className="text-neutral-300">&gt;</span> {k}
+                      <span className="ml-2 text-xs font-normal text-neutral-400">{formatCurrency(subtotal)} · {((subtotal / total) * 100).toFixed(1)}%</span>
+                    </span>
+                  </td>
+                </tr>
                 {items.map((p) => {
                   const applied = p.appliedValue || p.currentValue;
                   const rentab = applied ? (p.currentValue / applied - 1) * 100 : 0;
                   const dLeft = p.maturityDate ? daysUntil(p.maturityDate, now) : null;
                   const maturingSoon = dLeft !== null && dLeft >= 0 && dLeft <= 30;
                   return (
-                    <button key={p.id} onClick={() => onOpenPosition(p)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 text-sm hover:bg-neutral-50">
-                      <div className="min-w-0">
-                        <div className="font-medium text-neutral-900 truncate">{p.asset}</div>
-                        <div className="text-xs text-neutral-400">
-                          {p.issuer} · {p.subclass} · aplicado {p.applicationDate ? formatDate(p.applicationDate) : '—'} {p.rate !== '—' ? `· ${p.rate}` : ''}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {maturingSoon && <StatusPill label={`Vence em ${dLeft}d`} className="bg-alert-light text-alert-dark" size="sm" />}
-                        <div className="text-right">
-                          <div className="font-medium text-neutral-900">{formatCurrency(p.currentValue)}</div>
-                          <div className="text-[11px] text-neutral-400">{((p.currentValue / total) * 100).toFixed(1)}% · <span className={rentab >= 0 ? 'text-success-dark' : 'text-alert-dark'}>{rentab >= 0 ? '+' : ''}{rentab.toFixed(1)}%</span></div>
-                        </div>
-                        <Icon name="chevronRight" size={15} className="text-neutral-300" />
-                      </div>
-                    </button>
+                    <tr key={p.id} onClick={() => onOpenPosition(p)} className="border-b border-neutral-50 last:border-0 cursor-pointer hover:bg-neutral-50">
+                      <td className="px-3 py-2.5 font-medium text-neutral-900">{p.asset}</td>
+                      <td className="px-3 py-2.5 text-neutral-500">{macroOf(p.class)}</td>
+                      <td className="px-3 py-2.5 text-neutral-500">{p.issuer}</td>
+                      <td className="px-3 py-2.5 text-right text-neutral-700">{formatCurrency(applied)}</td>
+                      <td className="px-3 py-2.5 text-right text-neutral-500">{p.quantity != null ? p.quantity.toLocaleString('pt-BR') : '—'}</td>
+                      <td className="px-3 py-2.5 text-neutral-500">{p.rate && p.rate !== '—' ? p.rate : '—'}</td>
+                      <td className="px-3 py-2.5 text-neutral-500">{p.liquidity || '—'}</td>
+                      <td className="px-3 py-2.5">
+                        {maturingSoon ? <StatusPill label="Vencendo" className="bg-warning-light text-warning-dark" size="sm" /> : p.maturityDate ? <span className="text-neutral-500">{formatDate(p.maturityDate)}</span> : <span className="text-neutral-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-medium text-neutral-900">{formatCurrency(p.currentValue)}</td>
+                      <td className="px-3 py-2.5 text-right text-neutral-500 tabular-nums">{((p.currentValue / total) * 100).toFixed(1)}%</td>
+                      <td className={window.PortalLib.classNames('px-3 py-2.5 text-right font-medium tabular-nums', rentab >= 0 ? 'text-success-dark' : 'text-alert-dark')}>{rentab >= 0 ? '+' : ''}{rentab.toFixed(1)}%</td>
+                    </tr>
                   );
                 })}
-              </div>
-            </div>
-          );
-        })
-      )}
+              </tbody>
+            );
+          })}
+        </table>
+      </div>
     </div>
   );
 }
