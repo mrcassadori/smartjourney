@@ -32,6 +32,7 @@ function App() {
   const [simulations, setSimulations] = React.useState(DATA.simulations);
   const [serviceRequests, setServiceRequests] = React.useState(DATA.serviceRequests);
   const [tickets, setTickets] = React.useState(DATA.tickets);
+  const [financialPlans, setFinancialPlans] = React.useState(DATA.financialPlans);
   const [openRequestId, setOpenRequestId] = React.useState(null);
   const [openTicketId, setOpenTicketId] = React.useState(null);
   const [newTicketContext, setNewTicketContext] = React.useState(null);
@@ -192,6 +193,28 @@ function App() {
   function generateSimulationReport(id) {
     setSimulations((prev) => prev.map((s) => (s.id === id ? { ...s, reportGeneratedAt: DATA.now, currentStep: 'relatorio' } : s)));
     navigate('simulator', { simulationId: id });
+  }
+
+  // ----- Planejamento financeiro -----
+  function createFinancialPlan(clientId) {
+    // Fase 1: se já existe plano, é no-op (a edição real vem no wizard da Fase 2).
+    const existing = financialPlans.find((p) => p.clientId === clientId);
+    if (existing) return;
+    setFinancialPlans((prev) => [
+      ...prev,
+      {
+        id: uid(), clientId, name: 'Novo planejamento', type: 'aposentadoria', status: 'rascunho', horizonYears: 15, notes: '',
+        context: { dependents: [] }, objectives: { primary: 'Aposentadoria', targetAge: 60, desiredIncome: 0, lifeExpectancy: 95, strategy: 'preservar', selected: [] },
+        cashflow: { incomes: [], expenses: [] }, wealth: { financialInter: 0, financialExternal: 0, otherAssets: [], investments: [] },
+        assumptions: { inflation: 4.5, nominalReturn: 9.5, realReturn: 4.8, cdi: 11.2, expenseGrowth: 4.5, incomeGrowth: 5, validated: {} },
+        scenarios: [], selectedScenarioId: null, result: { currentWealth: 0, requiredWealth: 0, requiredContribution: 0, targetIncome: 0, gap: 0, successProbability: 0 },
+        activity: [{ date: DATA.now, label: 'Planejamento criado (rascunho)' }], createdAt: DATA.now, updatedAt: DATA.now, reportGeneratedAt: null,
+      },
+    ]);
+  }
+
+  function generatePlanReport(id) {
+    setFinancialPlans((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'compartilhado', reportGeneratedAt: DATA.now, updatedAt: DATA.now } : p)));
   }
 
   function registerSharedSimulation(id) {
@@ -394,6 +417,7 @@ function App() {
         accessLog={DATA.documentAccessLog.filter((a) => a.clientId === selectedClient.id)}
         bankingProfile={DATA.bankingProfiles.find((bp) => bp.clientId === selectedClient.id) || null}
         tickets={tickets.filter((t) => t.clientId === selectedClient.id)}
+        plan={financialPlans.find((p) => p.clientId === selectedClient.id) || null}
         now={DATA.now}
         onBack={() => navigate('clients', {})}
         onOpenOrder={(id) => setOpenOrderId(id)}
@@ -403,6 +427,8 @@ function App() {
         onOpenServiceRequest={(id) => setOpenRequestId(id)}
         onCreateServiceRequest={createServiceRequest}
         onOpenTicket={openTicketModal}
+        onCreatePlan={createFinancialPlan}
+        onGeneratePlanReport={generatePlanReport}
       />
     );
   } else if (page === 'orders') {

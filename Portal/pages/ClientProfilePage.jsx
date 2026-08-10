@@ -1445,7 +1445,7 @@ function ReportModal({ client, positions, now, onClose, onSend }) {
 
 function ClientProfilePage({
   client, profile, positions, cashEvents, alerts, orders, onboardingEntry, simulations, serviceRequests, holdingRelations,
-  allClients, documents, accessLog, bankingProfile, tickets, now, onBack, onOpenOrder, onOpenSimulation, onNewSimulation, onOpenServiceRequest, onCreateServiceRequest, onOpenTicket, onOpenClient,
+  allClients, documents, accessLog, bankingProfile, tickets, plan, now, onBack, onOpenOrder, onOpenSimulation, onNewSimulation, onOpenServiceRequest, onCreateServiceRequest, onOpenTicket, onOpenClient, onCreatePlan, onGeneratePlanReport,
 }) {
   const { formatCurrency, formatDate, maskDocument, CLIENT_STATUS_META, OWNER_NAME_MAP, RISK_PROFILE_META } = window.PortalLib;
   const [tab, setTab] = React.useState('overview');
@@ -1491,6 +1491,7 @@ function ClientProfilePage({
     { key: 'documents', label: 'Documentos' },
     { key: 'banking', label: 'Banking' },
     { key: 'dados', label: 'Dados' },
+    { key: 'planning', label: 'Planejamento' },
   ];
 
   const criticalPending = client.status === 'bloqueado' || (onboardingEntry && onboardingEntry.status === 'pendencia');
@@ -1622,6 +1623,16 @@ function ClientProfilePage({
           {tab === 'orders' && <ClientOrdersTab orders={orders} now={now} onOpenOrder={onOpenOrder} />}
           {tab === 'documents' && <DocumentsTab client={client} documents={allDocuments} accessLog={accessLog} onOpenTicket={onOpenTicket} />}
           {tab === 'banking' && <BankingTab client={client} profile={profile} bankingProfile={bankingProfile} serviceRequests={serviceRequests} onCreateServiceRequest={onCreateServiceRequest} onOpenServiceRequest={onOpenServiceRequest} />}
+          {tab === 'planning' && (
+            <window.PlanningTab
+              client={client}
+              plan={plan}
+              now={now}
+              onCreatePlan={() => onCreatePlan && onCreatePlan(client.id)}
+              onGenerateReport={(id) => onGeneratePlanReport && onGeneratePlanReport(id)}
+              onSimulate={() => onNewSimulation(client.id, plan ? [plan.objectives.primary === 'Aposentadoria' ? 'aposentadoria' : 'longo_prazo'] : null)}
+            />
+          )}
           {tab === 'activity' && <ActivityView events={categorizedEvents} onBack={() => setTab('overview')} onSelectEvent={onSelectActivity} />}
           {tab === 'dados' && <DadosTab client={client} linkedClient={linkedClient} holdingRelations={holdingRelations} onOpenLinked={onOpenClient} />}
         </React.Fragment>

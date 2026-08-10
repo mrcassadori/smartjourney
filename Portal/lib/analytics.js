@@ -320,9 +320,28 @@
     });
   }
 
+  // Séries de evolução patrimonial (planejamento) — projeta `startValue` ao
+  // longo de `years` anos para cada taxa anual informada, com ruído leve e
+  // compartilhado (para as linhas "andarem juntas"). Determinístico por seed.
+  function wealthSeries(seedStr, startValue, startYear, years, annualRates) {
+    const rng = mulberry32(hashString(seedStr || 'plan'));
+    const noise = [];
+    for (let i = 0; i < years; i++) noise.push(gaussian(rng) * 0.006);
+    const labels = [];
+    for (let i = 0; i <= years; i++) labels.push(startYear + i);
+    const out = { labels };
+    Object.keys(annualRates).forEach((k) => {
+      const s = [startValue];
+      for (let i = 0; i < years; i++) s.push(Math.max(0, s[i] * (1 + annualRates[k] + noise[i])));
+      out[k] = s;
+    });
+    return out;
+  }
+
   window.PortalAnalytics = {
     ASSET_CLASS_ASSUMPTIONS,
     CDI_ANNUAL,
+    wealthSeries,
     mulberry32,
     hashString,
     gaussian,

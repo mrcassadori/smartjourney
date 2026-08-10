@@ -549,5 +549,87 @@
     { clientId: 'C16', account: { status: 'Ativa', balance: 90000, pixLimit: 100000, tedLimit: 500000 }, card: { name: 'Inter Empresas', status: 'Ativo', limit: 120000, used: 34200, closingDay: '20/08', invoice: 21800 } },
   ];
 
-  window.PORTAL_DATA = { now: NOW, profiles, clients, portfolioPositions, cashEvents, alerts, onboarding, orders, products, simulations, serviceRequests, tickets, holdingRelations, clientDocuments, documentAccessLog, bankingProfiles };
+  // ---------------------------------------------------------------------
+  // Planejamento financeiro (US-Planejamento) — plano seed apenas da cliente
+  // vitrine Mariana Costa (C15), em construção. Demais clientes: sem plano
+  // (estado vazio). Números fictícios coerentes com o mockup.
+  // ---------------------------------------------------------------------
+  const financialPlans = [
+    {
+      id: 'PL01',
+      clientId: 'C15',
+      name: 'Planejamento Mariana 2026 — Versão Base',
+      type: 'aposentadoria',
+      status: 'em_construcao',
+      horizonYears: 15,
+      notes: 'Pretende otimizar a carga tributária na fase de desacumulação e estruturar plano para os filhos.',
+      context: {
+        age: 41,
+        maritalStatus: 'Casada',
+        profession: 'Empresária',
+        lifePhase: 'Acumulação',
+        dependents: [
+          { name: 'Lucas Costa', relation: 'Filho', age: 14, dependency: 'Total' },
+          { name: 'Beatriz Costa', relation: 'Filha', age: 11, dependency: 'Total' },
+        ],
+        notes: 'Cliente pretende reduzir o ritmo de trabalho aos 60 anos e manter apoio financeiro aos filhos até o fim da faculdade.',
+      },
+      objectives: {
+        primary: 'Aposentadoria',
+        targetAge: 60,
+        desiredIncome: 20000,
+        lifeExpectancy: 95,
+        strategy: 'preservar',
+        selected: ['aposentadoria', 'educacao'],
+      },
+      cashflow: {
+        incomes: [
+          { desc: 'Pró-labore', value: 32000, start: 'Atual', end: '60 anos', recurrence: 'Mensal' },
+          { desc: 'Aluguel', value: 4500, start: 'Atual', end: 'Indeterminado', recurrence: 'Mensal' },
+        ],
+        expenses: [
+          { desc: 'Custo de vida', value: 14000, start: 'Atual', end: '—', recurrence: 'Mensal' },
+          { desc: 'Escola', value: 3500, start: 'Atual', end: '2035', recurrence: 'Mensal' },
+          { desc: 'Financiamento', value: 4200, start: 'Atual', end: 'Fev/2027', recurrence: 'Mensal' },
+        ],
+      },
+      wealth: {
+        financialInter: 620000,
+        financialExternal: 880000,
+        otherAssets: [
+          { type: 'Imóvel', desc: 'Apartamento residencial', value: 1200000 },
+          { type: 'Participação societária', desc: 'Empresa familiar', value: 800000 },
+          { type: 'Veículo', desc: 'SUV', value: 180000 },
+        ],
+        investments: [
+          { inst: 'Inter', category: 'CDB / Fundos', value: 620000, liquidity: 'D+1', notes: '—' },
+          { inst: 'XP', category: 'Fundos / Ações', value: 400000, liquidity: 'D+30', notes: '—' },
+          { inst: 'Itaú', category: 'Previdência', value: 200000, liquidity: 'D+5', notes: 'PGBL' },
+          { inst: 'BTG', category: 'Renda fixa', value: 280000, liquidity: 'No vencimento', notes: '—' },
+        ],
+      },
+      assumptions: {
+        inflation: 4.5, nominalReturn: 9.5, realReturn: 4.8, cdi: 11.2, expenseGrowth: 4.5, incomeGrowth: 5.0,
+        validated: { inflation: false, realReturn: false, nominalReturn: true },
+      },
+      scenarios: [
+        { id: 'SC0', name: 'Cenário atual', retireAge: 60, monthlyContribution: 8000, realReturn: 4.8, desiredIncome: 20000, projectedWealth: 3580000, goalPct: 82, status: 'gap' },
+        { id: 'SCA', name: 'Cenário A', retireAge: 63, monthlyContribution: 8000, realReturn: 4.8, desiredIncome: 20000, projectedWealth: 4340000, goalPct: 101, status: 'atinge' },
+        { id: 'SCB', name: 'Cenário B', retireAge: 60, monthlyContribution: 8500, realReturn: 4.8, desiredIncome: 20000, projectedWealth: 4300000, goalPct: 100, status: 'atinge' },
+      ],
+      selectedScenarioId: 'SC0',
+      result: { currentWealth: 1500000, requiredWealth: 4300000, requiredContribution: 8450, targetIncome: 20000, gap: 720000, successProbability: 78 },
+      activity: [
+        { date: '2026-07-20T16:00:00-03:00', label: 'Cenário B salvo' },
+        { date: '2026-07-18T11:30:00-03:00', label: 'Premissas atualizadas' },
+        { date: '2026-07-16T09:15:00-03:00', label: 'Objetivo validado com o cliente' },
+        { date: '2026-07-15T10:00:00-03:00', label: 'Planejamento criado (rascunho)' },
+      ],
+      createdAt: '2026-07-15T10:00:00-03:00',
+      updatedAt: '2026-07-20T16:00:00-03:00',
+      reportGeneratedAt: null,
+    },
+  ];
+
+  window.PORTAL_DATA = { now: NOW, profiles, clients, portfolioPositions, cashEvents, alerts, onboarding, orders, products, simulations, serviceRequests, tickets, holdingRelations, clientDocuments, documentAccessLog, bankingProfiles, financialPlans };
 })();
