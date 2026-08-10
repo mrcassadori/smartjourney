@@ -76,7 +76,7 @@ function PlanInsights({ items }) {
 }
 
 // Gráfico de linhas de evolução patrimonial (base/conservador/otimista ou 1 linha).
-function WealthChart({ series, lines, height }) {
+function PlanWealthChart({ series, lines, height }) {
   const datasets = lines.map((l) => ({
     label: l.label,
     data: series[l.key],
@@ -97,7 +97,7 @@ function WealthChart({ series, lines, height }) {
   return <window.ChartCanvas type="line" data={{ labels: series.labels, datasets }} options={options} height={height || 220} />;
 }
 
-function ChartLegend({ lines }) {
+function PlanChartLegend({ lines }) {
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs">
       {lines.map((l) => (
@@ -164,9 +164,9 @@ function PlanOverview({ client, plan, onEdit, onOpenResult, onSimulate }) {
         <div className="lg:col-span-2 bg-white border border-neutral-100 rounded-large p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-neutral-800">Evolução projetada do patrimônio</h3>
-            <ChartLegend lines={lines} />
+            <PlanChartLegend lines={lines} />
           </div>
-          <WealthChart series={series} lines={lines} height={240} />
+          <PlanWealthChart series={series} lines={lines} height={240} />
         </div>
         <div className="bg-white border border-neutral-100 rounded-large p-4">
           <h3 className="text-sm font-semibold text-neutral-800 mb-2">Resumo do plano</h3>
@@ -251,7 +251,7 @@ function PlanResult({ client, plan, onBack, onSaveDraft, onContinue, onExport })
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white border border-neutral-100 rounded-large p-4">
           <h3 className="text-sm font-semibold text-neutral-800 mb-3">Evolução projetada do patrimônio</h3>
-          <WealthChart series={series} lines={lines} height={240} />
+          <PlanWealthChart series={series} lines={lines} height={240} />
           <div className="flex flex-wrap gap-2 mt-3">
             {milestones.map((m) => (
               <span key={m.year} className="text-xs px-2.5 py-1 rounded-pill bg-neutral-800 text-white">{m.year}{m.year === 2050 ? ' (Alvo)' : ''} · {planCompact(m.value)}</span>
@@ -434,7 +434,7 @@ function PlanStepper({ current }) {
 }
 
 // Tabela editável genérica (linhas add/remove com inputs).
-function EditableTable({ columns, rows, onChange, addLabel }) {
+function PlanEditableTable({ columns, rows, onChange, addLabel }) {
   function setCell(i, key, value) { onChange(rows.map((r, ri) => (ri === i ? { ...r, [key]: value } : r))); }
   function addRow() { const blank = {}; columns.forEach((c) => (blank[c.key] = c.type === 'number' ? 0 : '')); onChange([...rows, blank]); }
   function removeRow(i) { onChange(rows.filter((_, ri) => ri !== i)); }
@@ -469,7 +469,7 @@ function EditableTable({ columns, rows, onChange, addLabel }) {
   );
 }
 
-function MiniStackBar({ segments }) {
+function PlanMiniStackBar({ segments }) {
   const total = segments.reduce((s, x) => s + x.value, 0) || 1;
   return (
     <div>
@@ -483,7 +483,7 @@ function MiniStackBar({ segments }) {
   );
 }
 
-function SideCard({ title, children }) {
+function PlanSideCard({ title, children }) {
   return (
     <div className="bg-white border border-neutral-100 rounded-large p-4">
       <h3 className="text-sm font-semibold text-neutral-800 mb-3">{title}</h3>
@@ -491,7 +491,7 @@ function SideCard({ title, children }) {
     </div>
   );
 }
-function Field({ label, children }) {
+function PlanField({ label, children }) {
   return (
     <div>
       <label className="text-xs text-neutral-500">{label}</label>
@@ -501,13 +501,13 @@ function Field({ label, children }) {
 }
 const inputCls = 'w-full text-sm border border-neutral-200 rounded-medium px-3 py-2 focus:outline-none focus:border-brand';
 
-function StepContexto({ draft, set }) {
+function PlanStepContexto({ draft, set }) {
   const built = ['Definição do objetivo financeiro de longo prazo', 'Projeção de fluxo de renda e despesas futuras', 'Geração e testes de múltiplos cenários', 'Mapeamento do patrimônio e distribuição de ativos', 'Configuração de premissas macroeconômicas', 'Construção de recomendação final personalizada'];
   return (
     <div className="space-y-4">
       <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
         <h2 className="text-base font-semibold text-neutral-900">Iniciar planejamento financeiro</h2>
-        <Field label="Nome do planejamento"><input value={draft.name} onChange={(e) => set({ name: e.target.value })} className={inputCls} placeholder="Ex.: Planejamento Mariana 2026 — Versão Base" /></Field>
+        <PlanField label="Nome do planejamento"><input value={draft.name} onChange={(e) => set({ name: e.target.value })} className={inputCls} placeholder="Ex.: Planejamento Mariana 2026 — Versão Base" /></PlanField>
         <div>
           <label className="text-xs text-neutral-500">Tipo de plano</label>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-1.5">
@@ -517,33 +517,33 @@ function StepContexto({ draft, set }) {
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="Horizonte principal">
+          <PlanField label="Horizonte principal">
             <select value={draft.horizonYears} onChange={(e) => set({ horizonYears: Number(e.target.value) })} className={inputCls}>
               {[10, 15, 20, 25, 30].map((y) => <option key={y} value={y}>{y} anos (Alvo: {(draft.context.age || 45) + y} anos de idade)</option>)}
             </select>
-          </Field>
+          </PlanField>
         </div>
-        <Field label="Observações iniciais"><textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} rows={2} className={inputCls} /></Field>
+        <PlanField label="Observações iniciais"><textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} rows={2} className={inputCls} /></PlanField>
       </div>
 
       <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
         <h2 className="text-base font-semibold text-neutral-900">Contexto pessoal e familiar</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Field label="Idade atual"><input type="number" value={draft.context.age} onChange={(e) => set({ context: { ...draft.context, age: Number(e.target.value) } })} className={inputCls} /></Field>
-          <Field label="Estado civil"><input value={draft.context.maritalStatus} onChange={(e) => set({ context: { ...draft.context, maritalStatus: e.target.value } })} className={inputCls} /></Field>
-          <Field label="Profissão"><input value={draft.context.profession} onChange={(e) => set({ context: { ...draft.context, profession: e.target.value } })} className={inputCls} /></Field>
-          <Field label="Fase de vida"><input value={draft.context.lifePhase} onChange={(e) => set({ context: { ...draft.context, lifePhase: e.target.value } })} className={inputCls} /></Field>
+          <PlanField label="Idade atual"><input type="number" value={draft.context.age} onChange={(e) => set({ context: { ...draft.context, age: Number(e.target.value) } })} className={inputCls} /></PlanField>
+          <PlanField label="Estado civil"><input value={draft.context.maritalStatus} onChange={(e) => set({ context: { ...draft.context, maritalStatus: e.target.value } })} className={inputCls} /></PlanField>
+          <PlanField label="Profissão"><input value={draft.context.profession} onChange={(e) => set({ context: { ...draft.context, profession: e.target.value } })} className={inputCls} /></PlanField>
+          <PlanField label="Fase de vida"><input value={draft.context.lifePhase} onChange={(e) => set({ context: { ...draft.context, lifePhase: e.target.value } })} className={inputCls} /></PlanField>
         </div>
         <div>
           <div className="text-sm font-medium text-neutral-800 mb-1.5">Dependentes</div>
-          <EditableTable
+          <PlanEditableTable
             columns={[{ key: 'name', label: 'Nome' }, { key: 'relation', label: 'Relação' }, { key: 'age', label: 'Idade', type: 'number' }, { key: 'dependency', label: 'Dependência financeira' }]}
             rows={draft.context.dependents}
             onChange={(rows) => set({ context: { ...draft.context, dependents: rows } })}
             addLabel="Adicionar dependente"
           />
         </div>
-        <Field label="Contexto adicional (observações do consultor)"><textarea value={draft.context.notes} onChange={(e) => set({ context: { ...draft.context, notes: e.target.value } })} rows={2} className={inputCls} /></Field>
+        <PlanField label="Contexto adicional (observações do consultor)"><textarea value={draft.context.notes} onChange={(e) => set({ context: { ...draft.context, notes: e.target.value } })} rows={2} className={inputCls} /></PlanField>
       </div>
 
       <div className="bg-white border border-neutral-100 rounded-large p-5">
@@ -556,7 +556,7 @@ function StepContexto({ draft, set }) {
   );
 }
 
-function StepObjetivos({ draft, set }) {
+function PlanStepObjetivos({ draft, set }) {
   const { formatCurrency } = window.PortalLib;
   const toggle = (v) => set({ objectives: { ...draft.objectives, selected: draft.objectives.selected.indexOf(v) === -1 ? [...draft.objectives.selected, v] : draft.objectives.selected.filter((x) => x !== v) } });
   return (
@@ -570,14 +570,14 @@ function StepObjetivos({ draft, set }) {
             ))}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Idade desejada para aposentadoria"><input type="number" value={draft.objectives.targetAge} onChange={(e) => set({ objectives: { ...draft.objectives, targetAge: Number(e.target.value) } })} className={inputCls} /></Field>
-            <Field label="Renda mensal desejada"><input type="number" value={draft.objectives.desiredIncome} onChange={(e) => set({ objectives: { ...draft.objectives, desiredIncome: Number(e.target.value) } })} className={inputCls} /></Field>
-            <Field label="Expectativa de vida"><input type="number" value={draft.objectives.lifeExpectancy} onChange={(e) => set({ objectives: { ...draft.objectives, lifeExpectancy: Number(e.target.value) } })} className={inputCls} /></Field>
-            <Field label="Estratégia de uso do patrimônio">
+            <PlanField label="Idade desejada para aposentadoria"><input type="number" value={draft.objectives.targetAge} onChange={(e) => set({ objectives: { ...draft.objectives, targetAge: Number(e.target.value) } })} className={inputCls} /></PlanField>
+            <PlanField label="Renda mensal desejada"><input type="number" value={draft.objectives.desiredIncome} onChange={(e) => set({ objectives: { ...draft.objectives, desiredIncome: Number(e.target.value) } })} className={inputCls} /></PlanField>
+            <PlanField label="Expectativa de vida"><input type="number" value={draft.objectives.lifeExpectancy} onChange={(e) => set({ objectives: { ...draft.objectives, lifeExpectancy: Number(e.target.value) } })} className={inputCls} /></PlanField>
+            <PlanField label="Estratégia de uso do patrimônio">
               <select value={draft.objectives.strategy} onChange={(e) => set({ objectives: { ...draft.objectives, strategy: e.target.value } })} className={inputCls}>
                 {ESTRATEGIAS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
-            </Field>
+            </PlanField>
           </div>
         </div>
         <div className="bg-white border border-neutral-100 rounded-large p-5">
@@ -589,14 +589,14 @@ function StepObjetivos({ draft, set }) {
           </div>
         </div>
       </div>
-      <SideCard title="Resumo do objetivo">
+      <PlanSideCard title="Resumo do objetivo">
         <p className="text-sm text-neutral-600">{draft.name ? draft.name.split(' ')[1] || 'O cliente' : 'O cliente'} deseja atingir renda mensal de <b>{formatCurrency(draft.objectives.desiredIncome)}</b> a partir dos <b>{draft.objectives.targetAge} anos</b>, {draft.objectives.strategy === 'preservar' ? 'preservando parte relevante do patrimônio' : 'com uso planejado do patrimônio'}.</p>
-      </SideCard>
+      </PlanSideCard>
     </div>
   );
 }
 
-function StepRenda({ draft, set }) {
+function PlanStepRenda({ draft, set }) {
   const { formatCurrency } = window.PortalLib;
   const income = draft.cashflow.incomes.reduce((s, r) => s + (Number(r.value) || 0), 0);
   const expense = draft.cashflow.expenses.reduce((s, r) => s + (Number(r.value) || 0), 0);
@@ -607,11 +607,11 @@ function StepRenda({ draft, set }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white border border-neutral-100 rounded-large p-4">
           <h3 className="text-sm font-semibold text-neutral-800 mb-2">Rendas</h3>
-          <EditableTable columns={cols} rows={draft.cashflow.incomes} onChange={(rows) => set({ cashflow: { ...draft.cashflow, incomes: rows } })} addLabel="Adicionar renda" />
+          <PlanEditableTable columns={cols} rows={draft.cashflow.incomes} onChange={(rows) => set({ cashflow: { ...draft.cashflow, incomes: rows } })} addLabel="Adicionar renda" />
         </div>
         <div className="bg-white border border-neutral-100 rounded-large p-4">
           <h3 className="text-sm font-semibold text-neutral-800 mb-2">Despesas</h3>
-          <EditableTable columns={cols} rows={draft.cashflow.expenses} onChange={(rows) => set({ cashflow: { ...draft.cashflow, expenses: rows } })} addLabel="Adicionar despesa" />
+          <PlanEditableTable columns={cols} rows={draft.cashflow.expenses} onChange={(rows) => set({ cashflow: { ...draft.cashflow, expenses: rows } })} addLabel="Adicionar despesa" />
         </div>
       </div>
       <PlanHighlightCards cards={[
@@ -630,7 +630,7 @@ function StepRenda({ draft, set }) {
   );
 }
 
-function StepPatrimonio({ draft, set }) {
+function PlanStepPatrimonio({ draft, set }) {
   const { formatCurrency } = window.PortalLib;
   const inv = draft.wealth.investments;
   const inter = inv.filter((x) => (x.inst || '').toLowerCase() === 'inter').reduce((s, x) => s + (Number(x.value) || 0), 0);
@@ -650,27 +650,27 @@ function StepPatrimonio({ draft, set }) {
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white border border-neutral-100 rounded-large p-4">
             <h3 className="text-sm font-semibold text-neutral-800 mb-2">Investimentos financeiros</h3>
-            <EditableTable columns={[{ key: 'inst', label: 'Instituição' }, { key: 'category', label: 'Categoria' }, { key: 'value', label: 'Valor', type: 'number' }, { key: 'liquidity', label: 'Liquidez' }, { key: 'notes', label: 'Observações' }]} rows={inv} onChange={(rows) => set({ wealth: { ...draft.wealth, investments: rows } })} addLabel="Adicionar investimento" />
+            <PlanEditableTable columns={[{ key: 'inst', label: 'Instituição' }, { key: 'category', label: 'Categoria' }, { key: 'value', label: 'Valor', type: 'number' }, { key: 'liquidity', label: 'Liquidez' }, { key: 'notes', label: 'Observações' }]} rows={inv} onChange={(rows) => set({ wealth: { ...draft.wealth, investments: rows } })} addLabel="Adicionar investimento" />
           </div>
           <div className="bg-white border border-neutral-100 rounded-large p-4">
             <h3 className="text-sm font-semibold text-neutral-800 mb-2">Outros bens</h3>
-            <EditableTable columns={[{ key: 'type', label: 'Tipo' }, { key: 'desc', label: 'Descrição' }, { key: 'value', label: 'Valor estimado', type: 'number' }]} rows={draft.wealth.otherAssets} onChange={(rows) => set({ wealth: { ...draft.wealth, otherAssets: rows } })} addLabel="Adicionar bem" />
+            <PlanEditableTable columns={[{ key: 'type', label: 'Tipo' }, { key: 'desc', label: 'Descrição' }, { key: 'value', label: 'Valor estimado', type: 'number' }]} rows={draft.wealth.otherAssets} onChange={(rows) => set({ wealth: { ...draft.wealth, otherAssets: rows } })} addLabel="Adicionar bem" />
           </div>
         </div>
-        <SideCard title="Leitura patrimonial">
-          <MiniStackBar segments={[{ label: 'Inter', value: inter, color: '#FF7A00' }, { label: 'Fora', value: fora, color: '#1E7FE6' }, { label: 'Bens', value: bens, color: '#9E9E9E' }]} />
+        <PlanSideCard title="Leitura patrimonial">
+          <PlanMiniStackBar segments={[{ label: 'Inter', value: inter, color: '#FF7A00' }, { label: 'Fora', value: fora, color: '#1E7FE6' }, { label: 'Bens', value: bens, color: '#9E9E9E' }]} />
           <ul className="mt-3 space-y-2 text-sm text-neutral-600">
             <li className="flex gap-2"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand shrink-0" /> {(inter + fora) ? Math.round((inter / (inter + fora)) * 100) : 0}% do patrimônio financeiro custodiado no Inter.</li>
             <li className="flex gap-2"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand shrink-0" /> Alta relevância de recursos fora da instituição ({formatCurrency(fora)}).</li>
             <li className="flex gap-2"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand shrink-0" /> Patrimônio total de {formatCurrency(total)} — boa base para o longo prazo.</li>
           </ul>
-        </SideCard>
+        </PlanSideCard>
       </div>
     </div>
   );
 }
 
-function StepPremissas({ draft, set }) {
+function PlanStepPremissas({ draft, set }) {
   const A = draft.assumptions;
   const fields = [['inflation', 'Inflação esperada'], ['nominalReturn', 'Retorno nominal esperado'], ['realReturn', 'Retorno real esperado'], ['cdi', 'CDI de referência'], ['expenseGrowth', 'Crescimento das despesas'], ['incomeGrowth', 'Crescimento da renda']];
   const validations = [['taxa', 'Taxa real de juros alinhada ao cenário macroeconômico atual.'], ['inflacao', 'Curva de inflação de longo prazo estimada com base nas projeções Focus.'], ['despesas', 'Crescimento de despesas indexado ao perfil de consumo do cliente.'], ['risco', 'Diferencial de prêmio de risco parametrizado para o perfil.']];
@@ -682,12 +682,12 @@ function StepPremissas({ draft, set }) {
           <p className="text-sm text-neutral-500 mb-4">Configure as taxas de projeção que servem de base para a simulação de rentabilidade e inflação no tempo.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {fields.map(([k, label]) => (
-              <Field key={k} label={label}>
+              <PlanField key={k} label={label}>
                 <div className="flex items-center border border-neutral-200 rounded-medium px-3 focus-within:border-brand">
                   <input type="number" step="0.1" value={A[k]} onChange={(e) => set({ assumptions: { ...A, [k]: Number(e.target.value) } })} className="w-full text-sm py-2 focus:outline-none" />
                   <span className="text-xs text-neutral-400 pl-1">% a.a.</span>
                 </div>
-              </Field>
+              </PlanField>
             ))}
           </div>
         </div>
@@ -703,13 +703,13 @@ function StepPremissas({ draft, set }) {
           </div>
         </div>
       </div>
-      <SideCard title="Como interpretar">
+      <PlanSideCard title="Como interpretar">
         <div className="space-y-3 text-sm">
           <div><span className="text-[10px] font-semibold uppercase tracking-wide text-info-dark">Dados informados</span><p className="text-neutral-600 mt-0.5">Informações providas pelo cadastro do cliente e dados históricos.</p></div>
           <div><span className="text-[10px] font-semibold uppercase tracking-wide text-brand-dark">Premissas editáveis</span><p className="text-neutral-600 mt-0.5">Variáveis macroeconômicas ajustáveis que definem a curva de juros reais futuros.</p></div>
           <div><span className="text-[10px] font-semibold uppercase tracking-wide text-success-dark">Resultados calculados</span><p className="text-neutral-600 mt-0.5">Valores projetados a partir da intersecção de dados e premissas.</p></div>
         </div>
-      </SideCard>
+      </PlanSideCard>
     </div>
   );
 }
@@ -734,11 +734,11 @@ function PlanningWizard({ client, plan, onCancel, onSaveDraft, onCalculate }) {
         <PlanStepper current={step} />
       </div>
 
-      {step === 0 && <StepContexto draft={draft} set={set} />}
-      {step === 1 && <StepObjetivos draft={draft} set={set} />}
-      {step === 2 && <StepRenda draft={draft} set={set} />}
-      {step === 3 && <StepPatrimonio draft={draft} set={set} />}
-      {step === 4 && <StepPremissas draft={draft} set={set} />}
+      {step === 0 && <PlanStepContexto draft={draft} set={set} />}
+      {step === 1 && <PlanStepObjetivos draft={draft} set={set} />}
+      {step === 2 && <PlanStepRenda draft={draft} set={set} />}
+      {step === 3 && <PlanStepPatrimonio draft={draft} set={set} />}
+      {step === 4 && <PlanStepPremissas draft={draft} set={set} />}
 
       <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
         <button onClick={() => (step === 0 ? onCancel() : setStep(step - 1))} className="text-sm text-neutral-500 hover:text-neutral-800 flex items-center gap-1.5"><Icon name="arrowLeft" size={14} /> Voltar</button>
@@ -750,6 +750,278 @@ function PlanningWizard({ client, plan, onCancel, onSaveDraft, onCalculate }) {
             <button onClick={() => setStep(step + 1)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Continuar</button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ================= Fase 3: Cenários, Comparação, Recomendações =================
+function scenarioBadge(s) {
+  return s.status === 'atinge' ? { label: 'Meta Atingida', className: 'bg-success-light text-success-dark' } : { label: 'Abaixo da Meta', className: 'bg-warning-light text-warning-dark' };
+}
+function viableIncome(s) { return Math.round(s.desiredIncome * (s.goalPct / 100)); }
+
+// ---------------- Tela 09 — Cenários ----------------
+function PlanScenarios({ plan, onBack, onCompare }) {
+  const { formatCurrency } = window.PortalLib;
+  const atual = plan.scenarios[0];
+  const params = [
+    { label: 'Idade de aposentadoria', value: `${atual.retireAge} anos` },
+    { label: 'Aporte mensal', value: formatCurrency(atual.monthlyContribution) },
+    { label: 'Retorno real', value: `${atual.realReturn}% a.a.` },
+    { label: 'Renda desejada', value: `${formatCurrency(atual.desiredIncome)}/mês` },
+  ];
+  const lines = [
+    { key: 'atual', label: 'Cenário Atual', color: '#1E7FE6' },
+    { key: 'a', label: 'Cenário A', color: '#FF7A00' },
+    { key: 'b', label: 'Cenário B', color: '#00A868' },
+  ];
+  const series = window.PortalAnalytics.wealthSeries(`${plan.id}|scen`, plan.result.currentWealth, 2024, 26, { atual: 0.051, a: 0.063, b: 0.062 });
+  const obs = [
+    'Postergar a aposentadoria em apenas 3 anos (Cenário A) elimina totalmente o gap patrimonial devido aos juros compostos adicionais.',
+    'Aumentar o aporte mensal em R$ 2.500 (Cenário B) viabiliza manter a idade-alvo de 60 anos mantendo o plano no rumo original.',
+    'Ajustar apenas a premissa de retorno esperado não é recomendado, pois adiciona risco incompatível ao suitability atual do cliente.',
+  ];
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold text-neutral-900">Cenários de simulação</h2>
+        <p className="text-sm text-neutral-500">Ajuste as variáveis do planejamento para simular diferentes caminhos para a meta.</p>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {params.map((p) => (
+          <div key={p.label} className="bg-white border border-neutral-100 rounded-large px-4 py-3.5 flex items-start justify-between">
+            <div><div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{p.label}</div><div className="text-base font-bold text-neutral-900 mt-1">{p.value}</div></div>
+            <Icon name="fileText" size={14} className="text-brand shrink-0" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {plan.scenarios.map((s) => {
+          const badge = scenarioBadge(s);
+          const reached = s.goalPct >= 100;
+          return (
+            <div key={s.id} className="bg-white border border-neutral-100 rounded-large p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-semibold text-neutral-900">{s.name}</div>
+                <StatusPill label={badge.label} className={badge.className} size="sm" />
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-neutral-500">Idade de aposentadoria</span><span className="font-medium text-neutral-900">{s.retireAge} anos</span></div>
+                <div className="flex justify-between"><span className="text-neutral-500">Aporte mensal</span><span className="font-medium text-neutral-900">{formatCurrency(s.monthlyContribution)}</span></div>
+                <div className="flex justify-between"><span className="text-neutral-500">Patrimônio projetado</span><span className="font-medium text-neutral-900">{formatCurrency(s.projectedWealth)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-neutral-500">Meta atingida</span><span className={window.PortalLib.classNames('font-bold', reached ? 'text-success-dark' : 'text-brand-dark')}>{s.goalPct}%</span></div>
+                <div className="h-2 rounded-pill bg-neutral-100 overflow-hidden"><div className={reached ? 'bg-success h-full' : 'bg-brand h-full'} style={{ width: `${Math.min(s.goalPct, 100)}%` }} /></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="bg-white border border-neutral-100 rounded-large p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-neutral-800">Projeção comparativa de cenários (até 2050)</h3>
+          <PlanChartLegend lines={lines} />
+        </div>
+        <PlanWealthChart series={series} lines={lines} height={240} />
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-neutral-800 mb-2">Principais observações</h3>
+        <div className="space-y-2">
+          {obs.map((t, i) => (
+            <div key={i} className="bg-white border border-neutral-100 rounded-large px-4 py-3 flex gap-2 text-sm text-neutral-600"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand shrink-0" /> {t}</div>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-neutral-800">Voltar</button>
+        <div className="flex items-center gap-2">
+          <button className="text-sm px-4 py-2 rounded-pill border border-neutral-200 hover:bg-neutral-50">Salvar cenário</button>
+          <button onClick={onCompare} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Comparar cenários</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Tela 10 — Comparação de cenários ----------------
+function PlanComparison({ plan, onBack, onContinue }) {
+  const { formatCurrency } = window.PortalLib;
+  const [atual, a, b] = plan.scenarios;
+  const rows = [
+    ['Idade de aposentadoria', `${atual.retireAge} anos`, `${a.retireAge} anos`, `${b.retireAge} anos`],
+    ['Aporte mensal', formatCurrency(atual.monthlyContribution), formatCurrency(a.monthlyContribution), formatCurrency(b.monthlyContribution)],
+    ['Patrimônio final', formatCurrency(atual.projectedWealth), formatCurrency(a.projectedWealth), formatCurrency(b.projectedWealth)],
+    ['Renda mensal viável', formatCurrency(viableIncome(atual)), formatCurrency(viableIncome(a)), formatCurrency(viableIncome(b))],
+    ['Meta atingida', `${atual.goalPct}%`, `${a.goalPct}%`, `${b.goalPct}%`],
+    ['Status', `Gap de ${planCompact(plan.result.gap)}`, 'Atingida', 'Atingida'],
+  ];
+  const actions = [
+    { icon: 'trendingUp', title: 'Selecionar cenário ideal', desc: 'Confirmar a escolha da alternativa de dilação de prazo com o cliente.' },
+    { icon: 'target', title: 'Montar carteira aderente', desc: 'Iniciar a simulação da nova carteira direcionada aos prazos do Cenário A.' },
+    { icon: 'fileText', title: 'Gerar relatório para o cliente', desc: 'Exportar o demonstrativo executivo com o comparativo de cenários.' },
+  ];
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold text-neutral-900">Comparação detalhada de cenários</h2>
+        <p className="text-sm text-neutral-500">Avalie os indicadores lado a lado para embasar a decisão estratégica do cliente.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 bg-white border border-neutral-100 rounded-large overflow-hidden">
+          <div className="px-4 py-3 border-b border-neutral-50"><h3 className="text-sm font-semibold text-neutral-800">Tabela comparativa</h3></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-neutral-50">
+                <tr>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 px-4 py-2.5">Indicador</th>
+                  <th className="text-right text-[11px] font-semibold uppercase tracking-wide text-neutral-500 px-4 py-2.5">Plano atual</th>
+                  <th className="text-right text-[11px] font-semibold uppercase tracking-wide text-brand-dark px-4 py-2.5">Cenário A</th>
+                  <th className="text-right text-[11px] font-semibold uppercase tracking-wide text-success-dark px-4 py-2.5">Cenário B</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r[0]} className="border-b border-neutral-50 last:border-0">
+                    <td className="px-4 py-3 text-neutral-600">{r[0]}</td>
+                    <td className="px-4 py-3 text-right text-neutral-500">{r[1]}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-neutral-900">{r[2]}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-neutral-900">{r[3]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <PlanSideCard title="Leitura do consultor">
+          <p className="text-sm text-neutral-600">O <b>Cenário A</b> apresenta melhor equilíbrio entre esforço mensal e atingimento da meta, com aposentadoria aos 63 anos. Esta alternativa otimiza a preservação de caixa imediato do cliente.</p>
+        </PlanSideCard>
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-neutral-800 mb-2">Próximas ações recomendadas</h3>
+        <div className="space-y-2">
+          {actions.map((c, i) => (
+            <div key={i} className="bg-white border border-neutral-100 rounded-large px-4 py-3 flex items-center gap-3">
+              <span className="w-9 h-9 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center shrink-0"><Icon name={c.icon} size={16} /></span>
+              <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-neutral-900">{c.title}</div><div className="text-xs text-neutral-500 mt-0.5">{c.desc}</div></div>
+              <button className="text-sm px-3 py-1.5 rounded-pill border border-neutral-200 hover:bg-neutral-50 shrink-0">Ver detalhes</button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-neutral-800">Voltar</button>
+        <div className="flex items-center gap-2">
+          <button className="text-sm px-4 py-2 rounded-pill border border-neutral-200 hover:bg-neutral-50">Selecionar cenário</button>
+          <button onClick={onContinue} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Continuar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Tela 11 — Recomendações e próximos passos ----------------
+function PlanRecommendations({ plan, now, onBack, onReport, onSimulate }) {
+  const { formatCurrency, formatDateTime } = window.PortalLib;
+  const a = plan.scenarios[1] || plan.scenarios[0];
+  const head = [
+    ['Objetivo principal', plan.objectives.primary],
+    ['Idade alvo', `${a.retireAge} anos`],
+    ['Aporte sugerido', `${formatCurrency(a.monthlyContribution)}/mês`],
+    ['Patrimônio alvo', formatCurrency(a.projectedWealth)],
+  ];
+  const recs = [
+    { icon: 'trendingUp', title: 'Aumentar aporte mensal', desc: 'Considerar o aumento gradual do aporte nos próximos 18 meses.' },
+    { icon: 'target', title: 'Revisar alocação atual', desc: 'Ajustar o mix migrando parte da liquidez diária para ativos indexados ao IPCA.' },
+    { icon: 'building', title: 'Consolidar patrimônio externo', desc: `Trazer sob custódia os ${planCompact(plan.wealth.financialExternal)} declarados externamente.` },
+    { icon: 'layers', title: 'Iniciar simulação de carteira', desc: 'Rodar simulação de portfólio aderente ao novo prazo.' },
+  ];
+  const attention = [
+    { title: 'Concentração fora do Inter', desc: 'Parte dos ativos declarados está custodiada externamente, dificultando o rebalanceamento ativo.' },
+    { title: 'Despesas temporárias pendentes', desc: 'Custos planejados com educação impactarão o caixa até 2035.' },
+  ];
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold text-neutral-900">Recomendações e próximos passos</h2>
+        <p className="text-sm text-neutral-500">Consolide a proposta para apresentar caminhos práticos de curto e longo prazo.</p>
+      </div>
+      <div className="bg-white border border-neutral-100 rounded-large p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Plano recomendado selecionado</div>
+            <div className="text-lg font-semibold text-neutral-900 mt-0.5">{a.name} — {plan.objectives.primary} {a.retireAge} anos</div>
+          </div>
+          <StatusPill label={`Meta Atingida (${a.goalPct}%)`} className="bg-success-light text-success-dark" size="sm" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+          {head.map(([k, v]) => <div key={k}><div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{k}</div><div className="text-sm font-bold text-neutral-900 mt-1">{v}</div></div>)}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <h3 className="text-sm font-semibold text-neutral-800 mb-2">Recomendações</h3>
+          <div className="space-y-2">
+            {recs.map((c, i) => (
+              <div key={i} className="bg-white border border-neutral-100 rounded-large px-4 py-3 flex items-center gap-3">
+                <span className="w-9 h-9 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center shrink-0"><Icon name={c.icon} size={16} /></span>
+                <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-neutral-900">{c.title}</div><div className="text-xs text-neutral-500 mt-0.5">{c.desc}</div></div>
+                <button onClick={c.title.indexOf('simulação') !== -1 ? onSimulate : undefined} className="text-sm px-3 py-1.5 rounded-pill border border-neutral-200 hover:bg-neutral-50 shrink-0">Ver detalhes</button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-800 mb-2">Itens que requerem atenção</h3>
+            <div className="space-y-2">
+              {attention.map((c, i) => (
+                <div key={i} className="bg-white border border-brand/40 rounded-large p-3"><div className="text-sm font-semibold text-neutral-900">{c.title}</div><div className="text-xs text-neutral-500 mt-1">{c.desc}</div></div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white border border-neutral-100 rounded-large p-4">
+            <h3 className="text-sm font-semibold text-neutral-800 mb-3">Atividade recente</h3>
+            <ul className="space-y-2.5">
+              {(plan.activity || []).slice(0, 4).map((ev, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand shrink-0" /><div><div className="text-neutral-800">{ev.label}</div><div className="text-[11px] text-neutral-400">{formatDateTime(ev.date)}</div></div></li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-neutral-800">Voltar</button>
+        <div className="flex items-center gap-2">
+          <button onClick={onReport} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 hover:bg-neutral-50">Gerar relatório</button>
+          <button onClick={onSimulate} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5"><Icon name="target" size={14} /> Ir para o simulador</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Estado — Transição para o simulador ----------------
+function PlanTransition({ plan, onBack, onSimulate }) {
+  const { formatCurrency } = window.PortalLib;
+  const a = plan.scenarios[1] || plan.scenarios[0];
+  const rows = [
+    ['Objetivo financeiro', plan.objectives.primary],
+    ['Patrimônio alvo', formatCurrency(a.projectedWealth)],
+    ['Aporte mensal', `${formatCurrency(a.monthlyContribution)}/mês`],
+    ['Retorno real necessário', `${plan.assumptions.realReturn}% a.a.`],
+    ['Cenário selecionado', a.name],
+  ];
+  return (
+    <div className="bg-white border border-neutral-100 rounded-large p-8 max-w-2xl mx-auto text-center">
+      <span className="w-16 h-16 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center mb-4 mx-auto"><Icon name="target" size={28} /></span>
+      <h2 className="text-lg font-semibold text-neutral-900">Transforme o plano em estratégia de investimento</h2>
+      <p className="text-sm text-neutral-500 mt-1.5">Leve os parâmetros do plano para o simulador e monte a carteira aderente.</p>
+      <div className="mt-5 text-left divide-y divide-neutral-50 border border-neutral-100 rounded-large">
+        {rows.map(([k, v]) => <div key={k} className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">{k}</span><span className="font-semibold text-neutral-900">{v}</span></div>)}
+      </div>
+      <div className="flex items-center justify-center gap-2 mt-6">
+        <button onClick={onBack} className="text-sm px-5 py-2.5 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Voltar ao planejamento</button>
+        <button onClick={onSimulate} className="text-sm px-5 py-2.5 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5"><Icon name="target" size={15} /> Montar carteira</button>
       </div>
     </div>
   );
@@ -780,12 +1052,24 @@ function PlanningTab({ client, plan, now, onCreatePlan, onGenerateReport, onSimu
       <PlanResult
         client={client}
         plan={plan}
-        onBack={() => setView('overview')}
+        onBack={() => setView('scenarios')}
         onSaveDraft={() => setView('overview')}
-        onContinue={() => setView('report')}
+        onContinue={() => setView('scenarios')}
         onExport={() => window.PortalLib.download(`${client.id}-plano-resultado.txt`, `Resultado do planejamento — ${plan.name}`, 'text/plain')}
       />
     );
+  }
+  if (view === 'scenarios') {
+    return <PlanScenarios plan={plan} onBack={() => setView('result')} onCompare={() => setView('comparison')} />;
+  }
+  if (view === 'comparison') {
+    return <PlanComparison plan={plan} onBack={() => setView('scenarios')} onContinue={() => setView('recommendations')} />;
+  }
+  if (view === 'recommendations') {
+    return <PlanRecommendations plan={plan} now={now} onBack={() => setView('comparison')} onReport={() => setView('report')} onSimulate={() => setView('transition')} />;
+  }
+  if (view === 'transition') {
+    return <PlanTransition plan={plan} onBack={() => setView('recommendations')} onSimulate={onSimulate} />;
   }
   if (view === 'report') {
     return (
