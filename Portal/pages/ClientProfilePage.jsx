@@ -98,21 +98,44 @@ function AssetClassBar({ positions, onSeeAll }) {
 }
 
 // ---------- Visão geral (cockpit) ----------
-function FinancialCards({ client }) {
+function FinancialCards({ client, positions }) {
   const { formatCurrency } = window.PortalLib;
+  const pos = positions || [];
+  const investedTotal = pos.length ? pos.reduce((s, p) => s + p.currentValue, 0) : (client.investedWealth != null ? client.investedWealth : client.totalWealth - client.availableBalance);
+  const intlPos = pos.filter(isInternational);
+  const hasIntl = intlPos.length > 0;
+  const intlInvested = intlPos.reduce((s, p) => s + p.currentValue, 0);
+  const nacInvested = investedTotal - intlInvested;
+  // Rentabilidade acumulada ponderada por escopo (proxy a partir das posições).
+  function scopeRentab(list) {
+    const applied = list.reduce((s, p) => s + (p.appliedValue || p.currentValue), 0);
+    const cur = list.reduce((s, p) => s + p.currentValue, 0);
+    return applied ? (cur / applied - 1) * 100 : 0;
+  }
+  const nacRentab = scopeRentab(pos.filter((p) => !isInternational(p)));
+  const intlRentab = scopeRentab(intlPos);
+  const pct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+
   const cards = [
     { label: 'Patrimônio total', value: formatCurrency(client.totalWealth), color: 'text-neutral-900' },
-    { label: 'Investido', value: formatCurrency(client.investedWealth != null ? client.investedWealth : client.totalWealth - client.availableBalance), color: 'text-info-dark' },
+    { label: 'Investido', value: formatCurrency(investedTotal), color: 'text-info-dark', breakdown: hasIntl ? [['Nacional', formatCurrency(nacInvested)], ['Internacional', formatCurrency(intlInvested)]] : null },
     { label: 'Caixa disponível', value: formatCurrency(client.availableBalance), color: 'text-success-dark' },
     { label: 'Potencialmente investível', value: formatCurrency(client.investableCashEstimate), color: 'text-brand-dark' },
-    { label: 'Rentabilidade 12m', value: client.rentability12m != null ? `${client.rentability12m >= 0 ? '+' : ''}${client.rentability12m}%` : '—', color: client.rentability12m >= 0 ? 'text-success-dark' : 'text-alert-dark' },
+    { label: 'Rentabilidade 12m', value: client.rentability12m != null ? `${client.rentability12m >= 0 ? '+' : ''}${client.rentability12m}%` : '—', color: client.rentability12m >= 0 ? 'text-success-dark' : 'text-alert-dark', breakdown: hasIntl ? [['Nacional', pct(nacRentab)], ['Internacional', pct(intlRentab)]] : null },
   ];
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-stretch">
       {cards.map((c) => (
-        <div key={c.label} className="bg-white border border-neutral-100 rounded-large px-4 py-3.5">
+        <div key={c.label} className="bg-white border border-neutral-100 rounded-large px-4 py-3.5 flex flex-col">
           <div className="text-[10px] font-semibold tracking-wide text-neutral-400 uppercase">{c.label}</div>
           <div className={window.PortalLib.classNames('text-xl font-bold mt-1.5', c.color)}>{c.value}</div>
+          {c.breakdown && (
+            <div className="mt-2 pt-2 border-t border-neutral-50 space-y-0.5">
+              {c.breakdown.map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between text-[11px]"><span className="text-neutral-400">{k}</span><span className="text-neutral-700 font-medium tabular-nums">{v}</span></div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -173,6 +196,148 @@ function NextEvents({ client, positions, ordersAwaiting, now }) {
             <span className="w-7 h-7 rounded-full bg-neutral-50 text-neutral-500 flex items-center justify-center shrink-0"><Icon name={e.icon} size={14} /></span>
             <span className="text-neutral-800 flex-1">{e.label}</span>
             <span className="text-xs text-neutral-400">{e.meta}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Evolução da rentabilidade (12m) — linha do portfólio vs benchmarks, com
+// switch de escopo, seletor de período e chips de benchmark. Séries geradas
+// deterministicamente (mulberry32) a partir do id do cliente.
+const BENCHMARK_META = {
+  rendeu: { label: 'Rendeu', color: '#00A868' },
+  cdi: { label: 'CDI', color: '#1E7FE6', annual: 0.112, vol: 0.004, scale: 0.05 },
+  inflacao: { label: 'Inflação', color: '#FF7A00', annual: 0.045, vol: 0.010, scale: 0.1 },
+  poupanca: { label: 'Poupança', color: '#7C3AED', annual: 0.070, vol: 0.005, scale: 0.05 },
+  dolar: { label: 'Dólar', color: '#E5222D', annual: 0.030, vol: 0.120, scale: 1 },
+};
+const MONTHS_ABBR = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+function RentabilityEvolution({ client, positions }) {
+  const A = window.PortalAnalytics;
+  const [scope, setScope] = React.useState('nacional');
+  const [period, setPeriod] = React.useState('12m');
+  const [active, setActive] = React.useState({ cdi: true, inflacao: false, poupanca: false, dolar: false });
+  const hasIntl = positions.some(isInternational);
+
+  const months = period === '6m' ? 6 : 12;
+  const rendeuAnnual = scope === 'internacional' ? (client.rentability12m != null ? client.rentability12m / 100 + 0.04 : 0.12) : (client.rentability12m != null ? client.rentability12m / 100 : 0.08);
+  const rendeuVol = scope === 'internacional' ? 0.14 : 0.08;
+
+  const chart = React.useMemo(() => {
+    const rng = A.mulberry32(A.hashString(`${client.id}|${scope}|rent`));
+    const noise = [];
+    for (let i = 0; i < months; i++) noise.push(A.gaussian(rng));
+    const toPct = (idx) => idx.slice(1).map((v) => (v / 100 - 1) * 100);
+    const rendeu = toPct(A.buildIndex(months, rendeuAnnual, rendeuVol, noise));
+    const series = { rendeu };
+    ['cdi', 'inflacao', 'poupanca', 'dolar'].forEach((k) => {
+      const m = BENCHMARK_META[k];
+      series[k] = toPct(A.buildIndex(months, m.annual, m.vol, noise.map((n) => n * m.scale)));
+    });
+    const labels = MONTHS_ABBR.slice(0, months).length === months ? (months === 12 ? MONTHS_ABBR : MONTHS_ABBR.slice(6)) : MONTHS_ABBR;
+    return { labels, series };
+  }, [client.id, scope, months, rendeuAnnual, rendeuVol]);
+
+  const datasets = [{ key: 'rendeu' }].concat(['cdi', 'inflacao', 'poupanca', 'dolar'].filter((k) => active[k]).map((k) => ({ key: k })))
+    .map(({ key }) => ({
+      label: BENCHMARK_META[key].label,
+      data: chart.series[key],
+      borderColor: BENCHMARK_META[key].color,
+      backgroundColor: BENCHMARK_META[key].color,
+      borderWidth: key === 'rendeu' ? 2.5 : 1.5,
+      pointRadius: 0,
+      tension: 0.35,
+      fill: false,
+    }));
+
+  const options = {
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.raw >= 0 ? '+' : ''}${c.raw.toFixed(1)}%` } } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#9E9E9E', font: { size: 10 } } },
+      y: { grid: { color: '#F2F2F2' }, ticks: { color: '#9E9E9E', font: { size: 10 }, callback: (v) => `${v > 0 ? '+' : ''}${v}%` } },
+    },
+  };
+
+  const PERIODS = [['custom', 'Personalizar período'], ['jun', 'Jun'], ['jul', 'Jul'], ['2025', '2025'], ['2026', '2026'], ['6m', '6 meses'], ['12m', '12 meses']];
+
+  return (
+    <div className="bg-white border border-neutral-100 rounded-large p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-neutral-800">Evolução da rentabilidade ({months} meses)</h3>
+        {hasIntl && (
+          <div className="inline-flex items-center rounded-pill bg-neutral-100 p-0.5 text-xs font-medium">
+            {[['nacional', 'Nacional'], ['internacional', 'Internacional']].map(([v, label]) => (
+              <button key={v} onClick={() => setScope(v)} className={window.PortalLib.classNames('px-3 py-1.5 rounded-pill', scope === v ? 'bg-white text-brand-dark shadow-sm' : 'text-neutral-500 hover:text-neutral-800')}>{label}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {PERIODS.map(([v, label]) => (
+          <button key={v} onClick={() => (v === '6m' || v === '12m') && setPeriod(v)} className={window.PortalLib.classNames('text-xs px-2.5 py-1 rounded-pill border', period === v ? 'border-neutral-800 bg-neutral-800 text-white' : 'border-neutral-200 text-neutral-500 hover:border-neutral-300')}>{label}</button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {Object.keys(BENCHMARK_META).map((k) => {
+          const on = k === 'rendeu' || active[k];
+          return (
+            <button
+              key={k}
+              onClick={() => k !== 'rendeu' && setActive((a) => ({ ...a, [k]: !a[k] }))}
+              disabled={k === 'rendeu'}
+              className={window.PortalLib.classNames('text-xs px-2.5 py-1 rounded-pill border flex items-center gap-1.5', on ? 'border-neutral-200 bg-neutral-50 text-neutral-800' : 'border-neutral-200 text-neutral-400')}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: on ? BENCHMARK_META[k].color : '#D4D4D4' }} /> {BENCHMARK_META[k].label}
+            </button>
+          );
+        })}
+      </div>
+
+      <window.ChartCanvas type="line" data={{ labels: chart.labels, datasets }} options={options} height={220} />
+    </div>
+  );
+}
+
+// Insights e próximas ações — cartões acionáveis derivados do contexto.
+function InsightsActions({ client, positions, now, onSimulate, onGoPortfolio }) {
+  const { formatCurrency, nextMaturity } = window.PortalLib;
+  const total = positions.reduce((s, p) => s + p.currentValue, 0);
+  const byClass = {};
+  positions.forEach((p) => (byClass[p.class] = (byClass[p.class] || 0) + p.currentValue));
+  const acoesPct = total ? ((byClass['Ações'] || 0) / total) * 100 : 0;
+  const intlPct = total ? (positions.filter(isInternational).reduce((s, p) => s + p.currentValue, 0) / total) * 100 : 0;
+  const nm = nextMaturity(positions, now);
+
+  const cards = [];
+  if (intlPct < 12) cards.push({ icon: 'sparkles', title: 'Diversificar renda fixa internacional', desc: 'Aproveitar taxa de juros dos EUA.', onClick: onSimulate });
+  if (Math.abs(acoesPct - 15) >= 2) cards.push({ icon: 'target', title: 'Rebalancear alocação em ações', desc: `Meta 15%, atual ${acoesPct.toFixed(0)}%.`, onClick: onGoPortfolio });
+  if (nm && nm.days <= 30) cards.push({ icon: 'refresh', title: `${nm.position.subclass || 'Ativo'} vencendo em ${nm.days} dias`, desc: 'Considerar reinvestir em alternativa de liquidez.', onClick: onGoPortfolio });
+  if (cards.length === 0) return null;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-neutral-800">Insights e próximas ações</h3>
+        <button onClick={onSimulate} className="text-xs font-medium text-brand-dark hover:underline">Ver todas</button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {cards.map((c, i) => (
+          <div key={i} className="bg-white border border-neutral-100 rounded-large p-4 flex flex-col">
+            <div className="flex items-start gap-2.5 flex-1">
+              <span className="w-9 h-9 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center shrink-0"><Icon name={c.icon} size={16} /></span>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-neutral-900">{c.title}</div>
+                <div className="text-xs text-neutral-500 mt-0.5">{c.desc}</div>
+              </div>
+            </div>
+            <button onClick={c.onClick} className="mt-3 self-start text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5">
+              Ver detalhes <Icon name="chevronRight" size={13} />
+            </button>
           </div>
         ))}
       </div>
@@ -1353,40 +1518,54 @@ function ClientProfilePage({
 
   return (
     <div className="space-y-4">
-      <button onClick={onBack} className="text-sm text-neutral-500 hover:text-neutral-800 flex items-center gap-1.5">
-        <Icon name="arrowLeft" size={14} /> Voltar para clientes
-      </button>
+      {/* Abas (topo) */}
+      <div className="bg-white rounded-large border border-neutral-100 px-3">
+        <nav className="flex gap-1 overflow-x-auto">
+          {tabs.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)} className={window.PortalLib.classNames('text-sm px-3 py-3 border-b-2 whitespace-nowrap', tab === t.key ? 'border-brand text-brand-dark font-semibold' : 'border-transparent text-neutral-500 hover:text-neutral-700')}>
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      </div>
 
       {/* Header do cliente */}
       <div className="bg-white rounded-large border border-neutral-100 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center font-bold shrink-0">
+          {/* Identidade */}
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-14 h-14 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center font-bold text-lg shrink-0">
               {client.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-lg font-semibold text-neutral-900">{client.name}</h1>
                 <StatusPill label={CLIENT_STATUS_META[client.status].label} className={CLIENT_STATUS_META[client.status].className} size="sm" />
                 <StatusPill label={client.type} className="bg-neutral-100 text-neutral-600" size="sm" />
               </div>
-              <div className="text-sm text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: window.PortalLib.segmentDot(client.segment) }} /> {window.PortalLib.segmentLabel(client.segment)}</span>
-                <span>· conta {client.account} · {OWNER_NAME_MAP[client.ownerId] || client.ownerId} · {client.escritorio}</span>
-              </div>
+              <div className="text-sm text-neutral-500 mt-0.5">Conta {client.account} · <span className="text-neutral-400">CPF {maskDocument(client.cpfCnpj)}</span></div>
               <div className="flex items-center gap-4 mt-1.5 text-sm text-neutral-600 flex-wrap">
                 <span className="flex items-center gap-1"><Icon name="file" size={13} className="text-neutral-400" /> {client.email} <CopyButton value={client.email} label="e-mail" /></span>
                 <span className="flex items-center gap-1">{client.phone} <CopyButton value={client.phone} label="telefone" /></span>
               </div>
             </div>
           </div>
+
+          {/* Segmento / consultoria / consultor */}
+          <div className="text-sm leading-relaxed hidden md:block">
+            <div className="flex items-center gap-1.5 font-medium text-neutral-800"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: window.PortalLib.segmentDot(client.segment) }} /> {window.PortalLib.segmentLabel(client.segment)}</div>
+            <div className="text-neutral-500">{client.escritorio}</div>
+            <div className="text-neutral-400">{OWNER_NAME_MAP[client.ownerId] || client.ownerId}</div>
+          </div>
+
+          {/* Perfil + Suitability + ação */}
           <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              <NovaAcaoMenu actions={novaAcoes} />
+            <div className="flex items-center gap-3 text-xs">
+              <span className="font-semibold text-brand-dark">Perfil {RISK_PROFILE_META[client.riskProfile].label}</span>
+              <span className="text-neutral-300">|</span>
+              <span className="text-neutral-500">Suitability até {formatDate(client.suitabilityExpiry)}</span>
             </div>
-            <div className="text-right">
-              <div className="text-[11px] text-neutral-400">Perfil {RISK_PROFILE_META[client.riskProfile].label} · Suitability até {formatDate(client.suitabilityExpiry)}</div>
-            </div>
+            <NovaAcaoMenu actions={novaAcoes} />
           </div>
         </div>
 
@@ -1396,14 +1575,6 @@ function ClientProfilePage({
             {client.status === 'bloqueado' ? 'Conta bloqueada — requer revisão antes de qualquer nova operação.' : `Pendência crítica de onboarding: ${onboardingEntry.pendingReason}`}
           </div>
         )}
-
-        <nav className="flex gap-1 mt-5 -mb-5 border-b border-neutral-100 overflow-x-auto">
-          {tabs.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)} className={window.PortalLib.classNames('text-sm px-3 py-2 border-b-2 whitespace-nowrap', tab === t.key ? 'border-brand text-brand-dark font-medium' : 'border-transparent text-neutral-500 hover:text-neutral-700')}>
-              {t.label}
-            </button>
-          ))}
-        </nav>
       </div>
 
       {loading ? (
@@ -1412,7 +1583,8 @@ function ClientProfilePage({
         <React.Fragment>
           {tab === 'overview' && (
             <div className="space-y-4">
-              <FinancialCards client={client} />
+              <FinancialCards client={client} positions={positions} />
+              <RentabilityEvolution client={client} positions={positions} />
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2 space-y-4">
                   <AttentionArea client={client} positions={positions} ordersAwaiting={ordersAwaiting} now={now} onGoCash={() => setTab('cash')} onGoPortfolio={() => setTab('portfolio')} onGoOrders={() => setTab('orders')} />
@@ -1430,6 +1602,7 @@ function ClientProfilePage({
                   </div>
                 </div>
               </div>
+              <InsightsActions client={client} positions={positions} now={now} onSimulate={() => setShowBridge(true)} onGoPortfolio={() => setTab('portfolio')} />
             </div>
           )}
           {tab === 'portfolio' && (

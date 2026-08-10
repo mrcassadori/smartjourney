@@ -323,6 +323,10 @@
   window.PortalAnalytics = {
     ASSET_CLASS_ASSUMPTIONS,
     CDI_ANNUAL,
+    mulberry32,
+    hashString,
+    gaussian,
+    buildIndex,
     liquidityDays,
     LIQUIDITY_BUCKETS,
     allocationByClass,
