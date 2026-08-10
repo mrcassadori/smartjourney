@@ -93,17 +93,100 @@ function App() {
     );
   }
 
-  function newSimulation(clientId) {
-    const id = uid();
-    setSimulations((prev) => [
-      ...prev,
-      { id, clientId, name: 'Nova simulação', status: 'rascunho', createdBy: profile.name, createdAt: DATA.now, updatedAt: DATA.now, items: [], reportGeneratedAt: null, version: 1 },
-    ]);
-    navigate('simulator', { simulationId: id });
+  // Molde base de uma nova simulação (jornada consultiva, US-11/US-12).
+  function blankSimulation(clientId, currentStep, extra) {
+    return Object.assign(
+      {
+        id: uid(),
+        clientId: clientId || null,
+        name: 'Nova simulação',
+        status: 'rascunho',
+        createdBy: profile.name,
+        createdAt: DATA.now,
+        updatedAt: DATA.now,
+        objectives: [],
+        simulationValue: 0,
+        fundingSource: 'novo',
+        notes: '',
+        rationale: '',
+        currentStep: currentStep || 'cliente',
+        items: [],
+        reportGeneratedAt: null,
+        sharedAt: null,
+        reportConfig: null,
+        version: 1,
+      },
+      extra || {}
+    );
+  }
+
+  // "Nova simulação" a partir da lista (sem cliente ainda) → passo Cliente.
+  function newBlankSimulation() {
+    const sim = blankSimulation(null, 'cliente');
+    setSimulations((prev) => [...prev, sim]);
+    navigate('simulator', { simulationId: sim.id });
+  }
+
+  // "Nova simulação" a partir da ficha do cliente → já no passo Contexto.
+  // `objectives` opcional vem da ponte "Nova recomendação" (Tela 07).
+  function newSimulation(clientId, objectives) {
+    const sim = blankSimulation(clientId, 'contexto', objectives && objectives.length ? { objectives } : {});
+    setSimulations((prev) => [...prev, sim]);
+    navigate('simulator', { simulationId: sim.id });
   }
 
   function openSimulation(id) {
     navigate('simulator', { simulationId: id });
+  }
+
+  function selectSimulationClient(id, clientId) {
+    setSimulations((prev) => prev.map((s) => (s.id === id ? { ...s, clientId, currentStep: 'contexto', updatedAt: DATA.now } : s)));
+  }
+
+  // Patch genérico de campos da simulação (contexto, itens, passo, status…).
+  function patchSimulation(id, patch) {
+    setSimulations((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        const next = { ...s, ...patch, updatedAt: DATA.now };
+        if (patch.status && patch.status !== s.status) next.version = (s.version || 1) + 1;
+        return next;
+      })
+    );
+  }
+
+  function duplicateSimulation(id) {
+    const src = simulations.find((s) => s.id === id);
+    if (!src) return;
+    const copy = Object.assign({}, src, {
+      id: uid(),
+      name: `${src.name} (cópia)`,
+      status: 'rascunho',
+      createdBy: profile.name,
+      createdAt: DATA.now,
+      updatedAt: DATA.now,
+      reportGeneratedAt: null,
+      sharedAt: null,
+      version: 1,
+      items: src.items.map((it) => ({ ...it })),
+    });
+    setSimulations((prev) => [...prev, copy]);
+    navigate('simulacoes', {});
+  }
+
+  function archiveSimulation(id) {
+    patchSimulation(id, { status: 'arquivada' });
+  }
+
+  function generateSimulationReport(id) {
+    setSimulations((prev) => prev.map((s) => (s.id === id ? { ...s, reportGeneratedAt: DATA.now, currentStep: 'relatorio' } : s)));
+    navigate('simulator', { simulationId: id });
+  }
+
+  function registerSharedSimulation(id) {
+    setSimulations((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, status: 'compartilhada', sharedAt: DATA.now, updatedAt: DATA.now, version: (s.version || 1) + 1 } : s))
+    );
   }
 
   function addProductToProposal(clientId, product) {
@@ -112,45 +195,18 @@ function App() {
       const alreadyIn = existingDraft.items.some((it) => it.productId === product.id);
       if (!alreadyIn) {
         setSimulations((prev) =>
-          prev.map((s) => (s.id === existingDraft.id ? { ...s, items: [...s.items, { productId: product.id, allocatedValue: product.minApplication }], updatedAt: DATA.now } : s))
+          prev.map((s) => (s.id === existingDraft.id ? { ...s, items: [...s.items, { productId: product.id, allocatedValue: product.minApplication }], currentStep: 'alocacao', updatedAt: DATA.now } : s))
         );
       }
       navigate('simulator', { simulationId: existingDraft.id });
       return;
     }
-    const id = uid();
-    setSimulations((prev) => [
-      ...prev,
-      {
-        id,
-        clientId,
-        name: 'Nova simulação',
-        status: 'rascunho',
-        createdBy: profile.name,
-        createdAt: DATA.now,
-        updatedAt: DATA.now,
-        items: [{ productId: product.id, allocatedValue: product.minApplication }],
-        reportGeneratedAt: null,
-        version: 1,
-      },
-    ]);
-    navigate('simulator', { simulationId: id });
-  }
-
-  function updateSimulationName(id, name) {
-    setSimulations((prev) => prev.map((s) => (s.id === id ? { ...s, name, updatedAt: DATA.now } : s)));
-  }
-
-  function updateSimulationItems(id, items) {
-    setSimulations((prev) => prev.map((s) => (s.id === id ? { ...s, items, updatedAt: DATA.now } : s)));
-  }
-
-  function updateSimulationStatus(id, status) {
-    setSimulations((prev) => prev.map((s) => (s.id === id ? { ...s, status, updatedAt: DATA.now, version: (s.version || 1) + 1 } : s)));
-  }
-
-  function generateSimulationReport(id) {
-    setSimulations((prev) => prev.map((s) => (s.id === id ? { ...s, reportGeneratedAt: DATA.now } : s)));
+    const sim = blankSimulation(clientId, 'alocacao', {
+      items: [{ productId: product.id, allocatedValue: product.minApplication }],
+      simulationValue: product.minApplication,
+    });
+    setSimulations((prev) => [...prev, sim]);
+    navigate('simulator', { simulationId: sim.id });
   }
 
   function sendBasket(product, items) {
@@ -265,10 +321,11 @@ function App() {
     if (page === 'recommendations') return [{ label: 'Recomendações' }];
     if (page === 'operations') return [{ label: 'Operações' }];
     if (page === 'support') return [{ label: 'Central de suporte' }];
+    if (page === 'simulacoes') return [{ label: 'Investimentos' }, { label: 'Simulador' }];
     if (page === 'simulator') {
       return [
-        { label: 'Recomendações', onClick: () => navigate('recommendations', {}) },
-        { label: openSimulationObj ? openSimulationObj.name : 'Simulador' },
+        { label: 'Simulador', onClick: () => navigate('simulacoes', {}) },
+        { label: openSimulationObj ? openSimulationObj.name : 'Nova simulação' },
       ];
     }
     if (COMING_SOON_KEYS.indexOf(page) !== -1) return [{ label: navLabel(page) }];
@@ -298,8 +355,11 @@ function App() {
         profile={profile}
         clients={scopedClients}
         alerts={scopedAlerts}
+        orders={scopedOrders}
+        positions={DATA.portfolioPositions}
         search={search}
         initialFilters={pageParams}
+        now={DATA.now}
         onOpenClient={openClient}
         onRequestLink={() => setShowLinkRequest(true)}
       />
@@ -317,11 +377,17 @@ function App() {
         simulations={simulations.filter((s) => s.clientId === selectedClient.id)}
         serviceRequests={serviceRequests.filter((r) => r.clientId === selectedClient.id)}
         holdingRelations={DATA.holdingRelations.filter((r) => r.pjClientId === selectedClient.id)}
+        allClients={DATA.clients}
+        documents={DATA.clientDocuments.filter((d) => d.clientId === selectedClient.id)}
+        accessLog={DATA.documentAccessLog.filter((a) => a.clientId === selectedClient.id)}
+        bankingProfile={DATA.bankingProfiles.find((bp) => bp.clientId === selectedClient.id) || null}
+        tickets={tickets.filter((t) => t.clientId === selectedClient.id)}
         now={DATA.now}
         onBack={() => navigate('clients', {})}
         onOpenOrder={(id) => setOpenOrderId(id)}
+        onOpenClient={openClient}
         onOpenSimulation={openSimulation}
-        onNewSimulation={() => newSimulation(selectedClient.id)}
+        onNewSimulation={newSimulation}
         onOpenServiceRequest={(id) => setOpenRequestId(id)}
         onCreateServiceRequest={createServiceRequest}
         onOpenTicket={openTicketModal}
@@ -363,28 +429,43 @@ function App() {
       <RecommendationsPage
         profile={profile}
         clients={scopedClients}
-        simulations={scopedSimulations}
         products={DATA.products}
         now={DATA.now}
-        onOpenSimulation={openSimulation}
-        onNewSimulation={newSimulation}
         onSendBasket={sendBasket}
+      />
+    );
+  } else if (page === 'simulacoes') {
+    content = (
+      <SimulationsListPage
+        profile={profile}
+        clients={scopedClients}
+        simulations={scopedSimulations}
+        now={DATA.now}
+        search={search}
+        onNewSimulation={newBlankSimulation}
+        onOpenSimulation={openSimulation}
+        onDuplicateSimulation={duplicateSimulation}
+        onArchiveSimulation={archiveSimulation}
       />
     );
   } else if (page === 'simulator' && openSimulationObj) {
     content = (
-      <SimulatorPage
+      <SimulatorJourney
         simulation={openSimulationObj}
-        client={DATA.clients.find((c) => c.id === openSimulationObj.clientId)}
-        positions={DATA.portfolioPositions.filter((p) => p.clientId === openSimulationObj.clientId)}
+        client={openSimulationObj.clientId ? DATA.clients.find((c) => c.id === openSimulationObj.clientId) : null}
+        clients={scopedClients}
         products={DATA.products}
+        positions={openSimulationObj.clientId ? DATA.portfolioPositions.filter((p) => p.clientId === openSimulationObj.clientId) : []}
         now={DATA.now}
         profile={profile}
-        onUpdateName={updateSimulationName}
-        onUpdateItems={updateSimulationItems}
-        onUpdateStatus={updateSimulationStatus}
-        onGenerateReport={generateSimulationReport}
-        onBack={() => navigate('recommendations', {})}
+        onPatch={(patch) => patchSimulation(openSimulationObj.id, patch)}
+        onSelectClient={(clientId) => selectSimulationClient(openSimulationObj.id, clientId)}
+        onSaveDraft={() => navigate('simulacoes', {})}
+        onExit={() => navigate('simulacoes', {})}
+        onGenerateProposal={generateSimulationReport}
+        onRegisterShared={registerSharedSimulation}
+        onNewSimulation={newBlankSimulation}
+        onOpenClient={openClient}
       />
     );
   } else if (page === 'operations') {

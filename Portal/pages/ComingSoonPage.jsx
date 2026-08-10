@@ -46,6 +46,7 @@ const COMING_SOON_META = {
   'produtos-destaque': { title: 'Produtos em Destaque', desc: 'Curadoria de produtos priorizados pela casa no período. O catálogo completo já existe em Investimentos e Ordens → Explorar Investimentos.' },
   'biblioteca-conteudos': { title: 'Biblioteca de Conteúdos', desc: 'Repositório central de todo o conteúdo comercial e educacional disponível ao consultor.' },
 
+  relatorios: { title: 'Relatórios', desc: 'Central de relatórios consolidados da base e por cliente. A geração de proposta/relatório por simulação já existe dentro do Simulador (Recomendações → uma simulação → Gerar proposta).' },
   'favoritos-menu': { title: 'Favoritos', desc: 'Atalhos fixados pelo consultor para páginas e clientes usados com frequência.' },
   ajuda: { title: 'Ajuda', desc: 'Central de ajuda e documentação do Portal do Consultor.' },
   configuracoes: { title: 'Configurações', desc: 'Preferências pessoais do consultor (notificações, exibição, atalhos).' },

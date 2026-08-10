@@ -49,6 +49,21 @@
     return doc;
   }
 
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(String(text)).catch(() => {});
+    return Promise.resolve();
+  }
+
+  // Próximo vencimento de uma carteira: posição com maturityDate futura mais próxima.
+  function nextMaturity(positions, nowStr) {
+    const upcoming = (positions || [])
+      .filter((p) => p.maturityDate)
+      .map((p) => ({ position: p, days: daysUntil(p.maturityDate, nowStr) }))
+      .filter((x) => x.days >= 0)
+      .sort((a, b) => a.days - b.days);
+    return upcoming[0] || null;
+  }
+
   function download(filename, content, mime) {
     const blob = new Blob([content], { type: mime || 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -140,6 +155,14 @@
     pendencia: { label: 'Pendência', className: 'bg-alert-light text-alert-dark' },
   };
 
+  // Classificação de uma movimentação para apoiar a decisão do consultor
+  // (investível × uso bancário) — US-06 / jornada 360.
+  const CASH_INVESTABLE_META = {
+    investivel: { label: 'Potencialmente investível', className: 'bg-success-light text-success-dark' },
+    banking: { label: 'Uso bancário', className: 'bg-neutral-100 text-neutral-600' },
+    nao_classificado: { label: 'Não classificado', className: 'bg-warning-light text-warning-dark' },
+  };
+
   const CASH_CATEGORY_META = {
     transferencia: 'Transferência',
     salario: 'Salário',
@@ -177,8 +200,32 @@
 
   const SIMULATION_STATUS_META = {
     rascunho: { label: 'Rascunho', className: 'bg-neutral-100 text-neutral-600' },
+    em_analise: { label: 'Em análise', className: 'bg-info-light text-info-dark' },
+    compartilhada: { label: 'Compartilhada', className: 'bg-brand-lightest text-brand-dark' },
+    aguardando_cliente: { label: 'Aguardando cliente', className: 'bg-warning-light text-warning-dark' },
+    concluida: { label: 'Concluída', className: 'bg-success-light text-success-dark' },
+    arquivada: { label: 'Arquivada', className: 'bg-neutral-100 text-neutral-500' },
+    // Chaves legadas (simulador antigo) mantidas para compatibilidade de exibição.
     em_revisao: { label: 'Em revisão', className: 'bg-warning-light text-warning-dark' },
     enviada: { label: 'Enviada', className: 'bg-success-light text-success-dark' },
+  };
+
+  // Objetivos da simulação (Tela 03 — seleção múltipla). Cada objetivo tem um
+  // ícone linear já existente no Icon.jsx e um rótulo consultivo.
+  const SIMULATION_OBJECTIVES = [
+    { key: 'novo_aporte', label: 'Novo aporte', icon: 'trendingUp' },
+    { key: 'rebalancear', label: 'Rebalancear carteira', icon: 'refresh' },
+    { key: 'rentabilidade', label: 'Melhorar rentabilidade', icon: 'sparkles' },
+    { key: 'liquidez', label: 'Aumentar liquidez', icon: 'wallet' },
+    { key: 'reduzir_risco', label: 'Reduzir risco', icon: 'shield' },
+    { key: 'diversificar', label: 'Diversificar', icon: 'layers' },
+    { key: 'comparar', label: 'Comparar alternativas', icon: 'copy' },
+  ];
+
+  const SIMULATION_FUNDING_META = {
+    novo: { label: 'Novo recurso', desc: 'Aporte de recurso novo, fora da carteira atual.' },
+    carteira: { label: 'Recursos da carteira atual', desc: 'Realocação de posições já existentes.' },
+    ambos: { label: 'Combinação dos dois', desc: 'Parte novo aporte, parte realocação.' },
   };
 
   const PRODUCT_RISK_LABELS = { 1: 'Muito baixo', 2: 'Baixo', 3: 'Moderado', 4: 'Alto', 5: 'Muito alto' };
@@ -247,6 +294,8 @@
     daysUntil,
     onlyDigits,
     maskDocument,
+    copyToClipboard,
+    nextMaturity,
     download,
     clientsInScope,
     canAccess,
@@ -257,6 +306,7 @@
     ORDER_STATUS_META,
     ONBOARDING_STATUS_META,
     CASH_CATEGORY_META,
+    CASH_INVESTABLE_META,
     CLIENT_STATUS_META,
     RISK_PROFILE_META,
     ASSET_CLASS_ORDER,
@@ -264,6 +314,8 @@
     ASSET_CLASS_HEX,
     OWNER_NAME_MAP,
     SIMULATION_STATUS_META,
+    SIMULATION_OBJECTIVES,
+    SIMULATION_FUNDING_META,
     PRODUCT_RISK_LABELS,
     SERVICE_TYPE_META,
     SERVICE_REQUEST_STATUS_META,

@@ -123,7 +123,7 @@
 ## EP14 — Infraestrutura e Deploy
 
 **US14.1** — Como time, quero o protótipo hospedado no Vercel para compartilhar um link em vez de um arquivo HTML local.
-❌ Não implementado — hoje o protótipo roda só localmente (`prototype.html` aberto direto no navegador ou por servidor estático manual). Nenhum projeto Vercel configurado.
+⚠️ Parcial (atualizado 2026-07-22). O repositório já está versionado e publicado no GitHub (`github.com/mrcassadori/smartjourney`, branch `main`) — o que resolve a base pro deploy contínuo. Existe um projeto Vercel vinculado localmente (`.vercel/repo.json` → projeto `smartjourney`) e um `vercel.json` que redireciona a raiz (`/`) para `prototype.html` (Jornada). **Ainda pendente**: confirmar se o deploy automático (Git → Vercel) está de fato ativo e rodando, e decidir como expor o Portal em produção (hoje a raiz aponta só pra Jornada; o Portal viveria em `/Portal/index.html`). Obs.: os dois vídeos de entrevista em `Entrevistas/` (~1.3GB) ficaram fora do git de propósito (limite de tamanho do GitHub); se precisarem ser versionados, o caminho é Git LFS.
 
 ## EP15 — Insights de Pesquisa (síntese entre jornadas)
 
@@ -162,21 +162,21 @@ Histórico: esta aba nasceu como um arquivo HTML standalone (`insights.html`) e 
 **US-01** — Como consultor, quero acessar um ambiente profissional separado da minha conta pessoal, com perfil/escritório/escopo visíveis e um seletor de cenário sem autenticação real.
 ✅ Implementado, incluindo o cenário "sem vínculo" (critério 5) e o estado de "sem permissão" por item de menu (critério 6, parcial — timeout e autenticação reforçada não têm tela dedicada, só o texto no rodapé).
 → `Portal/components/Shell.jsx` (`ProfileSwitcher`, `Sidebar`), `Portal/data/mock-data.js` (`profiles`)
-Nota de UX (2026-07-21, revisada no mesmo dia): a navegação lateral é um rail de ícones (`w-16`) com flyout ao passar o mouse (`NAV_GROUPS` em `Shell.jsx`). A primeira versão agrupava em só 3 categorias e foi considerada "com poucas informações"; a versão atual implementa a árvore de navegação completa fornecida pelo usuário — **7 grupos de topo** (Visão Geral, Clientes, Carteiras e Planejamento, Investimentos e Ordens, Operações e Atendimento, Gestão da Base, Conteúdos), cada um com itens de nível 2, e nível 3 só para "Cadastros" (em Clientes) e "Classes de Ativos" (em Investimentos e Ordens), expandidos por acordeão dentro do próprio flyout. Um rodapé separado do rail (`NAV_FOOTER_ITEMS`) traz Favoritos/Ajuda/Configurações (todos "em breve") e Perfil (o seletor de cenário de perfil, que saiu do header e foi reposicionado aqui em versão compacta — `ProfileSwitcher` com prop `compact`). Inspirado na mecânica de rail+flyout de duas plataformas de mercado (referências trazidas pelo usuário), mas reorganizado por tarefa do consultor em vez de por produto/estrutura interna da instituição, tema claro do Inter e rótulo de texto sob cada ícone — deliberadamente diferente das referências.
-
-**Débito técnico intencional desta rodada**: a árvore de navegação está completa (~55 itens de menu), mas só ~14 levam a uma página real (Painel do Consultor, Minha Base/Buscar Cliente/Clientes com Pendências → Clientes, Clientes em Ativação/Ativações → Onboarding, Explorar Investimentos → Produtos, Cesta de Recomendações → Recomendações, Ordens/Histórico de Ordens → Central de ordens, 3 Classes de Ativos → Produtos filtrado, Credenciais e Acessos/Documentos → Operações, Solicitações e Atendimento → Suporte, Vencimentos → Alertas, Pendências → Clientes). Os ~37 itens restantes (ex.: Dashboard da Base, Conteúdos inteiro, Cartões, Planejamento Financeiro) abrem um estado "em breve" com descrição específica por item (`COMING_SOON_META` em `ComingSoonPage.jsx`, chave derivada automaticamente da árvore via `COMING_SOON_KEYS` em `app.jsx` para nunca desincronizar). Construir essas telas é trabalho de rodadas futuras, fora do escopo desta correção de IA.
+Nota de UX — **menu achatado (2026-08-10, versão vigente)**: a navegação lateral (`NAV_ITEMS` em `Shell.jsx`) foi **refeita para um menu plano de 8 itens diretos** (Visão geral, Clientes, Produtos, Recomendações, Ordens, Relatórios, Operações, Suporte), sem flyout/acordeão — decisão do usuário ao iniciar o épico do Workspace do Cliente, alinhando o rail à spec de wealth management. Cada item navega direto (`NavRow`); "Recomendações" aponta para o Simulador (`route: 'simulacoes'`, `permKey: 'recommendations'`) e a Cesta/basket (`recommendations`) virou entrada secundária; "Relatórios" segue `comingSoon`. Rodapé (`NAV_FOOTER_ITEMS`: Favoritos/Ajuda/Configurações + `ProfileSwitcher`) mantido. Isso **substitui** o menu anterior de 7 grupos com flyout de duas colunas (rail `w-56` com painel `fixed left-56`, clique-para-abrir, dois tons de laranja) que vigorou de 2026-07-21 a 07-22 — preservado no histórico do git.
 
 **US-02** — Como consultor/gestor, quero uma home com indicadores, pendências e alertas priorizados da base, com filtros e atalhos.
-✅ Implementado.
+✅ Implementado, com adições de 2026-07-22 inspiradas em ferramentas de mercado (XP/BTG/Avenue, referências do usuário): gráfico de barras "Captação x Retirada por dia" (reage ao filtro de período 7/30d) e widget "Top clientes com saldo disponível" (ranking clicável), ao lado dos cards de indicador que já existiam.
 → `Portal/pages/HomePage.jsx`
+
+> **Gráficos (Chart.js)** — 2026-07-22 foi adicionada a lib **Chart.js** via CDN (mesmo padrão zero-build do resto do Portal) com um wrapper React reutilizável `Portal/components/ChartCanvas.jsx` (cuida do ciclo de vida do gráfico: cria/destrói no mount/unmount e recria quando os dados mudam). Cores dos gráficos reaproveitam os tokens do Inter via `ASSET_CLASS_HEX` em `helpers.js`. Usado hoje no gráfico de fluxo do Home (US-02) e no doughnut de composição da ficha do cliente (US-04).
 
 **US-03** — Como profissional, quero buscar clientes por nome, CPF, e-mail, telefone ou conta, tolerando formatação.
 ✅ Implementado, incluindo estado vazio com CTA de "solicitar vínculo" (simulado).
 → `Portal/pages/ClientsListPage.jsx`, `Portal/lib/helpers.js` (`onlyDigits`)
 
 **US-04** — Como consultor, quero uma ficha 360º do cliente com abas e linha do tempo auditável.
-✅ Implementado: Visão geral (com sócios/representantes para PJ — US-16), Carteira, Movimentações, Ordens, Documentos, Recomendações, Banking (US-14) e Internacional (US-17).
-→ `Portal/pages/ClientProfilePage.jsx`
+✅ Implementado: Visão geral (com sócios/representantes para PJ — US-16), Carteira, Movimentações, Ordens, Documentos, Recomendações, Banking (US-14) e Internacional (US-17). Adição de 2026-07-22 (inspirada nas fichas da XP/BTG): o cabeçalho ganhou um grid de identidade (CPF/CNPJ mascarado, telefone, e-mail, **perfil de risco** como pill — novo campo `riskProfile` por cliente — saldo disponível, caixa investível, validade do suitability), e a aba Visão geral abre com um **gráfico doughnut de composição da carteira por classe** (`AssetClassBar` via Chart.js). Deliberadamente mais enxuto que as referências: campos de compliance/back-office (SOW, PL declarado, fee based, limites de política, status de token/app) ficaram de fora por decisão de simplicidade.
+→ `Portal/pages/ClientProfilePage.jsx`, `Portal/data/mock-data.js` (`riskProfile`), `Portal/lib/helpers.js` (`RISK_PROFILE_META`)
 
 **US-05** — Como consultor/alocador, quero a carteira agrupada por classe/produto/emissor/vencimento, com destaque de concentração e vencimento próximo.
 ✅ Implementado, incluindo exportação simulada (`.json` local).
@@ -207,12 +207,12 @@ Nota de UX (2026-07-21, revisada no mesmo dia): a navegação lateral é um rail
 → `Portal/pages/ProductsPage.jsx`, `Portal/data/mock-data.js` (`products`, 19 itens cobrindo as 10 classes)
 
 **US-11** — Como consultor, quero montar e simular uma carteira proposta para um cliente, com validações.
-✅ Implementado: builder por cliente (a partir da ficha ou da lista de propostas), adicionar/remover/ajustar valor por produto, validação de total alocado × caixa disponível e de aplicação mínima/concentração por item, alocação por classe antes×depois, versionamento simples (`version`) e fluxo de status rascunho → em revisão → enviada.
-→ `Portal/pages/SimulatorPage.jsx`, `Portal/data/mock-data.js` (`simulations`)
+✅ **Reconstruído como jornada consultiva de 14 telas (2026-08-09/10)** — ver bloco "Jornada do Simulador" abaixo. O `SimulatorPage.jsx` de 2 abas foi aposentado.
+→ `Portal/pages/SimulationsListPage.jsx`, `SimulatorJourney.jsx`, `SimulatorBuild.jsx`, `SimulatorDashboard.jsx`, `SimulatorReport.jsx`, `Portal/lib/analytics.js`
 
 **US-12** — Como consultor, quero comparar a carteira atual com a proposta e gerar um relatório white-label.
-✅ Implementado como uma segunda aba do Simulador (não uma tela isolada — a própria spec declara US-12 dependente de US-11): comparação por classe, inclusões destacadas, aviso de "sem redução simulada" (o protótipo só modela novas alocações), toggle de marca do escritório, disclaimers de premissas/riscos/avisos regulatórios, aviso de dado desatualizado, e geração de prévia baixável via `download()`.
-→ `Portal/pages/SimulatorPage.jsx` (aba "Comparativo e relatório")
+✅ **Reconstruído** dentro da jornada (aba Comparação do dashboard + telas Relatório/Compartilhar). Ver bloco "Jornada do Simulador" abaixo.
+→ `Portal/pages/SimulatorDashboard.jsx` (aba Comparação), `SimulatorReport.jsx`
 
 **US-13** — Como alocador/consultor autorizado, quero criar recomendações em lote (basket) para múltiplos clientes elegíveis.
 ✅ Implementado: escolha de produto → seleção em massa com filtro por segmento/caixa disponível → validação individual de elegibilidade/limite/aplicação mínima com inelegíveis destacados e bloqueados → prévia consolidada → envio simulado. Restrito a perfis com `canCreateBasket` (Alocador e Administrador neste cenário). Rastreabilidade por cliente/item reaproveita a Central de Ordens: cada envio cria uma ordem por cliente com um `basketId` comum, em vez de uma tela paralela de acompanhamento.
@@ -234,7 +234,27 @@ Nota de UX (2026-07-21, revisada no mesmo dia): a navegação lateral é um rail
 ⚠️ Parcial, mesmo critério de proporcionalidade do US-16: implementada a visão consolidada (posições em classe `Global` com câmbio aplicado e equivalente BRL/USD) numa aba dedicada da ficha. A recomendação/execução em si não duplica um fluxo novo — reaproveita o Simulador e a Central de Ordens já existentes (que já suportam produtos `Global`), conforme a nota explícita da própria aba sobre "separação entre visão consolidada e execução regulada".
 → `Portal/pages/ClientProfilePage.jsx` (`InternationalTab`), `Portal/data/mock-data.js` (`portfolioPositions` com `currency`/`fxRate`)
 
-Itens de menu fora do escopo dos três releases: só "Relatórios" segue "em breve" como hub cross-cliente (`Portal/pages/ComingSoonPage.jsx`) — a geração de relatório por proposta individual já existe dentro do Simulador desde o Release 2 (US-12).
+Itens de menu fora do escopo: "Relatórios" segue "em breve" como hub cross-cliente (`Portal/pages/ComingSoonPage.jsx`) — a geração de relatório por proposta individual já existe dentro do Simulador.
+
+### Jornada do Simulador de Investimentos (2026-08-09/10) — reconstrução de US-11/US-12
+
+Substituiu o Simulador de 2 abas por uma **jornada consultiva navegável de 14 telas + 3 estados de exceção**, entregue em 2 fases. Fluxo: Minhas Simulações → Selecionar cliente → Contexto/objetivos → Carteira atual → Buscar produtos → Distribuir (R$/%) → Revisão → Dashboard (Resumo · Performance · Risco e Liquidez · Análise técnica · Comparação) → Gerar relatório → Preview/Compartilhar. Wizard com `currentStep` na própria simulação (retomada), barra de contexto persistente e stepper (`SimulatorChrome.jsx`).
+- **Motor de métricas mockado e determinístico** (`Portal/lib/analytics.js`): premissas por classe, métricas de carteira (retorno/volatilidade/risco/liquidez/diversificação/concentração), séries históricas via PRNG semeado (atual×proposta×CDI), drawdown, correlação e risco×retorno — números estáveis, sem API.
+- **Estados de exceção**: produto acima do perfil (alerta não-bloqueante "Ver alternativas / Adicionar mesmo assim"), alocação > 100% (bordas de alerta + CTA travado), busca sem resultado (limpar filtros).
+- Dados de simulação enriquecidos (`objectives`, `simulationValue`, `fundingSource`, `notes`, `rationale`, `reportConfig`, `sharedAt`) e status expandidos (rascunho/em análise/compartilhada/aguardando cliente/concluída) em `helpers.js`/`mock-data.js`. O menu "Recomendações" abre "Minhas Simulações"; a Cesta em lote (US-13) continua em `RecommendationsPage.jsx`.
+- **Débito conhecido**: a proposta ainda é modelada como carteira atual + novas alocações (não modela reduções/vendas); Performance × B (Simulação A×B) fica como placeholder.
+
+### Workspace 360º do Cliente (2026-08-10) — evolução de US-04/05/06 (+ menu US-01)
+
+Elevou a ficha do cliente a um workspace de wealth management, em 2 fases, com **Mariana Costa** como cliente vitrine (+ Costa Participações Ltda PJ vinculada) e enriquecimento genérico dos demais clientes (`rentability12m`, `investedWealth`, `dateOfBirth`, `linkDate`, `pfPjLinkId`, `security`; `appliedValue` nas posições; `investable` nas movimentações; novos arrays `clientDocuments`/`documentAccessLog`/`bankingProfiles`).
+- **Visão geral (cockpit)**: menu "+Nova ação", 5 cards financeiros, área "Requer atenção", copiar e-mail/telefone, próximos eventos, atividade recente.
+- **Carteira**: donut com switch (classe/produto/emissor/vencimento), insights, colunas com data de aplicação/rentabilidade/%, e **drawer de detalhe de posição** (Tela 04, `PositionDrawer.jsx`).
+- **Movimentações**: classificação investível × uso bancário por evento, gráfico entradas×saídas 30d, CTA "Simular aplicação".
+- **Aba Dados** (nova): identificação com copiar, relacionamento, vínculo PF↔PJ visual, segurança + ações controladas (auditoria simulada).
+- **Recomendações contextual** + **ponte "Nova recomendação"** (`NewRecommendationBridge.jsx`, Tela 07) que entra no Simulador com objetivos pré-preenchidos.
+- **Fase 2**: Documentos rico (categorias/filtros/histórico), Banking rico (conta + cartão Inter Black + serviços + ação sensível), **drawer de Suporte** contextual, **"Toda atividade"** com filtros, e **lista de clientes** com big numbers/filtros operacionais/colunas (próximo evento, ordens, alertas)/badges.
+- Abas na ordem da spec: Visão geral · Carteira · Movimentações · Recomendações · Ordens · Documentos · Banking · Dados (a antiga "Internacional" saiu como aba; posições `Global` seguem na Carteira). Reutiliza `Drawer`, `ChartCanvas`, `ConfirmAction`, helpers novos (`copyToClipboard`, `nextMaturity`, `CASH_INVESTABLE_META`).
+- **Bug corrigido**: busca de cliente casava com todos quando o termo não tinha dígitos (`onlyDigits("")` → match universal).
 
 ---
 
@@ -244,7 +264,7 @@ Itens de menu fora do escopo dos três releases: só "Relatórios" segue "em bre
 - **`seed-data.json` e o seed embutido em `prototype.html` são cópias paralelas dos mesmos dados.** Risco de divergência silenciosa se um for editado e o outro não.
 - **Análise de sentimento é keyword matching, não NLP real.** Funciona para o dataset atual (PT-BR, vocabulário conhecido da entrevista), mas não generaliza para novo conteúdo sem expandir as listas `NEGATIVE_KEYWORDS`/`POSITIVE_KEYWORDS` manualmente (`app.jsx:3-4`).
 - **Fórmula de priorização (`effortRiskScore`) não validada** contra a planilha original — ver US5.1.
-- **Sem repositório git nesta pasta** — sem histórico de versões do próprio código do protótipo (ironia notada: é a mesma dor documentada no EP9 para o produto).
+- ~~**Sem repositório git nesta pasta**~~ — **resolvido em 2026-07-22**: a pasta agora é um repositório git com remoto `origin` no GitHub (`mrcassadori/smartjourney`), e o Portal do Consultor já foi commitado e enviado (`git push origin main`). O código do protótipo agora tem histórico de versões.
 - **A aba Insights (EP15) tem os dados de síntese hardcoded** (`PAIN_RANKING`, `PRIORITY_MATRIX`, `INSIGHT_CARDS` em `app.jsx`), escritos manualmente a partir da leitura das duas entrevistas — não são derivados de `journey.pains`/`journey.prioritization`. Se uma terceira jornada for adicionada, essa aba precisa ser atualizada manualmente também; ela não recalcula sozinha a partir do seed data.
 - **O menu de navegação Jornada ↔ Portal é sincronizado manualmente em 3 lugares**: `app.jsx`, `prototype.html` (compilado à mão, mesma dor já descrita acima) e `Portal/components/Shell.jsx`. Não há um layout compartilhado entre os dois protótipos — são apps React independentes que só se linkam por `<a href>` simples (`Portal/index.html` ↔ `../prototype.html`), sem estado compartilhado.
 - **O Portal precisa ser servido por HTTP, não aberto direto via `file://`.** Diferente do `prototype.html` (que roda direto no navegador), o Babel standalone do Portal busca cada `.jsx` via XHR para transformar JSX no navegador, o que o Chrome bloqueia sob `file://` por CORS. Rodar `python3 -m http.server` (ou equivalente) a partir da raiz do repo antes de abrir `Portal/index.html`.

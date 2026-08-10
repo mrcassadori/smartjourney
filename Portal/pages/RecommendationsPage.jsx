@@ -1,70 +1,6 @@
-// Hub de Recomendações: aba "Propostas" (lista de simulações, entrada do
-// US-11) e aba "Basket" (US-13, recomendação em lote).
-
-function NewSimulationModal({ clients, onCreate, onClose }) {
-  const [clientId, setClientId] = React.useState('');
-  return (
-    <Modal
-      title="Nova simulação"
-      onClose={onClose}
-      footer={
-        <React.Fragment>
-          <button onClick={onClose} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700">Cancelar</button>
-          <button
-            disabled={!clientId}
-            onClick={() => clientId && onCreate(clientId)}
-            className={window.PortalLib.classNames('text-sm px-4 py-2 rounded-pill text-white', clientId ? 'bg-brand' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed')}
-          >
-            Criar simulação
-          </button>
-        </React.Fragment>
-      }
-    >
-      <label className="text-sm text-neutral-600 block mb-2">Para qual cliente é esta proposta?</label>
-      <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full text-sm border border-neutral-200 rounded-pill px-3 py-2">
-        <option value="">Selecione um cliente…</option>
-        {clients.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
-    </Modal>
-  );
-}
-
-function ProposalsTab({ clients, simulations, products, onOpenSimulation, onNewSimulation }) {
-  const { formatCurrency, formatDateTime, SIMULATION_STATUS_META } = window.PortalLib;
-  const [showNew, setShowNew] = React.useState(false);
-  const clientMap = {};
-  clients.forEach((c) => (clientMap[c.id] = c));
-
-  const columns = [
-    { key: 'clientName', label: 'Cliente', render: (s) => (clientMap[s.clientId] ? clientMap[s.clientId].name : s.clientId) },
-    { key: 'name', label: 'Proposta' },
-    { key: 'status', label: 'Status', render: (s) => <StatusPill label={SIMULATION_STATUS_META[s.status].label} className={SIMULATION_STATUS_META[s.status].className} size="sm" /> },
-    { key: 'total', label: 'Valor total', render: (s) => formatCurrency(s.items.reduce((sum, it) => sum + it.allocatedValue, 0)) },
-    { key: 'createdBy', label: 'Criada por' },
-    { key: 'updatedAt', label: 'Atualizada em', render: (s) => formatDateTime(s.updatedAt) },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-neutral-500">{simulations.length} proposta{simulations.length === 1 ? '' : 's'} no seu escopo</p>
-        <button onClick={() => setShowNew(true)} className="text-sm px-3 py-1.5 rounded-pill bg-brand text-white flex items-center gap-1.5">
-          <Icon name="target" size={14} /> Nova simulação
-        </button>
-      </div>
-
-      {simulations.length === 0 ? (
-        <window.EmptyState icon="target" title="Nenhuma proposta ainda" description="Crie uma simulação a partir de um cliente para começar." />
-      ) : (
-        <DataTable columns={columns} rows={simulations} keyField="id" onRowClick={(s) => onOpenSimulation(s.id)} />
-      )}
-
-      {showNew && <NewSimulationModal clients={clients} onCreate={(clientId) => { setShowNew(false); onNewSimulation(clientId); }} onClose={() => setShowNew(false)} />}
-    </div>
-  );
-}
+// Hub de Recomendações — Basket (US-13, recomendação em lote).
+// As propostas individuais (US-11/US-12) migraram para o Simulador de
+// Investimentos ("Minhas Simulações").
 
 function BasketTab({ profile, clients, products, now, onSendBasket }) {
   const { formatCurrency, isEligible, OWNER_NAME_MAP } = window.PortalLib;
@@ -228,8 +164,7 @@ function BasketTab({ profile, clients, products, now, onSendBasket }) {
   );
 }
 
-function RecommendationsPage({ profile, clients, simulations, products, now, onOpenSimulation, onNewSimulation, onSendBasket }) {
-  const [tab, setTab] = React.useState('proposals');
+function RecommendationsPage({ profile, clients, products, now, onSendBasket }) {
   const { canAccess } = window.PortalLib;
 
   if (!canAccess(profile, 'recommendations')) {
@@ -242,21 +177,11 @@ function RecommendationsPage({ profile, clients, simulations, products, now, onO
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-neutral-900">Recomendações</h1>
-        <p className="text-sm text-neutral-500">Monte propostas individuais ou recomendações em lote — tudo simulado.</p>
+        <h1 className="text-xl font-semibold text-neutral-900">Cesta de recomendações</h1>
+        <p className="text-sm text-neutral-500">Recomende um mesmo produto para vários clientes elegíveis de uma vez — tudo simulado. Para propostas individuais, use o Simulador de Investimentos.</p>
       </div>
 
-      <nav className="flex gap-1 border-b border-neutral-100">
-        <button onClick={() => setTab('proposals')} className={window.PortalLib.classNames('text-sm px-3 py-2 border-b-2', tab === 'proposals' ? 'border-brand text-brand-dark font-medium' : 'border-transparent text-neutral-500')}>
-          Propostas
-        </button>
-        <button onClick={() => setTab('basket')} className={window.PortalLib.classNames('text-sm px-3 py-2 border-b-2', tab === 'basket' ? 'border-brand text-brand-dark font-medium' : 'border-transparent text-neutral-500')}>
-          Basket
-        </button>
-      </nav>
-
-      {tab === 'proposals' && <ProposalsTab clients={clients} simulations={simulations} products={products} onOpenSimulation={onOpenSimulation} onNewSimulation={onNewSimulation} />}
-      {tab === 'basket' && <BasketTab profile={profile} clients={clients} products={products} now={now} onSendBasket={onSendBasket} />}
+      <BasketTab profile={profile} clients={clients} products={products} now={now} onSendBasket={onSendBasket} />
     </div>
   );
 }

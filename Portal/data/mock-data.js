@@ -79,6 +79,9 @@
     { id: 'C12', name: 'Tarso Bittar', type: 'PJ', cpfCnpj: '23.456.789/0001-01', riskProfile: 'Sofisticado', email: 'contabilidade@bittarholdco.com.br', phone: '(21) 96677-1012', account: '00330015', escritorio: 'Ticker Investimentos', ownerId: 'daily_banker', status: 'ativo', segment: 'Corporate', suitabilityExpiry: '2026-08-30', firstApplicationDone: true, totalWealth: 8900000, availableBalance: 230000, investableCashEstimate: 180000, updatedAt: '2026-07-20T07:00:00-03:00', stale: false },
     { id: 'C13', name: 'Renata Xavier', type: 'PF', cpfCnpj: '134.567.890-12', riskProfile: 'Moderado', email: 'renata.xavier@exemplo.com', phone: '(21) 95566-1013', account: '00330016', escritorio: 'Ticker Investimentos', ownerId: 'daily_banker_2', status: 'ativo', segment: 'High', suitabilityExpiry: '2026-09-05', firstApplicationDone: true, totalWealth: 1720000, availableBalance: 15000, investableCashEstimate: 0, updatedAt: '2026-07-20T08:20:00-03:00', stale: false },
     { id: 'C14', name: 'Gustavo Peçanha', type: 'PF', cpfCnpj: '245.678.901-23', riskProfile: 'Conservador', email: 'gustavo.pecanha@exemplo.com', phone: '(21) 94455-1014', account: '00330017', escritorio: 'Ticker Investimentos', ownerId: 'daily_banker_2', status: 'ativo', segment: 'Standard', suitabilityExpiry: '2026-07-22', firstApplicationDone: true, totalWealth: 340000, availableBalance: 61000, investableCashEstimate: 55000, updatedAt: '2026-07-20T08:20:00-03:00', stale: false },
+    // Cliente vitrine da jornada 360 (spec do workspace do cliente).
+    { id: 'C15', name: 'Mariana Costa', type: 'PF', cpfCnpj: '321.654.987-00', riskProfile: 'Moderado', email: 'mariana.costa@exemplo.com', phone: '(11) 98877-2020', account: '123456-7', escritorio: 'Åpen Capital', ownerId: 'consultor', status: 'ativo', segment: 'High', suitabilityExpiry: '2026-12-15', firstApplicationDone: true, totalWealth: 3450000, availableBalance: 185000, investableCashEstimate: 170000, updatedAt: '2026-07-20T18:42:00-03:00', stale: false, rentability12m: 8.7, investedWealth: 3265000, dateOfBirth: '1985-03-22', linkDate: '2025-03-14', pfPjLinkId: 'C16', security: { accessActive: true, tokenActive: true, lastLoginAt: '2026-07-20T16:31:00-03:00' } },
+    { id: 'C16', name: 'Costa Participações Ltda', type: 'PJ', cpfCnpj: '45.678.901/0001-23', riskProfile: 'Moderado', email: 'financeiro@costapart.com.br', phone: '(11) 3344-2020', account: '123457-5', escritorio: 'Åpen Capital', ownerId: 'consultor', status: 'ativo', segment: 'Corporate', suitabilityExpiry: '2026-11-30', firstApplicationDone: true, totalWealth: 5200000, availableBalance: 90000, investableCashEstimate: 70000, updatedAt: '2026-07-20T18:42:00-03:00', stale: false, rentability12m: 7.2, investedWealth: 5110000, dateOfBirth: null, linkDate: '2025-03-14', pfPjLinkId: 'C15', security: { accessActive: true, tokenActive: true, lastLoginAt: '2026-07-19T10:05:00-03:00' } },
   ];
 
   // ---------------------------------------------------------------------
@@ -124,6 +127,22 @@
     { id: 'P29', clientId: 'C12', class: 'Pós-fixado', subclass: 'CDB', asset: 'CDB Banco Inter PJ 114% CDI', issuer: 'Banco Inter', quantity: 1, currentValue: 5100000, rate: '114% CDI', liquidity: 'D+1', applicationDate: '2024-04-01', maturityDate: '2026-10-01' },
     { id: 'P30', clientId: 'C12', class: 'Fundos', subclass: 'Fundo de crédito privado', asset: 'FIC FIRF Crédito Corporate', issuer: 'Gestora Parceira', quantity: 1, currentValue: 3570000, rate: '—', liquidity: 'D+5', applicationDate: '2023-08-20', maturityDate: null },
     { id: 'P31', clientId: 'C12', class: 'Caixa', subclass: 'Conta corrente', asset: 'Saldo em conta PJ', issuer: 'Banco Inter', quantity: 1, currentValue: 230000, rate: '100% CDI', liquidity: 'Imediata', applicationDate: null, maturityDate: null },
+
+    // Carteira da cliente vitrine Mariana Costa (C15) — alocação da spec.
+    { id: 'P32', clientId: 'C15', class: 'Pós-fixado', subclass: 'CDB', asset: 'CDB Banco Inter 105% CDI', issuer: 'Banco Inter', quantity: 1, currentValue: 120000, appliedValue: 108500, rate: '105% CDI', liquidity: 'No vencimento', applicationDate: '2024-08-15', maturityDate: '2026-07-25' },
+    { id: 'P33', clientId: 'C15', class: 'Pós-fixado', subclass: 'CDB', asset: 'CDB Banco Inter 112% CDI', issuer: 'Banco Inter', quantity: 1, currentValue: 1251300, rate: '112% CDI', liquidity: 'D+1', applicationDate: '2024-05-10', maturityDate: '2027-05-10' },
+    { id: 'P34', clientId: 'C15', class: 'Inflação', subclass: 'Tesouro IPCA+', asset: 'Tesouro IPCA+ 2035', issuer: 'Tesouro Nacional', quantity: 24, currentValue: 587700, rate: 'IPCA + 6,2%', liquidity: 'D+1', applicationDate: '2023-09-12', maturityDate: '2035-05-15' },
+    { id: 'P35', clientId: 'C15', class: 'Prefixado', subclass: 'Tesouro Prefixado', asset: 'Tesouro Prefixado 2031', issuer: 'Tesouro Nacional', quantity: 8, currentValue: 261200, rate: '11,9% a.a.', liquidity: 'D+1', applicationDate: '2024-02-01', maturityDate: '2031-01-01' },
+    { id: 'P36', clientId: 'C15', class: 'FIIs', subclass: 'Fundo imobiliário', asset: 'FII Logística Sudeste', issuer: 'Gestora Independente', quantity: 2600, currentValue: 261200, rate: '—', liquidity: 'D+2', applicationDate: '2024-06-18', maturityDate: null },
+    { id: 'P37', clientId: 'C15', class: 'Ações', subclass: 'Ações BR', asset: 'Carteira Ações Dividendos', issuer: 'B3', quantity: 1, currentValue: 326500, rate: '—', liquidity: 'D+2', applicationDate: '2023-03-05', maturityDate: null },
+    { id: 'P38', clientId: 'C15', class: 'Multimercado', subclass: 'Fundo multimercado', asset: 'FIC FIM Macro Plus', issuer: 'Gestora Parceira', quantity: 1, currentValue: 195900, rate: '—', liquidity: 'D+30', applicationDate: '2024-04-11', maturityDate: null },
+    { id: 'P39', clientId: 'C15', class: 'Global', subclass: 'ETF internacional', asset: 'ETF S&P 500 (via Global Account)', issuer: 'Inter Global', quantity: 1, currentValue: 130600, rate: '—', liquidity: 'D+3', applicationDate: '2024-09-10', maturityDate: null, currency: 'USD', fxRate: 5.2 },
+    { id: 'P40', clientId: 'C15', class: 'Caixa', subclass: 'Conta corrente', asset: 'Saldo em conta', issuer: 'Banco Inter', quantity: 1, currentValue: 130600, rate: '100% CDI', liquidity: 'Imediata', applicationDate: null, maturityDate: null },
+
+    // Carteira de Costa Participações (C16) — holding PJ vinculada a Mariana.
+    { id: 'P41', clientId: 'C16', class: 'Pós-fixado', subclass: 'CDB', asset: 'CDB Banco Inter PJ 116% CDI', issuer: 'Banco Inter', quantity: 1, currentValue: 3000000, rate: '116% CDI', liquidity: 'D+1', applicationDate: '2024-03-01', maturityDate: '2027-03-01' },
+    { id: 'P42', clientId: 'C16', class: 'Fundos', subclass: 'Fundo de crédito privado', asset: 'FIC FIRF Crédito Corporate', issuer: 'Gestora Parceira', quantity: 1, currentValue: 1610000, rate: '—', liquidity: 'D+5', applicationDate: '2023-10-20', maturityDate: null },
+    { id: 'P43', clientId: 'C16', class: 'Caixa', subclass: 'Conta corrente', asset: 'Saldo em conta PJ', issuer: 'Banco Inter', quantity: 1, currentValue: 500000, rate: '100% CDI', liquidity: 'Imediata', applicationDate: null, maturityDate: null },
   ];
 
   // ---------------------------------------------------------------------
@@ -152,6 +171,16 @@
     { id: 'M20', clientId: 'C12', date: '2026-07-10', description: 'Rendimento mensal', value: 31200, category: 'rendimento' },
     { id: 'M21', clientId: 'C14', date: '2026-07-19', description: 'Vencimento de LCI', value: 55000, category: 'vencimento' },
     { id: 'M22', clientId: 'C14', date: '2026-07-14', description: 'Salário', value: 9800, category: 'salario' },
+
+    // Movimentações da cliente vitrine Mariana Costa (C15) — origem do saldo
+    // (170k potencialmente investível + 15k de uso bancário).
+    { id: 'M23', clientId: 'C15', date: '2026-07-20', description: 'Vencimento de CDB', value: 120000, category: 'vencimento', investable: 'investivel' },
+    { id: 'M24', clientId: 'C15', date: '2026-07-20', description: 'Transferência recebida', value: 40000, category: 'transferencia', investable: 'investivel' },
+    { id: 'M25', clientId: 'C15', date: '2026-07-20', description: 'Dividendos recebidos', value: 10000, category: 'dividendo', investable: 'investivel' },
+    { id: 'M26', clientId: 'C15', date: '2026-07-19', description: 'Crédito em conta', value: 15000, category: 'deposito', investable: 'banking' },
+    { id: 'M27', clientId: 'C15', date: '2026-07-15', description: 'Pagamento de cartão', value: -8450, category: 'nao_classificado', investable: 'banking' },
+    { id: 'M28', clientId: 'C16', date: '2026-07-18', description: 'Recebimento de aluguel PJ', value: 70000, category: 'transferencia', investable: 'investivel' },
+    { id: 'M29', clientId: 'C16', date: '2026-07-12', description: 'Rendimento mensal', value: 18500, category: 'rendimento', investable: 'investivel' },
   ];
 
   // ---------------------------------------------------------------------
@@ -270,6 +299,13 @@
       timeline: [{ date: '2026-07-10T09:00:00-03:00', status: 'enviada', detail: 'Ordem enviada.' }, { date: '2026-07-10T09:30:00-03:00', status: 'aprovada', detail: 'Aprovada.' }, { date: '2026-07-11T09:00:00-03:00', status: 'executada', detail: 'Executada com sucesso.' }] },
     { id: 'ORD12', clientId: 'C11', asset: 'FII Shoppings Brasil', type: 'aplicacao', value: 60000, author: 'Camila Duarte', sentAt: '2026-07-08T09:00:00-03:00', status: 'executada', errorReason: null, errorAction: null, retriable: false,
       timeline: [{ date: '2026-07-08T09:00:00-03:00', status: 'enviada', detail: 'Ordem enviada.' }, { date: '2026-07-08T10:00:00-03:00', status: 'aprovada', detail: 'Aprovada.' }, { date: '2026-07-09T09:00:00-03:00', status: 'executada', detail: 'Executada com sucesso.' }] },
+    // Ordens da cliente vitrine Mariana Costa (C15) — 2 aguardando aprovação.
+    { id: 'ORD13', clientId: 'C15', asset: 'CDB Banco Inter 112% CDI', type: 'aplicacao', value: 50000, author: 'Marina Ferraz', sentAt: '2026-07-20T14:32:00-03:00', status: 'aguardando_aprovacao', errorReason: null, errorAction: null, retriable: false, origin: 'Recomendação agosto',
+      timeline: [{ date: '2026-07-20T14:32:00-03:00', status: 'enviada', detail: 'Recomendação criada por Marina Ferraz.' }, { date: '2026-07-20T14:35:00-03:00', status: 'aguardando_aprovacao', detail: 'Enviada ao cliente — aguardando aprovação.' }] },
+    { id: 'ORD14', clientId: 'C15', asset: 'FIC FIM Macro Plus', type: 'aplicacao', value: 35000, author: 'Marina Ferraz', sentAt: '2026-07-20T11:10:00-03:00', status: 'aguardando_aprovacao', errorReason: null, errorAction: null, retriable: false, origin: 'Rebalanceamento agosto',
+      timeline: [{ date: '2026-07-20T11:10:00-03:00', status: 'enviada', detail: 'Recomendação criada.' }, { date: '2026-07-20T11:12:00-03:00', status: 'aguardando_aprovacao', detail: 'Aguardando aprovação do cliente.' }] },
+    { id: 'ORD15', clientId: 'C15', asset: 'Tesouro IPCA+ 2035', type: 'aplicacao', value: 40000, author: 'Marina Ferraz', sentAt: '2026-07-14T10:00:00-03:00', status: 'executada', errorReason: null, errorAction: null, retriable: false, origin: 'Recomendação julho',
+      timeline: [{ date: '2026-07-14T10:00:00-03:00', status: 'enviada', detail: 'Ordem enviada.' }, { date: '2026-07-14T10:30:00-03:00', status: 'aprovada', detail: 'Aprovada.' }, { date: '2026-07-15T09:00:00-03:00', status: 'executada', detail: 'Executada com sucesso.' }] },
   ];
 
   // ---------------------------------------------------------------------
@@ -302,42 +338,79 @@
   // Simulações / propostas (US-11, US-12) — alguns exemplos pré-existentes
   // para a lista de propostas não nascer vazia.
   // ---------------------------------------------------------------------
+  // Campos da jornada consultiva (US-11/US-12, Fase 1):
+  //   objectives[]    — objetivos do cliente (Tela 03), chaves de SIMULATION_OBJECTIVES
+  //   simulationValue — valor sendo simulado (Tela 03)
+  //   fundingSource   — 'novo' | 'carteira' | 'ambos'
+  //   notes           — observação livre do consultor
+  //   rationale       — racional editável da recomendação (Tela 07)
+  //   currentStep     — passo do wizard para retomada
+  //   sharedAt        — data de compartilhamento (Fase 2)
+  //   reportConfig    — config do relatório (Fase 2)
   const simulations = [
     {
-      id: 'SIM01',
-      clientId: 'C02',
-      name: 'Rolagem CDB + diversificação em multimercado',
-      status: 'em_revisao',
-      createdBy: 'Marina Ferraz',
-      createdAt: '2026-07-19T10:00:00-03:00',
-      updatedAt: '2026-07-19T16:30:00-03:00',
-      items: [
-        { productId: 'PR01', allocatedValue: 300000 },
-        { productId: 'PR09', allocatedValue: 100000 },
-      ],
-      reportGeneratedAt: '2026-07-19T16:30:00-03:00',
+      id: 'SIM01', clientId: 'C02', name: 'Rolagem CDB + diversificação em multimercado', status: 'em_analise',
+      createdBy: 'Marina Ferraz', createdAt: '2026-07-19T10:00:00-03:00', updatedAt: '2026-07-19T16:30:00-03:00',
+      objectives: ['rebalancear', 'diversificar'], simulationValue: 400000, fundingSource: 'carteira',
+      notes: 'Cliente quer reduzir concentração em pós-fixados mantendo liquidez.', rationale: '', currentStep: 'analise',
+      items: [{ productId: 'PR01', allocatedValue: 300000 }, { productId: 'PR09', allocatedValue: 100000 }],
+      reportGeneratedAt: '2026-07-19T16:30:00-03:00', sharedAt: null, reportConfig: null, version: 2,
     },
     {
-      id: 'SIM02',
-      clientId: 'C01',
-      name: 'Diversificação do caixa investível em dólar',
-      status: 'rascunho',
-      createdBy: 'Marina Ferraz',
-      createdAt: '2026-07-20T09:30:00-03:00',
-      updatedAt: '2026-07-20T09:30:00-03:00',
+      id: 'SIM02', clientId: 'C01', name: 'Diversificação do caixa investível em dólar', status: 'rascunho',
+      createdBy: 'Marina Ferraz', createdAt: '2026-07-20T09:30:00-03:00', updatedAt: '2026-07-20T09:30:00-03:00',
+      objectives: ['diversificar', 'rentabilidade'], simulationValue: 260000, fundingSource: 'novo',
+      notes: '', rationale: '', currentStep: 'alocacao',
       items: [{ productId: 'PR16', allocatedValue: 150000 }],
-      reportGeneratedAt: null,
+      reportGeneratedAt: null, sharedAt: null, reportConfig: null, version: 1,
     },
     {
-      id: 'SIM03',
-      clientId: 'C09',
-      name: 'Realocação de resgate para crédito privado',
-      status: 'enviada',
-      createdBy: 'Eduardo Prado',
-      createdAt: '2026-07-14T11:00:00-03:00',
-      updatedAt: '2026-07-15T09:00:00-03:00',
-      items: [{ productId: 'PR07', allocatedValue: 500000 }],
-      reportGeneratedAt: '2026-07-15T09:00:00-03:00',
+      id: 'SIM03', clientId: 'C09', name: 'Realocação de resgate para crédito privado', status: 'compartilhada',
+      createdBy: 'Camila Duarte', createdAt: '2026-07-14T11:00:00-03:00', updatedAt: '2026-07-15T09:00:00-03:00',
+      objectives: ['rebalancear'], simulationValue: 500000, fundingSource: 'carteira',
+      notes: 'Recurso do resgate do Tesouro para crédito privado.', rationale: 'Realoca recurso ocioso para crédito privado com liquidez D+5, elevando a rentabilidade esperada sem sair do perfil.',
+      currentStep: 'analise', items: [{ productId: 'PR07', allocatedValue: 500000 }],
+      reportGeneratedAt: '2026-07-15T09:00:00-03:00', sharedAt: '2026-07-15T09:10:00-03:00', reportConfig: null, version: 3,
+    },
+    {
+      id: 'SIM04', clientId: 'C01', name: 'Proteção contra inflação — Private', status: 'compartilhada',
+      createdBy: 'Marina Ferraz', createdAt: '2026-07-12T14:00:00-03:00', updatedAt: '2026-07-13T10:00:00-03:00',
+      objectives: ['reduzir_risco', 'diversificar'], simulationValue: 300000, fundingSource: 'ambos',
+      notes: '', rationale: 'Aumenta a fatia indexada à inflação para preservar poder de compra no longo prazo.',
+      currentStep: 'analise', items: [{ productId: 'PR05', allocatedValue: 200000 }, { productId: 'PR06', allocatedValue: 100000 }],
+      reportGeneratedAt: '2026-07-13T10:00:00-03:00', sharedAt: '2026-07-13T10:05:00-03:00', reportConfig: null, version: 2,
+    },
+    {
+      id: 'SIM05', clientId: 'C04', name: 'Reserva de liquidez pré-imóvel', status: 'aguardando_cliente',
+      createdBy: 'Marina Ferraz', createdAt: '2026-07-16T09:00:00-03:00', updatedAt: '2026-07-17T11:00:00-03:00',
+      objectives: ['liquidez'], simulationValue: 250000, fundingSource: 'carteira',
+      notes: 'Cliente quer manter liquidez para aquisição de imóvel em ~6 meses.', rationale: 'Prioriza liquidez de curtíssimo prazo mantendo rendimento próximo ao CDI.',
+      currentStep: 'analise', items: [{ productId: 'PR19', allocatedValue: 150000 }, { productId: 'PR01', allocatedValue: 100000 }],
+      reportGeneratedAt: '2026-07-17T11:00:00-03:00', sharedAt: '2026-07-17T11:05:00-03:00', reportConfig: null, version: 2,
+    },
+    {
+      id: 'SIM06', clientId: 'C07', name: 'Primeira carteira — perfil conservador', status: 'concluida',
+      createdBy: 'Marina Ferraz', createdAt: '2026-07-05T09:00:00-03:00', updatedAt: '2026-07-08T16:00:00-03:00',
+      objectives: ['novo_aporte'], simulationValue: 120000, fundingSource: 'novo',
+      notes: '', rationale: 'Carteira conservadora com liquidez e proteção, adequada à primeira alocação do cliente.',
+      currentStep: 'analise', items: [{ productId: 'PR01', allocatedValue: 60000 }, { productId: 'PR15', allocatedValue: 60000 }],
+      reportGeneratedAt: '2026-07-08T16:00:00-03:00', sharedAt: '2026-07-06T10:00:00-03:00', reportConfig: null, version: 4,
+    },
+    {
+      id: 'SIM07', clientId: 'C02', name: 'Estudo de renda variável — dividendos', status: 'rascunho',
+      createdBy: 'Marina Ferraz', createdAt: '2026-07-20T10:10:00-03:00', updatedAt: '2026-07-20T10:20:00-03:00',
+      objectives: ['rentabilidade', 'comparar'], simulationValue: 100000, fundingSource: 'novo',
+      notes: '', rationale: '', currentStep: 'produtos',
+      items: [{ productId: 'PR10', allocatedValue: 30000 }],
+      reportGeneratedAt: null, sharedAt: null, reportConfig: null, version: 1,
+    },
+    {
+      id: 'SIM08', clientId: 'C06', name: 'Caixa PJ — crédito corporativo', status: 'em_analise',
+      createdBy: 'Bruno Castilho', createdAt: '2026-07-18T08:30:00-03:00', updatedAt: '2026-07-18T15:00:00-03:00',
+      objectives: ['rentabilidade', 'rebalancear'], simulationValue: 700000, fundingSource: 'carteira',
+      notes: 'Aplicar caixa PJ ocioso em crédito privado de alta qualidade.', rationale: '',
+      currentStep: 'analise', items: [{ productId: 'PR07', allocatedValue: 500000 }, { productId: 'PR05', allocatedValue: 200000 }],
+      reportGeneratedAt: null, sharedAt: null, reportConfig: null, version: 1,
     },
   ];
 
@@ -410,7 +483,71 @@
     { id: 'HR02', pjClientId: 'C06', personName: 'Marina Falcão', document: '222.333.444-55', title: 'Diretora financeira', role: 'assinatura_conjunta' },
     { id: 'HR03', pjClientId: 'C12', personName: 'Tarso Bittar', document: '333.444.555-66', title: 'Sócio-fundador', role: 'assinatura_individual' },
     { id: 'HR04', pjClientId: 'C12', personName: 'Heloísa Bittar', document: '444.555.666-77', title: 'Sócia minoritária', role: 'consulta' },
+    { id: 'HR05', pjClientId: 'C16', personName: 'Mariana Costa', document: '321.654.987-00', title: 'Sócia-administradora', role: 'assinatura_individual' },
+    { id: 'HR06', pjClientId: 'C16', personName: 'Ricardo Costa', document: '987.321.654-00', title: 'Sócio', role: 'assinatura_conjunta' },
   ];
 
-  window.PORTAL_DATA = { now: NOW, profiles, clients, portfolioPositions, cashEvents, alerts, onboarding, orders, products, simulations, serviceRequests, tickets, holdingRelations };
+  // ---------------------------------------------------------------------
+  // Normalização: campos novos da jornada 360 (workspace do cliente).
+  // Aplica defaults sintéticos aos clientes/posições/movimentações antigos,
+  // sem precisar reescrever cada objeto acima.
+  // ---------------------------------------------------------------------
+  const RENT_BY_PROFILE = { Conservador: 6.1, Moderado: 8.2, Agressivo: 11.4, Sofisticado: 9.3 };
+  const ACC_RETURN_BY_CLASS = { 'Pós-fixado': 0.09, Prefixado: 0.11, Inflação: 0.12, Fundos: 0.1, Multimercado: 0.13, FIIs: 0.08, Ações: 0.14, Global: 0.15, Previdência: 0.09, Caixa: 0 };
+  const INVESTABLE_BY_CATEGORY = {
+    transferencia: 'investivel', vencimento: 'investivel', resgate: 'investivel', rendimento: 'investivel',
+    dividendo: 'investivel', salario: 'investivel', deposito: 'banking', cashback: 'banking', nao_classificado: 'nao_classificado',
+  };
+
+  clients.forEach((c, i) => {
+    if (c.rentability12m == null) c.rentability12m = Math.round((RENT_BY_PROFILE[c.riskProfile] || 8) * 10 + ((i % 5) - 2)) / 10;
+    if (c.investedWealth == null) c.investedWealth = Math.max(0, c.totalWealth - c.availableBalance);
+    if (c.dateOfBirth === undefined) c.dateOfBirth = c.type === 'PF' ? `19${70 + (i % 25)}-0${1 + (i % 9)}-1${i % 9}` : null;
+    if (!c.linkDate) c.linkDate = '2025-01-10';
+    if (c.pfPjLinkId === undefined) c.pfPjLinkId = null;
+    if (!c.security) c.security = { accessActive: c.status !== 'bloqueado', tokenActive: c.status === 'ativo', lastLoginAt: c.updatedAt };
+  });
+
+  portfolioPositions.forEach((p) => {
+    if (p.appliedValue == null) {
+      const acc = ACC_RETURN_BY_CLASS[p.class] != null ? ACC_RETURN_BY_CLASS[p.class] : 0.08;
+      p.appliedValue = Math.round(p.currentValue / (1 + acc));
+    }
+  });
+
+  cashEvents.forEach((e) => {
+    if (!e.investable) e.investable = INVESTABLE_BY_CATEGORY[e.category] || 'nao_classificado';
+  });
+
+  // ---------------------------------------------------------------------
+  // Documentos do cliente (Fase 2 do workspace) — catálogo + trilha de acesso.
+  // Explícito para a vitrine (C15); os demais usam um conjunto genérico gerado
+  // pela própria aba Documentos.
+  // ---------------------------------------------------------------------
+  const clientDocuments = [
+    { id: 'DOC01', clientId: 'C15', name: 'Informe de rendimentos 2025', category: 'informe', year: 2025, format: 'PDF', status: 'disponivel', generatedAt: '2026-02-28' },
+    { id: 'DOC02', clientId: 'C15', name: 'Informe Previdência 2025', category: 'previdencia', year: 2025, format: 'PDF', status: 'disponivel', generatedAt: '2026-02-28' },
+    { id: 'DOC03', clientId: 'C15', name: 'Relatório consolidado — Julho 2026', category: 'relatorio', year: 2026, format: 'PDF', status: 'enviado', generatedAt: '2026-08-04' },
+    { id: 'DOC04', clientId: 'C15', name: 'Extrato de investimentos — Junho 2026', category: 'investimentos', year: 2026, format: 'PDF', status: 'disponivel', generatedAt: '2026-07-02' },
+    { id: 'DOC05', clientId: 'C15', name: 'Termo de abertura de conta', category: 'cadastral', year: 2025, format: 'PDF', status: 'disponivel', generatedAt: '2025-03-14' },
+    { id: 'DOC06', clientId: 'C15', name: 'Comprovante de residência', category: 'comprovante', year: 2025, format: 'PDF', status: 'disponivel', generatedAt: '2025-03-12' },
+    { id: 'DOC07', clientId: 'C16', name: 'Informe de rendimentos PJ 2025', category: 'informe', year: 2025, format: 'PDF', status: 'disponivel', generatedAt: '2026-02-28' },
+    { id: 'DOC08', clientId: 'C16', name: 'Contrato social consolidado', category: 'cadastral', year: 2025, format: 'PDF', status: 'disponivel', generatedAt: '2025-06-10' },
+  ];
+
+  const documentAccessLog = [
+    { id: 'DA01', clientId: 'C15', document: 'Informe de rendimentos 2025', who: 'Marina Ferraz', action: 'Baixou', date: '2026-03-05T10:20:00-03:00' },
+    { id: 'DA02', clientId: 'C15', document: 'Relatório consolidado — Julho 2026', who: 'Marina Ferraz', action: 'Enviou ao cliente', date: '2026-08-04T09:10:00-03:00' },
+    { id: 'DA03', clientId: 'C15', document: 'Extrato de investimentos — Junho 2026', who: 'Camila Duarte', action: 'Visualizou', date: '2026-07-10T14:40:00-03:00' },
+  ];
+
+  // ---------------------------------------------------------------------
+  // Perfil de banking (Fase 2) — conta + cartão. Explícito p/ vitrine.
+  // ---------------------------------------------------------------------
+  const bankingProfiles = [
+    { clientId: 'C15', account: { status: 'Ativa', balance: 15000, pixLimit: 20000, tedLimit: 50000 }, card: { name: 'Inter Black', status: 'Ativo', limit: 50000, used: 12300, closingDay: '18/08', invoice: 8450 } },
+    { clientId: 'C16', account: { status: 'Ativa', balance: 90000, pixLimit: 100000, tedLimit: 500000 }, card: { name: 'Inter Empresas', status: 'Ativo', limit: 120000, used: 34200, closingDay: '20/08', invoice: 21800 } },
+  ];
+
+  window.PORTAL_DATA = { now: NOW, profiles, clients, portfolioPositions, cashEvents, alerts, onboarding, orders, products, simulations, serviceRequests, tickets, holdingRelations, clientDocuments, documentAccessLog, bankingProfiles };
 })();
