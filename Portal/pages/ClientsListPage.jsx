@@ -86,11 +86,11 @@ function ClientsListPage({ profile, clients, alerts, orders, positions, search, 
   const pendencias = clients.filter(isPendencia).length;
 
   const bigNumbers = [
-    { value: clients.length, label: 'clientes', accent: true },
-    { value: formatCurrency(totalPatrimonio), label: 'em patrimônio' },
-    { value: comSaldo, label: 'com saldo disponível' },
-    { value: vencimentos, label: 'vencimentos próximos' },
-    { value: pendencias, label: 'pendências' },
+    { value: clients.length, label: 'Clientes', color: 'text-neutral-900' },
+    { value: formatCurrency(totalPatrimonio), label: 'Patrimônio', color: 'text-brand-dark' },
+    { value: comSaldo, label: 'Com saldo disponível', color: 'text-neutral-900' },
+    { value: vencimentos, label: 'Vencimentos próximos', color: 'text-warning-dark' },
+    { value: pendencias, label: 'Pendências', color: 'text-alert-dark' },
   ];
 
   const flagChip = (key, label) => (
@@ -106,17 +106,20 @@ function ClientsListPage({ profile, clients, alerts, orders, positions, search, 
     name: {
       key: 'name', label: 'Cliente',
       render: (c) => (
-        <div className="flex items-center gap-2">
-          <div>
-            <div className="font-medium text-neutral-900">{c.name}</div>
-            <div className="text-xs text-neutral-400">{c.type} · {c.email}</div>
+        <div className="flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center text-[11px] font-bold shrink-0">
+            {c.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+          </span>
+          <div className="min-w-0">
+            <div className="font-medium text-neutral-900 truncate">{c.name}</div>
+            <div className="text-xs text-neutral-400 truncate">{c.type} · {c.email}</div>
           </div>
           {isPendencia(c) && <StatusPill label="Atenção" className="bg-warning-light text-warning-dark" size="sm" />}
         </div>
       ),
     },
     account: { key: 'account', label: 'Conta', render: (c) => <span className="text-neutral-600">{c.account}</span> },
-    segment: { key: 'segment', label: 'Segmento', render: (c) => <span className="text-neutral-600">{c.segment}</span> },
+    segment: { key: 'segment', label: 'Segmento', render: (c) => <span className="inline-flex items-center gap-1.5 text-neutral-600"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: window.PortalLib.segmentDot(c.segment) }} />{window.PortalLib.segmentLabel(c.segment)}</span> },
     totalWealth: { key: 'totalWealth', label: 'Patrimônio', render: (c) => formatCurrency(c.totalWealth) },
     availableBalance: { key: 'availableBalance', label: 'Saldo disponível', render: (c) => <span className={c.availableBalance > 0 ? 'text-neutral-900' : 'text-neutral-300'}>{c.availableBalance > 0 ? formatCurrency(c.availableBalance) : '—'}</span> },
     nextEvent: {
@@ -174,9 +177,9 @@ function ClientsListPage({ profile, clients, alerts, orders, positions, search, 
       {/* Big numbers */}
       <div className="flex flex-wrap gap-3">
         {bigNumbers.map((b, i) => (
-          <div key={i} className="bg-white border border-neutral-100 rounded-large px-4 py-3 flex-1 min-w-[140px]">
-            <div className={window.PortalLib.classNames('text-xl font-semibold', b.accent ? 'text-brand-dark' : 'text-neutral-900')}>{b.value}</div>
-            <div className="text-xs text-neutral-500 mt-0.5">{b.label}</div>
+          <div key={i} className="bg-white border border-neutral-100 rounded-large px-5 py-4 flex-1 min-w-[150px]">
+            <div className={window.PortalLib.classNames('text-2xl font-bold', b.color)}>{b.value}</div>
+            <div className="text-[10px] font-semibold tracking-wide text-neutral-400 uppercase mt-1">{b.label}</div>
           </div>
         ))}
       </div>
@@ -190,8 +193,8 @@ function ClientsListPage({ profile, clients, alerts, orders, positions, search, 
         </select>
         <select value={segment} onChange={(e) => setSegment(e.target.value)} className="text-sm border border-neutral-200 rounded-pill px-3 py-1.5">
           <option value="">Todos os segmentos</option>
-          <option value="Standard">Standard</option>
-          <option value="High">High</option>
+          <option value="Standard">Retail</option>
+          <option value="High">High Income</option>
           <option value="Private">Private</option>
           <option value="Corporate">Corporate</option>
         </select>

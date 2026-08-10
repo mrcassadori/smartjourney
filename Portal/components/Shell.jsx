@@ -1,12 +1,11 @@
-// Header + navegação lateral + busca global (US-03) + sino de alertas (US-07)
-// + troca de perfil/cenário sem auth real.
+// Header + navegação lateral (tema escuro, ref. "Cliente Novo.png") + busca
+// global (US-03) + sino de alertas (US-07) + troca de perfil/cenário sem auth.
 
-// Menu lateral plano e fixo (workspace de wealth management): 8 itens diretos,
-// sem flyout. `route` navega para uma página real; `comingSoon` abre o estado
-// "em breve". `permKey` (opcional) permite checar a permissão contra uma chave
-// diferente da rota (ex.: Recomendações usa a rota do Simulador mas a permissão
-// de `recommendations`). O rodapé (Favoritos/Ajuda/Configurações + Perfil) fica
-// separado na base do rail.
+// Rail escuro fixo com logo no topo, 8 itens de menu e o perfil na base. O
+// header (busca + Ajuda + sino + persona) fica só sobre a área de conteúdo —
+// sem os antigos pills "Jornada/Portal" (o link para a Jornada foi para a base
+// do rail, discreto). `route` navega; `comingSoon` abre "em breve"; `permKey`
+// (opcional) checa permissão numa chave diferente da rota.
 const NAV_ITEMS = [
   { key: 'visao-geral', label: 'Visão geral', icon: 'home', route: 'home' },
   { key: 'clientes', label: 'Clientes', icon: 'users', route: 'clients' },
@@ -18,6 +17,8 @@ const NAV_ITEMS = [
   { key: 'suporte', label: 'Suporte', icon: 'helpCircle', route: 'support' },
 ];
 
+// Mantidos só para registrar as chaves "em breve" em app.jsx (COMING_SOON_KEYS)
+// — não são mais renderizados no rail; "Ajuda" agora vive no header.
 const NAV_FOOTER_ITEMS = [
   { key: 'favoritos-menu', label: 'Favoritos', icon: 'star', comingSoon: true },
   { key: 'ajuda', label: 'Ajuda', icon: 'helpCircle', comingSoon: true },
@@ -26,20 +27,13 @@ const NAV_FOOTER_ITEMS = [
 
 const NAV_ITEMS_FLAT = NAV_ITEMS.concat(NAV_FOOTER_ITEMS);
 
-function ProductSwitcher() {
+function SidebarLogo() {
   return (
-    <div className="inline-flex items-center rounded-pill bg-neutral-100 p-0.5 text-xs font-medium">
-      <a
-        href="../prototype.html"
-        className="px-3 py-1.5 rounded-pill text-neutral-500 hover:text-neutral-800 flex items-center gap-1.5"
-        title="Ir para o protótipo de pesquisa da Jornada (CX Journey Mapper)"
-      >
-        <Icon name="mapSignpost" size={14} />
-        Jornada
-      </a>
-      <span className="px-3 py-1.5 rounded-pill bg-white text-neutral-900 shadow-sm flex items-center gap-1.5">
-        <Icon name="briefcase" size={14} />
-        Portal do Consultor
+    <div className="flex items-center gap-2.5 px-5 py-5">
+      <span className="w-8 h-8 rounded-medium bg-brand flex items-center justify-center text-white font-black text-lg shrink-0" style={{ fontFamily: 'Georgia, serif' }}>i</span>
+      <span className="leading-tight">
+        <span className="block text-white font-bold text-[15px]">Inter</span>
+        <span className="block text-[9px] tracking-[0.15em] text-[#7c8698] uppercase">Consultor Portal</span>
       </span>
     </div>
   );
@@ -52,14 +46,14 @@ function ProfileSwitcher({ profiles, currentProfile, onChange }) {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-large text-left text-neutral-600 hover:bg-neutral-50"
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-large text-left hover:bg-white/5"
       >
-        <span className="w-8 h-8 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center text-xs font-bold shrink-0">{initials}</span>
+        <span className="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center text-xs font-bold shrink-0">{initials}</span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium text-neutral-900 truncate">{currentProfile.name}</span>
-          <span className="block text-[11px] text-neutral-500 truncate">{currentProfile.role}</span>
+          <span className="block text-sm font-semibold text-white truncate">{currentProfile.name}</span>
+          <span className="block text-[11px] text-[#7c8698] truncate">{currentProfile.escritorio || currentProfile.role}</span>
         </span>
-        <Icon name="chevronDown" size={14} className="text-neutral-400 shrink-0" />
+        <Icon name="chevronDown" size={14} className="text-[#7c8698] shrink-0" />
       </button>
       {open && (
         <React.Fragment>
@@ -108,7 +102,7 @@ function GlobalSearch({ value, onChange, onSubmit }) {
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Buscar por nome, CPF, e-mail, telefone ou conta…"
+        placeholder="Busque por nome, CPF, e-mail, telefone…"
         className="w-full text-sm border border-neutral-200 rounded-pill pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
       />
     </form>
@@ -117,10 +111,10 @@ function GlobalSearch({ value, onChange, onSubmit }) {
 
 function AlertsBell({ count, onClick }) {
   return (
-    <button onClick={onClick} className="relative w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50" aria-label="Central de alertas">
-      <Icon name="bell" size={17} />
+    <button onClick={onClick} className="relative w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 hover:bg-neutral-100" aria-label="Central de alertas">
+      <Icon name="bell" size={18} />
       {count > 0 && (
-        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-alert text-white text-[10px] font-bold flex items-center justify-center">
+        <span className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-alert text-white text-[10px] font-bold flex items-center justify-center">
           {count > 9 ? '9+' : count}
         </span>
       )}
@@ -143,7 +137,7 @@ function itemTitle(item, allowed) {
   return undefined;
 }
 
-// Linha do menu plano: botão direto (usado tanto no bloco principal quanto no rodapé).
+// Linha do menu escuro: botão direto com barra laranja à direita quando ativo.
 function NavRow({ item, current, pageParams, permissions, onNavigate }) {
   const permKey = item.permKey || item.route;
   const allowed = item.comingSoon || !permKey || !permissions || permissions.menu.indexOf(permKey) !== -1;
@@ -154,30 +148,32 @@ function NavRow({ item, current, pageParams, permissions, onNavigate }) {
       title={itemTitle(item, allowed)}
       onClick={() => onNavigate(item.route || item.key, item.routeParams || {})}
       className={window.PortalLib.classNames(
-        'w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-large text-left text-sm',
-        active ? 'bg-brand-lightest text-brand-dark font-medium' : muted ? 'text-neutral-400 hover:bg-neutral-50' : 'text-neutral-600 hover:bg-neutral-50'
+        'relative w-full flex items-center gap-3 pl-5 pr-3 py-2.5 text-left text-sm transition-colors',
+        active ? 'text-white bg-white/[0.07] font-semibold' : muted ? 'text-[#5f6a7d] hover:bg-white/[0.03]' : 'text-[#94a3b8] hover:text-white hover:bg-white/[0.04]'
       )}
     >
+      {active && <span className="absolute right-0 top-1.5 bottom-1.5 w-[3px] rounded-l bg-brand" />}
       <Icon name={item.icon} size={18} className="shrink-0" />
       <span className="flex-1 truncate">{item.label}</span>
-      {item.comingSoon && <span className="text-[10px] uppercase tracking-wide text-neutral-300">em breve</span>}
-      {!item.comingSoon && !allowed && <Icon name="shield" size={13} className="text-neutral-300" />}
+      {item.comingSoon && <span className="text-[9px] uppercase tracking-wide text-[#5f6a7d]">em breve</span>}
+      {!item.comingSoon && !allowed && <Icon name="shield" size={13} className="text-[#5f6a7d]" />}
     </button>
   );
 }
 
 function Sidebar({ current, pageParams, onNavigate, permissions, profiles, profile, onChangeProfile }) {
   return (
-    <nav className="w-56 shrink-0 border-r border-neutral-100 bg-white py-4 hidden lg:flex lg:flex-col relative z-20">
-      <div className="px-2 space-y-0.5">
+    <nav className="w-60 shrink-0 bg-[#0f1826] hidden lg:flex lg:flex-col sticky top-0 h-screen z-20">
+      <SidebarLogo />
+      <div className="mt-2 space-y-0.5 flex-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => (
           <NavRow key={item.key} item={item} current={current} pageParams={pageParams} permissions={permissions} onNavigate={onNavigate} />
         ))}
       </div>
-      <div className="px-2 pt-3 mt-3 space-y-0.5 border-t border-neutral-100 shrink-0">
-        {NAV_FOOTER_ITEMS.map((item) => (
-          <NavRow key={item.key} item={item} current={current} pageParams={pageParams} permissions={null} onNavigate={onNavigate} />
-        ))}
+      <div className="px-2 py-3 mt-2 border-t border-white/10 shrink-0">
+        <a href="../prototype.html" title="Ir para o protótipo de pesquisa da Jornada (CX Journey Mapper)" className="w-full flex items-center gap-2 px-3 py-2 rounded-large text-[11px] text-[#7c8698] hover:text-white hover:bg-white/5">
+          <Icon name="mapSignpost" size={14} className="shrink-0" /> Jornada (pesquisa CX)
+        </a>
         <ProfileSwitcher profiles={profiles} currentProfile={profile} onChange={onChangeProfile} />
       </div>
     </nav>
@@ -186,38 +182,40 @@ function Sidebar({ current, pageParams, onNavigate, permissions, profiles, profi
 
 function Shell({ profile, profiles, onChangeProfile, current, pageParams, onNavigate, alertsCount, search, onSearchChange, onSearchSubmit, breadcrumb, children }) {
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <header className="bg-white border-b border-neutral-100 px-4 lg:px-6 py-3 flex items-center gap-4 sticky top-0 z-30">
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="font-black text-lg tracking-tight text-brand">inter</span>
-          <span className="hidden md:inline text-sm text-neutral-400">Portal do Consultor</span>
-        </div>
-        <ProductSwitcher />
-        <GlobalSearch value={search} onChange={onSearchChange} onSubmit={onSearchSubmit} />
-        <div className="flex items-center gap-2 ml-auto shrink-0">
-          <AlertsBell count={alertsCount} onClick={() => onNavigate('alerts')} />
-        </div>
-      </header>
-      <div className="flex">
-        <Sidebar
-          current={current}
-          pageParams={pageParams}
-          onNavigate={onNavigate}
-          permissions={profile.permissions}
-          profiles={profiles}
-          profile={profile}
-          onChangeProfile={onChangeProfile}
-        />
+    <div className="min-h-screen flex bg-neutral-50 text-neutral-900">
+      <Sidebar
+        current={current}
+        pageParams={pageParams}
+        onNavigate={onNavigate}
+        permissions={profile.permissions}
+        profiles={profiles}
+        profile={profile}
+        onChangeProfile={onChangeProfile}
+      />
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="bg-white border-b border-neutral-100 px-4 lg:px-6 py-3 flex items-center gap-4 sticky top-0 z-30">
+          <GlobalSearch value={search} onChange={onSearchChange} onSubmit={onSearchSubmit} />
+          <div className="flex items-center gap-3 ml-auto shrink-0">
+            <button onClick={() => onNavigate('ajuda')} className="hidden sm:flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800">
+              <Icon name="helpCircle" size={16} /> Ajuda
+            </button>
+            <AlertsBell count={alertsCount} onClick={() => onNavigate('alerts')} />
+            <div className="pl-3 border-l border-neutral-200 text-right leading-tight">
+              <div className="text-sm font-semibold text-neutral-900">{profile.name}</div>
+              <div className="text-[10px] font-semibold tracking-wide text-brand uppercase">{profile.escritorio || profile.role}</div>
+            </div>
+          </div>
+        </header>
         <main className="flex-1 min-w-0 p-4 lg:p-6">
           {breadcrumb && (
             <div className="flex items-center gap-1.5 text-xs text-neutral-400 mb-3">
               {breadcrumb.map((b, i) => (
                 <React.Fragment key={i}>
-                  {i > 0 && <Icon name="chevronRight" size={12} />}
+                  {i > 0 && <span className="text-neutral-300">/</span>}
                   {b.onClick ? (
                     <button onClick={b.onClick} className="hover:text-neutral-700 hover:underline">{b.label}</button>
                   ) : (
-                    <span className="text-neutral-600">{b.label}</span>
+                    <span className={i === breadcrumb.length - 1 ? 'text-brand-dark font-medium' : 'text-neutral-500'}>{b.label}</span>
                   )}
                 </React.Fragment>
               ))}
@@ -225,10 +223,10 @@ function Shell({ profile, profiles, onChangeProfile, current, pageParams, onNavi
           )}
           {children}
         </main>
+        <footer className="text-center text-[11px] text-neutral-300 py-6 px-6">
+          Protótipo 100% mockado — sem conexão com APIs, backend ou dados reais de clientes. Todas as ações são simuladas e vivem só no estado desta sessão do navegador.
+        </footer>
       </div>
-      <footer className="text-center text-[11px] text-neutral-300 py-6 px-6">
-        Protótipo 100% mockado — sem conexão com APIs, backend ou dados reais de clientes. Todas as ações são simuladas e vivem só no estado desta sessão do navegador.
-      </footer>
     </div>
   );
 }

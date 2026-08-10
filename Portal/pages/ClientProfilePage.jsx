@@ -52,8 +52,35 @@ function GroupDonut({ groups, size }) {
   );
 }
 
-function AssetClassBar({ positions }) {
-  const { formatCurrency, ASSET_CLASS_ORDER } = window.PortalLib;
+// Barra de alocação horizontal empilhada (ref. "Cliente Novo.png") + legenda.
+function AllocationStackBar({ groups, showLegend }) {
+  const { ASSET_CLASS_HEX } = window.PortalLib;
+  const total = groups.reduce((s, g) => s + g.value, 0);
+  if (total === 0) return <div className="text-xs text-neutral-400">Sem posições.</div>;
+  return (
+    <div>
+      <div className="flex h-3 rounded-pill overflow-hidden mb-3">
+        {groups.map((g, i) => (
+          <div key={g.key} title={`${g.key}: ${((g.value / total) * 100).toFixed(0)}%`} style={{ width: `${(g.value / total) * 100}%`, backgroundColor: ASSET_CLASS_HEX[i % ASSET_CLASS_HEX.length] }} />
+        ))}
+      </div>
+      {showLegend !== false && (
+        <ul className="space-y-1.5 text-sm">
+          {groups.map((g, i) => (
+            <li key={g.key} className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ASSET_CLASS_HEX[i % ASSET_CLASS_HEX.length] }} />
+              <span className="text-neutral-600 flex-1 truncate">{g.key}</span>
+              <span className="text-neutral-900 font-semibold tabular-nums">{((g.value / total) * 100).toFixed(0)}%</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function AssetClassBar({ positions, onSeeAll }) {
+  const { ASSET_CLASS_ORDER } = window.PortalLib;
   const total = positions.reduce((s, p) => s + p.currentValue, 0);
   if (total === 0) return null;
   const byClass = {};
@@ -62,10 +89,10 @@ function AssetClassBar({ positions }) {
   return (
     <div className="bg-white rounded-large border border-neutral-100 p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-neutral-800">Composição da carteira</h3>
-        <span className="text-xs text-neutral-400">{formatCurrency(total)}</span>
+        <h3 className="text-sm font-semibold text-neutral-800">Alocação atual</h3>
+        {onSeeAll && <button onClick={onSeeAll} className="text-xs font-medium text-brand-dark hover:underline">Ver carteira completa</button>}
       </div>
-      <GroupDonut groups={groups} size={150} />
+      <AllocationStackBar groups={groups} />
     </div>
   );
 }
@@ -74,18 +101,18 @@ function AssetClassBar({ positions }) {
 function FinancialCards({ client }) {
   const { formatCurrency } = window.PortalLib;
   const cards = [
-    { label: 'Patrimônio total', value: formatCurrency(client.totalWealth), accent: true },
-    { label: 'Investido', value: formatCurrency(client.investedWealth != null ? client.investedWealth : client.totalWealth - client.availableBalance) },
-    { label: 'Caixa disponível', value: formatCurrency(client.availableBalance) },
-    { label: 'Potencialmente investível', value: formatCurrency(client.investableCashEstimate) },
-    { label: 'Rentabilidade 12m', value: client.rentability12m != null ? `${client.rentability12m >= 0 ? '+' : ''}${client.rentability12m}%` : '—' },
+    { label: 'Patrimônio total', value: formatCurrency(client.totalWealth), color: 'text-neutral-900' },
+    { label: 'Investido', value: formatCurrency(client.investedWealth != null ? client.investedWealth : client.totalWealth - client.availableBalance), color: 'text-info-dark' },
+    { label: 'Caixa disponível', value: formatCurrency(client.availableBalance), color: 'text-success-dark' },
+    { label: 'Potencialmente investível', value: formatCurrency(client.investableCashEstimate), color: 'text-brand-dark' },
+    { label: 'Rentabilidade 12m', value: client.rentability12m != null ? `${client.rentability12m >= 0 ? '+' : ''}${client.rentability12m}%` : '—', color: client.rentability12m >= 0 ? 'text-success-dark' : 'text-alert-dark' },
   ];
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
       {cards.map((c) => (
-        <div key={c.label} className="bg-white border border-neutral-100 rounded-large px-4 py-3">
-          <div className="text-[11px] text-neutral-400">{c.label}</div>
-          <div className={window.PortalLib.classNames('text-lg font-light mt-1', c.accent ? 'text-brand-dark' : 'text-neutral-900')}>{c.value}</div>
+        <div key={c.label} className="bg-white border border-neutral-100 rounded-large px-4 py-3.5">
+          <div className="text-[10px] font-semibold tracking-wide text-neutral-400 uppercase">{c.label}</div>
+          <div className={window.PortalLib.classNames('text-xl font-bold mt-1.5', c.color)}>{c.value}</div>
         </div>
       ))}
     </div>
@@ -97,29 +124,28 @@ function AttentionArea({ client, positions, ordersAwaiting, now, onGoCash, onGoP
   const nm = nextMaturity(positions, now);
   const cards = [];
   if (client.investableCashEstimate > 0) {
-    cards.push({ icon: 'wallet', title: `${formatCurrency(client.investableCashEstimate)} potencialmente investíveis`, desc: 'Parte do saldo está disponível após vencimentos e entradas.', cta: 'Ver origem', onClick: onGoCash });
+    cards.push({ icon: 'wallet', tone: 'brand', title: `${formatCurrency(client.investableCashEstimate)} potencialmente investíveis`, desc: 'Parte do saldo está disponível após vencimentos e entradas.', cta: 'Ver origem', onClick: onGoCash });
   }
   if (nm && nm.days <= 30) {
-    cards.push({ icon: 'clock', title: `${formatCurrency(nm.position.currentValue)} vencem em ${nm.days} ${nm.days === 1 ? 'dia' : 'dias'}`, desc: nm.position.asset, cta: 'Analisar carteira', onClick: onGoPortfolio });
+    cards.push({ icon: 'clock', tone: 'warning', title: `${formatCurrency(nm.position.currentValue)} vencem em ${nm.days} ${nm.days === 1 ? 'dia' : 'dias'}`, desc: nm.position.asset, cta: 'Analisar carteira', onClick: onGoPortfolio });
   }
   if (ordersAwaiting > 0) {
-    cards.push({ icon: 'inbox', title: `${ordersAwaiting} ${ordersAwaiting === 1 ? 'recomendação aguardando' : 'recomendações aguardando'} aprovação`, desc: 'Acompanhe o retorno do cliente.', cta: 'Ver ordens', onClick: onGoOrders });
+    cards.push({ icon: 'inbox', tone: 'info', title: `${ordersAwaiting} ${ordersAwaiting === 1 ? 'recomendação aguardando' : 'recomendações aguardando'} aprovação`, desc: 'Acompanhe o retorno do cliente.', cta: 'Ver ordens', onClick: onGoOrders });
   }
   if (cards.length === 0) return null;
+  const TONE = { brand: 'bg-brand-lightest text-brand-dark', warning: 'bg-warning-light text-warning-dark', info: 'bg-info-light text-info-dark' };
   return (
     <div>
       <h3 className="text-sm font-semibold text-neutral-800 mb-2">Requer atenção</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="space-y-2">
         {cards.map((c, i) => (
-          <div key={i} className="bg-white border border-neutral-100 rounded-large p-4 flex flex-col">
-            <div className="flex items-start gap-2.5 flex-1">
-              <span className="w-8 h-8 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center shrink-0"><Icon name={c.icon} size={15} /></span>
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-neutral-900">{c.title}</div>
-                <div className="text-xs text-neutral-500 mt-0.5">{c.desc}</div>
-              </div>
+          <div key={i} className="bg-white border border-neutral-100 rounded-large px-4 py-3.5 flex items-center gap-3">
+            <span className={window.PortalLib.classNames('w-9 h-9 rounded-full flex items-center justify-center shrink-0', TONE[c.tone])}><Icon name={c.icon} size={16} /></span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-neutral-900">{c.title}</div>
+              <div className="text-xs text-neutral-500 mt-0.5">{c.desc}</div>
             </div>
-            <button onClick={c.onClick} className="text-sm text-brand-dark font-medium hover:underline mt-3 self-start flex items-center gap-1">
+            <button onClick={c.onClick} className="text-sm text-brand-dark font-medium hover:underline shrink-0 flex items-center gap-1">
               {c.cta} <Icon name="chevronRight" size={13} />
             </button>
           </div>
@@ -188,41 +214,53 @@ function PortfolioTab({ client, positions, now, onExport, onOpenPosition, onSimu
 
   return (
     <div className="space-y-4">
-      {/* Resumo + donut + insights */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white border border-neutral-100 rounded-large p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm text-neutral-500">
-              Investido: <span className="font-semibold text-neutral-900">{formatCurrency(total)}</span>
-              {client.rentability12m != null && <span className="ml-2 text-success-dark">+{client.rentability12m}% 12m</span>}
-            </div>
-            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} className="text-sm border border-neutral-200 rounded-pill px-3 py-1.5">
-              <option value="class">Por classe</option>
-              <option value="product">Por produto</option>
-              <option value="issuer">Por emissor</option>
-              <option value="maturity">Por vencimento</option>
-            </select>
+      {/* Resumo */}
+      <div className="bg-white border border-neutral-100 rounded-large p-4 flex flex-wrap items-center gap-x-10 gap-y-3 justify-between">
+        <div className="flex flex-wrap items-center gap-x-10 gap-y-2">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Patrimônio investido</div>
+            <div className="text-xl font-bold text-neutral-900">{formatCurrency(total)}</div>
           </div>
-          <GroupDonut groups={donutGroups} size={150} />
+          {client.rentability12m != null && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Rentabilidade 12m</div>
+              <div className="text-xl font-bold text-success-dark">+{client.rentability12m}%</div>
+            </div>
+          )}
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Posição atualizada</div>
+            <div className="text-sm text-neutral-700 mt-1">{window.PortalLib.formatDateTime(client.updatedAt)}</div>
+          </div>
         </div>
-        <div className="bg-white border border-neutral-100 rounded-large p-4 flex flex-col">
-          <h3 className="text-sm font-semibold text-neutral-800 mb-2">Insights</h3>
-          <ul className="space-y-2 text-sm text-neutral-600 flex-1">
-            {insights.length === 0 ? <li className="text-neutral-400 text-xs">Carteira equilibrada.</li> : insights.map((t, i) => (
-              <li key={i} className="flex gap-2"><span className="mt-1.5 w-1 h-1 rounded-full bg-neutral-300 shrink-0" /> {t}</li>
-            ))}
-          </ul>
-          <button onClick={onSimulateRebalance} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center justify-center gap-1.5 mt-3">
-            <Icon name="target" size={14} /> Simular rebalanceamento
+        <div className="flex items-center gap-2">
+          <button onClick={onExport} className="text-sm px-3 py-2 rounded-pill border border-neutral-200 flex items-center gap-1.5 hover:bg-neutral-50">
+            <Icon name="download" size={14} /> Exportar
+          </button>
+          <button onClick={onSimulateRebalance} className="text-sm px-4 py-2 rounded-pill border border-brand text-brand-dark hover:bg-brand-lightest flex items-center gap-1.5">
+            <Icon name="refresh" size={14} /> Simular rebalanceamento
           </button>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] text-neutral-400">Posição atualizada {window.PortalLib.formatDateTime(client.updatedAt)}</span>
-        <button onClick={onExport} className="text-sm px-3 py-1.5 rounded-pill border border-neutral-200 flex items-center gap-1.5 hover:bg-neutral-50">
-          <Icon name="download" size={14} /> Exportar
-        </button>
+      {/* Distribuição de Ativos */}
+      <div className="bg-white border border-neutral-100 rounded-large p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-neutral-800">Distribuição de Ativos</h3>
+          <div className="inline-flex items-center rounded-pill bg-neutral-100 p-0.5 text-xs font-medium">
+            {[['class', 'Classe'], ['product', 'Produto'], ['issuer', 'Emissor'], ['maturity', 'Vencimento']].map(([v, label]) => (
+              <button key={v} onClick={() => setGroupBy(v)} className={window.PortalLib.classNames('px-3 py-1.5 rounded-pill', groupBy === v ? 'bg-white text-brand-dark shadow-sm' : 'text-neutral-500 hover:text-neutral-800')}>{label}</button>
+            ))}
+          </div>
+        </div>
+        <AllocationStackBar groups={donutGroups} showLegend={false} />
+        {insights.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <span className="text-xs text-neutral-400">Insights:</span>
+            {insights.map((t, i) => (
+              <span key={i} className="text-xs px-2.5 py-1 rounded-pill bg-brand-lightest text-brand-dark">{t}</span>
+            ))}
+          </div>
+        )}
       </div>
 
       {positions.length === 0 ? (
@@ -821,7 +859,7 @@ function DadosTab({ client, linkedClient, holdingRelations, onConfirmAction, onO
       <DadosSection title="Relacionamento">
         <DataRow label="Consultoria" value={client.escritorio} />
         <DataRow label="Consultor" value={OWNER_NAME_MAP[client.ownerId] || client.ownerId} />
-        <DataRow label="Segmento" value={client.segment} />
+        <DataRow label="Segmento" value={window.PortalLib.segmentLabel(client.segment)} />
         <DataRow label="Status do vínculo" value={<StatusPill label={CLIENT_STATUS_META[client.status].label} className={CLIENT_STATUS_META[client.status].className} size="sm" />} />
         <DataRow label="Data do vínculo" value={client.linkDate ? formatDate(client.linkDate) : '—'} />
       </DadosSection>
@@ -897,6 +935,31 @@ function InfoField({ label, value, children }) {
       <div className="text-[11px] text-neutral-400">{label}</div>
       {children || <div className="text-neutral-800 truncate">{value}</div>}
     </div>
+  );
+}
+
+// Atividade recente compacta (ref.): coluna de data curta (Hoje/Ontem/DD mmm) + evento.
+function CompactActivity({ events, limit, now }) {
+  const { daysUntil } = window.PortalLib;
+  const list = (limit ? events.slice(0, limit) : events);
+  if (!list.length) return <div className="text-xs text-neutral-400">Nenhum evento recente.</div>;
+  const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  function shortLabel(dateStr) {
+    const d = daysUntil(dateStr.slice(0, 10), now); // <=0 no passado
+    if (d === 0) return 'Hoje';
+    if (d === -1) return 'Ontem';
+    const dt = new Date(dateStr);
+    return `${dt.getDate()} ${MONTHS[dt.getMonth()]}`;
+  }
+  return (
+    <ul className="divide-y divide-neutral-50">
+      {list.map((ev, i) => (
+        <li key={i} className="flex items-start gap-3 py-2 text-sm first:pt-0 last:pb-0">
+          <span className="text-[11px] text-neutral-400 w-12 shrink-0 pt-0.5">{shortLabel(ev.date)}</span>
+          <span className="text-neutral-700 leading-snug">{ev.label}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -1217,7 +1280,7 @@ function ClientProfilePage({
     { label: 'Recomendar investimento', icon: 'sparkles', onClick: () => setShowBridge(true) },
     { label: 'Enviar relatório', icon: 'fileText', onClick: () => setShowReport(true) },
     { label: 'Solicitar documento', icon: 'file', onClick: () => setTab('documents') },
-    { label: 'Abrir atendimento', icon: 'lifeBuoy', onClick: () => onOpenTicket(client, 'client', null, null) },
+    { label: 'Abrir atendimento', icon: 'lifeBuoy', onClick: () => setShowSupport(true) },
   ];
 
   function startRecommendation(intent) {
@@ -1252,8 +1315,9 @@ function ClientProfilePage({
                 <StatusPill label={CLIENT_STATUS_META[client.status].label} className={CLIENT_STATUS_META[client.status].className} size="sm" />
                 <StatusPill label={client.type} className="bg-neutral-100 text-neutral-600" size="sm" />
               </div>
-              <div className="text-sm text-neutral-500 mt-0.5">
-                {client.segment} · conta {client.account} · {OWNER_NAME_MAP[client.ownerId] || client.ownerId} · {client.escritorio}
+              <div className="text-sm text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: window.PortalLib.segmentDot(client.segment) }} /> {window.PortalLib.segmentLabel(client.segment)}</span>
+                <span>· conta {client.account} · {OWNER_NAME_MAP[client.ownerId] || client.ownerId} · {client.escritorio}</span>
               </div>
               <div className="flex items-center gap-4 mt-1.5 text-sm text-neutral-600 flex-wrap">
                 <span className="flex items-center gap-1"><Icon name="file" size={13} className="text-neutral-400" /> {client.email} <CopyButton value={client.email} label="e-mail" /></span>
@@ -1263,9 +1327,6 @@ function ClientProfilePage({
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowSupport(true)} className="text-sm px-3 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50 flex items-center gap-1.5">
-                <Icon name="lifeBuoy" size={14} /> Suporte
-              </button>
               <NovaAcaoMenu actions={novaAcoes} />
             </div>
             <div className="text-right">
@@ -1297,22 +1358,21 @@ function ClientProfilePage({
           {tab === 'overview' && (
             <div className="space-y-4">
               <FinancialCards client={client} />
-              <AttentionArea client={client} positions={positions} ordersAwaiting={ordersAwaiting} now={now} onGoCash={() => setTab('cash')} onGoPortfolio={() => setTab('portfolio')} onGoOrders={() => setTab('orders')} />
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2 space-y-4">
-                  <AssetClassBar positions={positions} />
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-neutral-800">Atividade recente</h3>
-                    <button onClick={() => setTab('activity')} className="text-xs text-brand-dark hover:underline">Ver toda atividade</button>
-                  </div>
-                  <TimelineTab events={timelineEvents} limit={6} />
-                </div>
-                <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <button onClick={() => setTab('portfolio')} className="text-sm text-brand-dark hover:underline flex items-center gap-1">Ver carteira completa <Icon name="chevronRight" size={13} /></button>
-                  </div>
+                  <AttentionArea client={client} positions={positions} ordersAwaiting={ordersAwaiting} now={now} onGoCash={() => setTab('cash')} onGoPortfolio={() => setTab('portfolio')} onGoOrders={() => setTab('orders')} />
                   <NextEvents client={client} positions={positions} ordersAwaiting={ordersAwaiting} now={now} />
                   {client.type === 'PJ' && <PartnersSection client={client} relations={holdingRelations} />}
+                </div>
+                <div className="space-y-4">
+                  <AssetClassBar positions={positions} onSeeAll={() => setTab('portfolio')} />
+                  <div className="bg-white rounded-large border border-neutral-100 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-neutral-800">Atividade recente</h3>
+                      <button onClick={() => setTab('activity')} className="text-xs font-medium text-brand-dark hover:underline">Ver toda atividade</button>
+                    </div>
+                    <CompactActivity events={timelineEvents} limit={5} now={now} />
+                  </div>
                 </div>
               </div>
             </div>

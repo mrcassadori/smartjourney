@@ -284,9 +284,19 @@
     daily_banker_2: 'Diego Antunes',
   };
 
+  // Rótulos de segmento no vocabulário da referência visual (Cliente Novo.png).
+  const SEGMENT_LABEL = { Standard: 'Retail', High: 'High Income', Private: 'Private', Corporate: 'Corporate', Wealth: 'Wealth' };
+  function segmentLabel(seg) { return SEGMENT_LABEL[seg] || seg; }
+  // Cor do "ponto" de segmento ao lado do nome do cliente.
+  const SEGMENT_DOT = { Private: '#7C3AED', High: '#FF7A00', Wealth: '#0EA5E9', Corporate: '#0F766E', Standard: '#64748B' };
+  function segmentDot(seg) { return SEGMENT_DOT[seg] || '#64748B'; }
+
   window.PortalLib = {
     uid,
     classNames,
+    SEGMENT_LABEL,
+    segmentLabel,
+    segmentDot,
     formatCurrency,
     formatCurrencySigned,
     formatDate,

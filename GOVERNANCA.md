@@ -264,6 +264,13 @@ Elevou a ficha do cliente a um workspace de wealth management, em 2 fases, com *
 5. **Lista de clientes (Tela 01)**: **configurar colunas** (persistido em `localStorage` por perfil), **seleção múltipla + ações em massa** (exportar/enviar relatório/abrir atendimento — `DataTable` ganhou props opcionais `selectable`/`selectedKeys`/`onToggleSelect`/`onToggleAll`) e **filtros salvos** persistentes.
 6. **"Enviar relatório"** (menu +Nova ação) deixou de ser stub: abre `ReportModal` com prévia da alocação, **gera/baixa** o relatório e o registra na aba **Documentos** como "Enviado ao cliente".
 
+**Re-skin visual ao design de referência `Cliente Novo.png` (2026-08-10):** o Portal foi construído a partir do spec textual; quando a referência visual real (14 frames em `~/Downloads/Cliente Novo.png`) foi disponibilizada, aplicamos um **re-skin completo, tema escuro no Portal inteiro**:
+- **Shell** ([Portal/components/Shell.jsx](Portal/components/Shell.jsx)): sidebar **navy (#0f1826)** full-height com logo "Inter / CONSULTOR PORTAL" no topo, item ativo com barra laranja à direita e perfil na base; header (busca + Ajuda + sino + persona "Nome / ESCRITÓRIO" laranja) só sobre o conteúdo. **Removidos os pills "Jornada/Portal"** e o breadcrumb do topo — o link da Jornada virou item discreto na base do rail; o breadcrumb foi para dentro do conteúdo.
+- **Ficha do cliente** ([Portal/pages/ClientProfilePage.jsx](Portal/pages/ClientProfilePage.jsx)): cards financeiros com rótulo MAIÚSCULO + valor colorido por semântica (investido azul, caixa verde, investível laranja, rentab. verde); "Requer atenção" em **lista full-width** com ícone circular colorido; **barra de alocação horizontal empilhada** (`AllocationStackBar`) no lugar do donut, na visão geral e na Carteira; atividade recente compacta (`CompactActivity`); ponto de segmento colorido no cabeçalho; "Suporte" foi dobrado no menu "Nova ação".
+- **Lista de clientes**: big numbers com rótulo MAIÚSCULO + valor colorido, avatares com iniciais, segmento com ponto colorido.
+- **Segmentos** no vocabulário da referência via `segmentLabel`/`segmentDot` (helpers): Standard→Retail, High→High Income, etc. (valores de dado preservados).
+- Demais telas herdam o tema escuro pelo Shell (cards brancos sobre fundo claro). Validado no Playwright (0 erros de console) nas telas-chave e nos 6 fluxos da Opção 1.
+
 ---
 
 ## Débitos técnicos e decisões pendentes (não são épicos, mas afetam qualquer evolução)
