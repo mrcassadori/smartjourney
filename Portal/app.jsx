@@ -217,6 +217,23 @@ function App() {
     setFinancialPlans((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'compartilhado', reportGeneratedAt: DATA.now, updatedAt: DATA.now } : p)));
   }
 
+  // Upsert do plano a partir do rascunho do wizard (Fase 2). Preserva o result
+  // já calculado quando existir (cliente vitrine), só atualiza os campos editados.
+  function commitPlanDraft(clientId, draft, status) {
+    setFinancialPlans((prev) => {
+      const idx = prev.findIndex((p) => p.clientId === clientId);
+      if (idx === -1) {
+        const created = Object.assign(
+          { id: uid(), clientId, scenarios: [], selectedScenarioId: null, result: { currentWealth: 0, requiredWealth: 0, requiredContribution: 0, targetIncome: 0, gap: 0, successProbability: 0 }, activity: [], reportGeneratedAt: null, createdAt: DATA.now },
+          draft,
+          { status: status || 'em_construcao', updatedAt: DATA.now }
+        );
+        return [...prev, created];
+      }
+      return prev.map((p, i) => (i === idx ? Object.assign({}, p, draft, { status: status || 'em_construcao', updatedAt: DATA.now }) : p));
+    });
+  }
+
   function registerSharedSimulation(id) {
     setSimulations((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status: 'compartilhada', sharedAt: DATA.now, updatedAt: DATA.now, version: (s.version || 1) + 1 } : s))
@@ -429,6 +446,7 @@ function App() {
         onOpenTicket={openTicketModal}
         onCreatePlan={createFinancialPlan}
         onGeneratePlanReport={generatePlanReport}
+        onCommitPlan={commitPlanDraft}
       />
     );
   } else if (page === 'orders') {

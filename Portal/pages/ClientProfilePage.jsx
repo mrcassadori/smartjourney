@@ -1445,7 +1445,7 @@ function ReportModal({ client, positions, now, onClose, onSend }) {
 
 function ClientProfilePage({
   client, profile, positions, cashEvents, alerts, orders, onboardingEntry, simulations, serviceRequests, holdingRelations,
-  allClients, documents, accessLog, bankingProfile, tickets, plan, now, onBack, onOpenOrder, onOpenSimulation, onNewSimulation, onOpenServiceRequest, onCreateServiceRequest, onOpenTicket, onOpenClient, onCreatePlan, onGeneratePlanReport,
+  allClients, documents, accessLog, bankingProfile, tickets, plan, now, onBack, onOpenOrder, onOpenSimulation, onNewSimulation, onOpenServiceRequest, onCreateServiceRequest, onOpenTicket, onOpenClient, onCreatePlan, onGeneratePlanReport, onCommitPlan,
 }) {
   const { formatCurrency, formatDate, maskDocument, CLIENT_STATUS_META, OWNER_NAME_MAP, RISK_PROFILE_META } = window.PortalLib;
   const [tab, setTab] = React.useState('overview');
@@ -1630,6 +1630,7 @@ function ClientProfilePage({
               now={now}
               onCreatePlan={() => onCreatePlan && onCreatePlan(client.id)}
               onGenerateReport={(id) => onGeneratePlanReport && onGeneratePlanReport(id)}
+              onCommitPlan={(draft, status) => onCommitPlan && onCommitPlan(client.id, draft, status)}
               onSimulate={() => onNewSimulation(client.id, plan ? [plan.objectives.primary === 'Aposentadoria' ? 'aposentadoria' : 'longo_prazo'] : null)}
             />
           )}

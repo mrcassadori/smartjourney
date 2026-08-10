@@ -375,12 +375,404 @@ function PlanReport({ client, plan, onBack, onSend, onSimulate, onNewPlan }) {
   );
 }
 
+// ================= Wizard de construção (Fase 2) =================
+const WIZARD_STEPS = [
+  { key: 'contexto', label: 'Contexto' },
+  { key: 'objetivos', label: 'Objetivos' },
+  { key: 'renda', label: 'Renda e despesas' },
+  { key: 'patrimonio', label: 'Patrimônio' },
+  { key: 'premissas', label: 'Premissas' },
+  { key: 'cenarios', label: 'Cenários' },
+];
+const TIPO_PLANO = [['aposentadoria', 'Aposentadoria'], ['independencia', 'Independência financeira'], ['preservacao', 'Preservação patrimonial'], ['sucessorio', 'Planejamento sucessório'], ['multi', 'Multiobjetivo']];
+const OBJETIVOS = [['aposentadoria', 'Aposentadoria'], ['independencia', 'Independência financeira'], ['educacao', 'Educação dos filhos'], ['imovel', 'Aquisição de imóvel'], ['preservacao', 'Preservação patrimonial'], ['outro', 'Outro']];
+const ESTRATEGIAS = [['consumir', 'Consumir patrimônio'], ['preservar', 'Preservar patrimônio'], ['retirar_parcial', 'Retirar parcialmente'], ['renda_recorrente', 'Gerar renda recorrente']];
+
+function blankDraft() {
+  return {
+    name: '', type: 'aposentadoria', horizonYears: 15, notes: '',
+    context: { age: '', maritalStatus: '', profession: '', lifePhase: '', dependents: [], notes: '' },
+    objectives: { primary: 'Aposentadoria', targetAge: 60, desiredIncome: 0, lifeExpectancy: 95, strategy: 'preservar', selected: ['aposentadoria'] },
+    cashflow: { incomes: [], expenses: [] },
+    wealth: { otherAssets: [], investments: [] },
+    assumptions: { inflation: 4.5, nominalReturn: 9.5, realReturn: 4.8, cdi: 11.2, expenseGrowth: 4.5, incomeGrowth: 5.0, validated: {} },
+  };
+}
+function draftFromPlan(plan) {
+  if (!plan) return blankDraft();
+  const b = blankDraft();
+  return {
+    name: plan.name || b.name, type: plan.type || b.type, horizonYears: plan.horizonYears || b.horizonYears, notes: plan.notes || '',
+    context: Object.assign({}, b.context, plan.context, { dependents: (plan.context && plan.context.dependents) || [] }),
+    objectives: Object.assign({}, b.objectives, plan.objectives),
+    cashflow: { incomes: (plan.cashflow && plan.cashflow.incomes) || [], expenses: (plan.cashflow && plan.cashflow.expenses) || [] },
+    wealth: { otherAssets: (plan.wealth && plan.wealth.otherAssets) || [], investments: (plan.wealth && plan.wealth.investments) || [] },
+    assumptions: Object.assign({}, b.assumptions, plan.assumptions),
+  };
+}
+
+function PlanStepper({ current }) {
+  return (
+    <div className="bg-white rounded-large border border-neutral-100 px-4 py-3 flex items-center gap-1 overflow-x-auto">
+      {WIZARD_STEPS.map((s, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <React.Fragment key={s.key}>
+            {i > 0 && <Icon name="chevronRight" size={14} className="text-neutral-300 shrink-0" />}
+            <div className="flex items-center gap-2 shrink-0 px-1">
+              <span className={window.PortalLib.classNames('w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold', done ? 'bg-success-light text-success-dark' : active ? 'bg-brand text-white' : 'bg-neutral-100 text-neutral-400')}>
+                {done ? <Icon name="check" size={13} /> : i + 1}
+              </span>
+              <span className={window.PortalLib.classNames('text-sm whitespace-nowrap', active ? 'font-semibold text-neutral-900' : done ? 'text-neutral-600' : 'text-neutral-400')}>{s.label}</span>
+            </div>
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// Tabela editável genérica (linhas add/remove com inputs).
+function EditableTable({ columns, rows, onChange, addLabel }) {
+  function setCell(i, key, value) { onChange(rows.map((r, ri) => (ri === i ? { ...r, [key]: value } : r))); }
+  function addRow() { const blank = {}; columns.forEach((c) => (blank[c.key] = c.type === 'number' ? 0 : '')); onChange([...rows, blank]); }
+  function removeRow(i) { onChange(rows.filter((_, ri) => ri !== i)); }
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50">
+            <tr>
+              {columns.map((c) => <th key={c.key} className="text-left text-[10px] font-semibold uppercase tracking-wide text-neutral-500 px-3 py-2">{c.label}</th>)}
+              <th className="w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr><td colSpan={columns.length + 1} className="px-3 py-3 text-xs text-neutral-400">Nenhum registro. Use “{addLabel}”.</td></tr>
+            ) : rows.map((r, i) => (
+              <tr key={i} className="border-b border-neutral-50 last:border-0">
+                {columns.map((c) => (
+                  <td key={c.key} className="px-2 py-1.5">
+                    <input value={r[c.key]} onChange={(e) => setCell(i, c.key, c.type === 'number' ? Number(e.target.value) : e.target.value)} type={c.type === 'number' ? 'number' : 'text'} className="w-full text-sm border border-transparent hover:border-neutral-200 focus:border-brand rounded-medium px-2 py-1 focus:outline-none" />
+                  </td>
+                ))}
+                <td className="px-1"><button onClick={() => removeRow(i)} aria-label="Remover" className="text-neutral-300 hover:text-alert-dark p-1"><Icon name="x" size={13} /></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button onClick={addRow} className="mt-2 text-sm text-brand-dark hover:underline flex items-center gap-1"><span className="text-base leading-none">+</span> {addLabel}</button>
+    </div>
+  );
+}
+
+function MiniStackBar({ segments }) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  return (
+    <div>
+      <div className="flex h-2.5 rounded-pill overflow-hidden mb-2">
+        {segments.map((s) => <div key={s.label} style={{ width: `${(s.value / total) * 100}%`, backgroundColor: s.color }} />)}
+      </div>
+      <div className="flex flex-wrap gap-3 text-xs">
+        {segments.map((s) => <span key={s.label} className="flex items-center gap-1.5 text-neutral-600"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} /> {s.label} ({Math.round((s.value / total) * 100)}%)</span>)}
+      </div>
+    </div>
+  );
+}
+
+function SideCard({ title, children }) {
+  return (
+    <div className="bg-white border border-neutral-100 rounded-large p-4">
+      <h3 className="text-sm font-semibold text-neutral-800 mb-3">{title}</h3>
+      {children}
+    </div>
+  );
+}
+function Field({ label, children }) {
+  return (
+    <div>
+      <label className="text-xs text-neutral-500">{label}</label>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+const inputCls = 'w-full text-sm border border-neutral-200 rounded-medium px-3 py-2 focus:outline-none focus:border-brand';
+
+function StepContexto({ draft, set }) {
+  const built = ['Definição do objetivo financeiro de longo prazo', 'Projeção de fluxo de renda e despesas futuras', 'Geração e testes de múltiplos cenários', 'Mapeamento do patrimônio e distribuição de ativos', 'Configuração de premissas macroeconômicas', 'Construção de recomendação final personalizada'];
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
+        <h2 className="text-base font-semibold text-neutral-900">Iniciar planejamento financeiro</h2>
+        <Field label="Nome do planejamento"><input value={draft.name} onChange={(e) => set({ name: e.target.value })} className={inputCls} placeholder="Ex.: Planejamento Mariana 2026 — Versão Base" /></Field>
+        <div>
+          <label className="text-xs text-neutral-500">Tipo de plano</label>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-1.5">
+            {TIPO_PLANO.map(([v, label]) => (
+              <button key={v} onClick={() => set({ type: v })} className={window.PortalLib.classNames('text-sm px-3 py-2.5 rounded-large border text-center', draft.type === v ? 'border-brand bg-brand-lightest text-brand-dark font-medium' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300')}>{label}</button>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Horizonte principal">
+            <select value={draft.horizonYears} onChange={(e) => set({ horizonYears: Number(e.target.value) })} className={inputCls}>
+              {[10, 15, 20, 25, 30].map((y) => <option key={y} value={y}>{y} anos (Alvo: {(draft.context.age || 45) + y} anos de idade)</option>)}
+            </select>
+          </Field>
+        </div>
+        <Field label="Observações iniciais"><textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} rows={2} className={inputCls} /></Field>
+      </div>
+
+      <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
+        <h2 className="text-base font-semibold text-neutral-900">Contexto pessoal e familiar</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Field label="Idade atual"><input type="number" value={draft.context.age} onChange={(e) => set({ context: { ...draft.context, age: Number(e.target.value) } })} className={inputCls} /></Field>
+          <Field label="Estado civil"><input value={draft.context.maritalStatus} onChange={(e) => set({ context: { ...draft.context, maritalStatus: e.target.value } })} className={inputCls} /></Field>
+          <Field label="Profissão"><input value={draft.context.profession} onChange={(e) => set({ context: { ...draft.context, profession: e.target.value } })} className={inputCls} /></Field>
+          <Field label="Fase de vida"><input value={draft.context.lifePhase} onChange={(e) => set({ context: { ...draft.context, lifePhase: e.target.value } })} className={inputCls} /></Field>
+        </div>
+        <div>
+          <div className="text-sm font-medium text-neutral-800 mb-1.5">Dependentes</div>
+          <EditableTable
+            columns={[{ key: 'name', label: 'Nome' }, { key: 'relation', label: 'Relação' }, { key: 'age', label: 'Idade', type: 'number' }, { key: 'dependency', label: 'Dependência financeira' }]}
+            rows={draft.context.dependents}
+            onChange={(rows) => set({ context: { ...draft.context, dependents: rows } })}
+            addLabel="Adicionar dependente"
+          />
+        </div>
+        <Field label="Contexto adicional (observações do consultor)"><textarea value={draft.context.notes} onChange={(e) => set({ context: { ...draft.context, notes: e.target.value } })} rows={2} className={inputCls} /></Field>
+      </div>
+
+      <div className="bg-white border border-neutral-100 rounded-large p-5">
+        <h3 className="text-sm font-semibold text-neutral-800 mb-3">O que será construído neste planejamento</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6">
+          {built.map((t) => <div key={t} className="flex items-center gap-2 text-sm text-neutral-600"><Icon name="check" size={14} className="text-success-dark shrink-0" /> {t}</div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepObjetivos({ draft, set }) {
+  const { formatCurrency } = window.PortalLib;
+  const toggle = (v) => set({ objectives: { ...draft.objectives, selected: draft.objectives.selected.indexOf(v) === -1 ? [...draft.objectives.selected, v] : draft.objectives.selected.filter((x) => x !== v) } });
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="lg:col-span-2 space-y-4">
+        <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
+          <h2 className="text-base font-semibold text-neutral-900">Definição de objetivos financeiros</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {OBJETIVOS.map(([v, label]) => (
+              <button key={v} onClick={() => toggle(v)} className={window.PortalLib.classNames('text-sm px-3 py-3 rounded-large border text-center', draft.objectives.selected.indexOf(v) !== -1 ? 'border-brand bg-brand-lightest text-brand-dark font-medium' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300')}>{label}</button>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Idade desejada para aposentadoria"><input type="number" value={draft.objectives.targetAge} onChange={(e) => set({ objectives: { ...draft.objectives, targetAge: Number(e.target.value) } })} className={inputCls} /></Field>
+            <Field label="Renda mensal desejada"><input type="number" value={draft.objectives.desiredIncome} onChange={(e) => set({ objectives: { ...draft.objectives, desiredIncome: Number(e.target.value) } })} className={inputCls} /></Field>
+            <Field label="Expectativa de vida"><input type="number" value={draft.objectives.lifeExpectancy} onChange={(e) => set({ objectives: { ...draft.objectives, lifeExpectancy: Number(e.target.value) } })} className={inputCls} /></Field>
+            <Field label="Estratégia de uso do patrimônio">
+              <select value={draft.objectives.strategy} onChange={(e) => set({ objectives: { ...draft.objectives, strategy: e.target.value } })} className={inputCls}>
+                {ESTRATEGIAS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </Field>
+          </div>
+        </div>
+        <div className="bg-white border border-neutral-100 rounded-large p-5">
+          <h3 className="text-sm font-semibold text-neutral-800 mb-3">Como o portal usará essas informações</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {['Calcular o patrimônio necessário', 'Projetar aportes e crescimento', 'Testar cenários alternativos'].map((t, i) => (
+              <div key={t} className="flex items-start gap-2 text-sm text-neutral-600"><span className="w-6 h-6 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center text-xs font-semibold shrink-0">{i + 1}</span> {t}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <SideCard title="Resumo do objetivo">
+        <p className="text-sm text-neutral-600">{draft.name ? draft.name.split(' ')[1] || 'O cliente' : 'O cliente'} deseja atingir renda mensal de <b>{formatCurrency(draft.objectives.desiredIncome)}</b> a partir dos <b>{draft.objectives.targetAge} anos</b>, {draft.objectives.strategy === 'preservar' ? 'preservando parte relevante do patrimônio' : 'com uso planejado do patrimônio'}.</p>
+      </SideCard>
+    </div>
+  );
+}
+
+function StepRenda({ draft, set }) {
+  const { formatCurrency } = window.PortalLib;
+  const income = draft.cashflow.incomes.reduce((s, r) => s + (Number(r.value) || 0), 0);
+  const expense = draft.cashflow.expenses.reduce((s, r) => s + (Number(r.value) || 0), 0);
+  const capacity = income - expense;
+  const cols = [{ key: 'desc', label: 'Descrição' }, { key: 'value', label: 'Valor', type: 'number' }, { key: 'start', label: 'Início' }, { key: 'end', label: 'Término' }, { key: 'recurrence', label: 'Recorrência' }];
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white border border-neutral-100 rounded-large p-4">
+          <h3 className="text-sm font-semibold text-neutral-800 mb-2">Rendas</h3>
+          <EditableTable columns={cols} rows={draft.cashflow.incomes} onChange={(rows) => set({ cashflow: { ...draft.cashflow, incomes: rows } })} addLabel="Adicionar renda" />
+        </div>
+        <div className="bg-white border border-neutral-100 rounded-large p-4">
+          <h3 className="text-sm font-semibold text-neutral-800 mb-2">Despesas</h3>
+          <EditableTable columns={cols} rows={draft.cashflow.expenses} onChange={(rows) => set({ cashflow: { ...draft.cashflow, expenses: rows } })} addLabel="Adicionar despesa" />
+        </div>
+      </div>
+      <PlanHighlightCards cards={[
+        { label: 'Receita mensal total', value: formatCurrency(income), color: 'text-success-dark' },
+        { label: 'Despesa mensal total', value: formatCurrency(expense), color: 'text-alert-dark' },
+        { label: 'Capacidade de aporte atual', value: formatCurrency(Math.max(0, capacity)), color: 'text-brand-dark' },
+        { label: 'Capacidade de aporte futura', value: formatCurrency(Math.max(0, capacity + 4200)), color: 'text-neutral-900' },
+        { label: 'Comprometimento', value: `${income ? Math.round((expense / income) * 100) : 0}%`, color: 'text-neutral-900' },
+      ]} />
+      <PlanAttention items={[
+        { title: 'Financiamento termina em breve', desc: 'O fim do financiamento aumenta a capacidade de aporte futura.' },
+        { title: `${income ? Math.round((capacity / income) * 100) : 0}% da renda não está comprometida`, desc: 'Há espaço para elevar o aporte mensal.' },
+        { title: 'Despesas educacionais impactam o plano', desc: 'Gastos com escola pressionam o caixa até 2035.' },
+      ]} />
+    </div>
+  );
+}
+
+function StepPatrimonio({ draft, set }) {
+  const { formatCurrency } = window.PortalLib;
+  const inv = draft.wealth.investments;
+  const inter = inv.filter((x) => (x.inst || '').toLowerCase() === 'inter').reduce((s, x) => s + (Number(x.value) || 0), 0);
+  const fora = inv.reduce((s, x) => s + (Number(x.value) || 0), 0) - inter;
+  const bens = draft.wealth.otherAssets.reduce((s, x) => s + (Number(x.value) || 0), 0);
+  const total = inter + fora + bens;
+  return (
+    <div className="space-y-4">
+      <PlanHighlightCards cards={[
+        { label: 'Financeiro no Inter', value: formatCurrency(inter), color: 'text-brand-dark' },
+        { label: 'Financeiro fora do Inter', value: formatCurrency(fora), color: 'text-info-dark' },
+        { label: 'Outros bens', value: formatCurrency(bens), color: 'text-neutral-900' },
+        { label: 'Patrimônio total consolidado', value: formatCurrency(total), color: 'text-neutral-900' },
+        { label: 'Fora do Inter', value: `${(inter + fora) ? Math.round((fora / (inter + fora)) * 100) : 0}%`, color: 'text-neutral-900' },
+      ]} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white border border-neutral-100 rounded-large p-4">
+            <h3 className="text-sm font-semibold text-neutral-800 mb-2">Investimentos financeiros</h3>
+            <EditableTable columns={[{ key: 'inst', label: 'Instituição' }, { key: 'category', label: 'Categoria' }, { key: 'value', label: 'Valor', type: 'number' }, { key: 'liquidity', label: 'Liquidez' }, { key: 'notes', label: 'Observações' }]} rows={inv} onChange={(rows) => set({ wealth: { ...draft.wealth, investments: rows } })} addLabel="Adicionar investimento" />
+          </div>
+          <div className="bg-white border border-neutral-100 rounded-large p-4">
+            <h3 className="text-sm font-semibold text-neutral-800 mb-2">Outros bens</h3>
+            <EditableTable columns={[{ key: 'type', label: 'Tipo' }, { key: 'desc', label: 'Descrição' }, { key: 'value', label: 'Valor estimado', type: 'number' }]} rows={draft.wealth.otherAssets} onChange={(rows) => set({ wealth: { ...draft.wealth, otherAssets: rows } })} addLabel="Adicionar bem" />
+          </div>
+        </div>
+        <SideCard title="Leitura patrimonial">
+          <MiniStackBar segments={[{ label: 'Inter', value: inter, color: '#FF7A00' }, { label: 'Fora', value: fora, color: '#1E7FE6' }, { label: 'Bens', value: bens, color: '#9E9E9E' }]} />
+          <ul className="mt-3 space-y-2 text-sm text-neutral-600">
+            <li className="flex gap-2"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand shrink-0" /> {(inter + fora) ? Math.round((inter / (inter + fora)) * 100) : 0}% do patrimônio financeiro custodiado no Inter.</li>
+            <li className="flex gap-2"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand shrink-0" /> Alta relevância de recursos fora da instituição ({formatCurrency(fora)}).</li>
+            <li className="flex gap-2"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand shrink-0" /> Patrimônio total de {formatCurrency(total)} — boa base para o longo prazo.</li>
+          </ul>
+        </SideCard>
+      </div>
+    </div>
+  );
+}
+
+function StepPremissas({ draft, set }) {
+  const A = draft.assumptions;
+  const fields = [['inflation', 'Inflação esperada'], ['nominalReturn', 'Retorno nominal esperado'], ['realReturn', 'Retorno real esperado'], ['cdi', 'CDI de referência'], ['expenseGrowth', 'Crescimento das despesas'], ['incomeGrowth', 'Crescimento da renda']];
+  const validations = [['taxa', 'Taxa real de juros alinhada ao cenário macroeconômico atual.'], ['inflacao', 'Curva de inflação de longo prazo estimada com base nas projeções Focus.'], ['despesas', 'Crescimento de despesas indexado ao perfil de consumo do cliente.'], ['risco', 'Diferencial de prêmio de risco parametrizado para o perfil.']];
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="lg:col-span-2 space-y-4">
+        <div className="bg-white border border-neutral-100 rounded-large p-5">
+          <h2 className="text-base font-semibold text-neutral-900 mb-1">Parâmetros e premissas macroeconômicas</h2>
+          <p className="text-sm text-neutral-500 mb-4">Configure as taxas de projeção que servem de base para a simulação de rentabilidade e inflação no tempo.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {fields.map(([k, label]) => (
+              <Field key={k} label={label}>
+                <div className="flex items-center border border-neutral-200 rounded-medium px-3 focus-within:border-brand">
+                  <input type="number" step="0.1" value={A[k]} onChange={(e) => set({ assumptions: { ...A, [k]: Number(e.target.value) } })} className="w-full text-sm py-2 focus:outline-none" />
+                  <span className="text-xs text-neutral-400 pl-1">% a.a.</span>
+                </div>
+              </Field>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white border border-neutral-100 rounded-large p-5">
+          <h3 className="text-sm font-semibold text-neutral-800 mb-3">Premissas validadas pelo consultor</h3>
+          <div className="space-y-2">
+            {validations.map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2.5 text-sm text-neutral-700 cursor-pointer">
+                <input type="checkbox" checked={!!(A.validated && A.validated[k])} onChange={() => set({ assumptions: { ...A, validated: { ...A.validated, [k]: !(A.validated && A.validated[k]) } } })} className="accent-brand w-4 h-4" />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+      <SideCard title="Como interpretar">
+        <div className="space-y-3 text-sm">
+          <div><span className="text-[10px] font-semibold uppercase tracking-wide text-info-dark">Dados informados</span><p className="text-neutral-600 mt-0.5">Informações providas pelo cadastro do cliente e dados históricos.</p></div>
+          <div><span className="text-[10px] font-semibold uppercase tracking-wide text-brand-dark">Premissas editáveis</span><p className="text-neutral-600 mt-0.5">Variáveis macroeconômicas ajustáveis que definem a curva de juros reais futuros.</p></div>
+          <div><span className="text-[10px] font-semibold uppercase tracking-wide text-success-dark">Resultados calculados</span><p className="text-neutral-600 mt-0.5">Valores projetados a partir da intersecção de dados e premissas.</p></div>
+        </div>
+      </SideCard>
+    </div>
+  );
+}
+
+function PlanningWizard({ client, plan, onCancel, onSaveDraft, onCalculate }) {
+  const [step, setStep] = React.useState(0);
+  const [draft, setDraft] = React.useState(() => draftFromPlan(plan));
+  const set = (patch) => setDraft((d) => Object.assign({}, d, patch));
+  const last = step === 4; // Premissas é a última etapa do wizard (Cenários = pós-cálculo)
+
+  const commit = (finalize) => {
+    const inv = draft.wealth.investments;
+    const inter = inv.filter((x) => (x.inst || '').toLowerCase() === 'inter').reduce((s, x) => s + (Number(x.value) || 0), 0);
+    const fora = inv.reduce((s, x) => s + (Number(x.value) || 0), 0) - inter;
+    const payload = Object.assign({}, draft, { wealth: Object.assign({}, draft.wealth, { financialInter: inter, financialExternal: fora }) });
+    if (finalize) onCalculate(payload); else onSaveDraft(payload);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <PlanStepper current={step} />
+      </div>
+
+      {step === 0 && <StepContexto draft={draft} set={set} />}
+      {step === 1 && <StepObjetivos draft={draft} set={set} />}
+      {step === 2 && <StepRenda draft={draft} set={set} />}
+      {step === 3 && <StepPatrimonio draft={draft} set={set} />}
+      {step === 4 && <StepPremissas draft={draft} set={set} />}
+
+      <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+        <button onClick={() => (step === 0 ? onCancel() : setStep(step - 1))} className="text-sm text-neutral-500 hover:text-neutral-800 flex items-center gap-1.5"><Icon name="arrowLeft" size={14} /> Voltar</button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => commit(false)} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 hover:bg-neutral-50">Salvar rascunho</button>
+          {last ? (
+            <button onClick={() => commit(true)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5"><Icon name="target" size={14} /> Calcular plano</button>
+          ) : (
+            <button onClick={() => setStep(step + 1)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Continuar</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------- Root da aba Planejamento ----------------
-function PlanningTab({ client, plan, now, onCreatePlan, onGenerateReport, onSimulate }) {
+function PlanningTab({ client, plan, now, onCreatePlan, onGenerateReport, onSimulate, onCommitPlan }) {
   const [view, setView] = React.useState('overview');
 
+  if (view === 'wizard') {
+    return (
+      <PlanningWizard
+        client={client}
+        plan={plan}
+        onCancel={() => setView(plan ? 'overview' : 'empty')}
+        onSaveDraft={(draft) => { onCommitPlan(draft, 'em_construcao'); setView('overview'); }}
+        onCalculate={(draft) => { onCommitPlan(draft, 'em_construcao'); setView('result'); }}
+      />
+    );
+  }
+
   if (!plan) {
-    return <PlanEmpty onStart={onCreatePlan} onImport={onCreatePlan} />;
+    return <PlanEmpty onStart={() => setView('wizard')} onImport={() => setView('wizard')} />;
   }
 
   if (view === 'result') {
