@@ -1,9 +1,11 @@
 // Tabela ordenável genérica — mesmo padrão de app.jsx (DataTable), adaptado
 // aos tokens visuais do Inter. Reaproveitada em Clientes, Ordens e Onboarding.
 
-function DataTable({ columns, rows, keyField, onRowClick, emptyLabel }) {
+function DataTable({ columns, rows, keyField, onRowClick, emptyLabel, selectable, selectedKeys, onToggleSelect, onToggleAll }) {
   const [sortCol, setSortCol] = React.useState(null);
   const [sortDir, setSortDir] = React.useState(1);
+  const selSet = selectable ? new Set(selectedKeys || []) : null;
+  const allSelected = selectable && rows.length > 0 && rows.every((r) => selSet.has(r[keyField]));
 
   const sorted = React.useMemo(() => {
     if (!sortCol) return rows;
@@ -32,6 +34,11 @@ function DataTable({ columns, rows, keyField, onRowClick, emptyLabel }) {
       <table className="w-full text-sm">
         <thead className="bg-neutral-50">
           <tr>
+            {selectable && (
+              <th className="px-4 py-2.5 border-b border-neutral-100 w-10">
+                <input type="checkbox" aria-label="Selecionar todos" checked={allSelected} onChange={() => onToggleAll(rows.map((r) => r[keyField]), !allSelected)} className="accent-brand" />
+              </th>
+            )}
             {columns.map((c) => (
               <th
                 key={c.key}
@@ -54,9 +61,15 @@ function DataTable({ columns, rows, keyField, onRowClick, emptyLabel }) {
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               className={window.PortalLib.classNames(
                 'border-b border-neutral-50 last:border-0 align-top',
+                selectable && selSet.has(row[keyField]) && 'bg-brand-lightest/30',
                 onRowClick && 'cursor-pointer hover:bg-neutral-50'
               )}
             >
+              {selectable && (
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" aria-label="Selecionar linha" checked={selSet.has(row[keyField])} onChange={() => onToggleSelect(row[keyField])} className="accent-brand" />
+                </td>
+              )}
               {columns.map((c) => (
                 <td key={c.key} className="px-4 py-3">
                   {c.render ? c.render(row) : row[c.key]}

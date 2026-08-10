@@ -256,6 +256,14 @@ Elevou a ficha do cliente a um workspace de wealth management, em 2 fases, com *
 - Abas na ordem da spec: Visão geral · Carteira · Movimentações · Recomendações · Ordens · Documentos · Banking · Dados (a antiga "Internacional" saiu como aba; posições `Global` seguem na Carteira). Reutiliza `Drawer`, `ChartCanvas`, `ConfirmAction`, helpers novos (`copyToClipboard`, `nextMaturity`, `CASH_INVESTABLE_META`).
 - **Bug corrigido**: busca de cliente casava com todos quando o termo não tinha dígitos (`onlyDigits("")` → match universal).
 
+**Fechamento das lacunas de spec (Opção 1, 2026-08-10):** as 6 pendências que faltavam para "finalizar" a jornada foram implementadas e validadas (Playwright, 0 erros de console):
+1. **Ordens do cliente (Tela 08)** virou tabela filtrável — chips de status clicáveis + filtros tipo/período + colunas (ativo/tipo/valor/origem/enviada/atualização/status) via `DataTable`.
+2. **Detalhe da ordem (Tela 09)**: ação **"Reenviar notificação"** para ordens aguardando/enviadas (`resendOrderNotification` em `app.jsx`, só registra na timeline) e enquadramento do erro em três partes — **O que aconteceu · Impacto · Próxima ação** (`errorImpact` novo nas ordens de erro/recusa).
+3. **Drawer de Suporte (Tela 13)**: chips de categoria **pré-selecionam o tema** do chamado (`openTicketModal` ganhou 5º arg `suggestedTheme`) e os atendimentos existentes mostram **protocolo, prazo/SLA e linha do tempo** expansível (`SupportTicketCard`).
+4. **"Toda atividade" (Tela 14)**: eventos agora são **clicáveis** e saltam para a aba/drawer relacionado (ordens→Ordens, movimentações→Movimentações, etc.).
+5. **Lista de clientes (Tela 01)**: **configurar colunas** (persistido em `localStorage` por perfil), **seleção múltipla + ações em massa** (exportar/enviar relatório/abrir atendimento — `DataTable` ganhou props opcionais `selectable`/`selectedKeys`/`onToggleSelect`/`onToggleAll`) e **filtros salvos** persistentes.
+6. **"Enviar relatório"** (menu +Nova ação) deixou de ser stub: abre `ReportModal` com prévia da alocação, **gera/baixa** o relatório e o registra na aba **Documentos** como "Enviado ao cliente".
+
 ---
 
 ## Débitos técnicos e decisões pendentes (não são épicos, mas afetam qualquer evolução)

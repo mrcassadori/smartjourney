@@ -381,34 +381,65 @@ function CashTab({ client, events, now, onSimulateApply }) {
   );
 }
 
-function ClientOrdersTab({ orders, onOpenOrder }) {
-  const { ORDER_STATUS_META, formatCurrency, formatDateTime } = window.PortalLib;
+// Tela 08 — Ordens do cliente: resumo por status (chips filtráveis) + filtros
+// (status/tipo/período) e tabela com origem, envio e última atualização.
+function ClientOrdersTab({ orders, now, onOpenOrder }) {
+  const { ORDER_STATUS_META, formatCurrency, formatDate, formatDateTime, daysUntil } = window.PortalLib;
+  const [status, setStatus] = React.useState('');
+  const [type, setType] = React.useState('');
+  const [period, setPeriod] = React.useState('');
+
   if (!orders.length) return <window.EmptyState icon="inbox" title="Nenhuma ordem registrada para este cliente" />;
+
   const summary = {};
   orders.forEach((o) => (summary[o.status] = (summary[o.status] || 0) + 1));
+
+  const lastUpdate = (o) => (o.timeline && o.timeline.length ? o.timeline[o.timeline.length - 1].date : o.sentAt);
+  const withinPeriod = (o) => {
+    if (!period) return true;
+    const d = -daysUntil(o.sentAt.slice(0, 10), now); // dias desde o envio
+    return d <= Number(period);
+  };
+  const filtered = orders.filter((o) => (!status || o.status === status) && (!type || o.type === type) && withinPeriod(o));
+
+  const columns = [
+    { key: 'asset', label: 'Ativo', render: (o) => <span className="font-medium text-neutral-900">{o.asset}</span> },
+    { key: 'type', label: 'Tipo', render: (o) => <span className="text-neutral-600">{o.type === 'aplicacao' ? 'Aplicação' : o.type === 'resgate' ? 'Resgate' : o.type}</span> },
+    { key: 'value', label: 'Valor', render: (o) => formatCurrency(o.value) },
+    { key: 'origin', label: 'Origem', render: (o) => <span className="text-neutral-500">{o.origin || '—'}</span> },
+    { key: 'sentAt', label: 'Enviada', render: (o) => <span className="text-neutral-500 whitespace-nowrap">{formatDate(o.sentAt.slice(0, 10))}</span> },
+    { key: 'updatedAt', label: 'Atualização', sortable: false, render: (o) => <span className="text-neutral-500 whitespace-nowrap">{formatDateTime(lastUpdate(o))}</span> },
+    { key: 'status', label: 'Status', render: (o) => <StatusPill label={ORDER_STATUS_META[o.status].label} className={ORDER_STATUS_META[o.status].className} size="sm" /> },
+  ];
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
+        <button onClick={() => setStatus('')} className={window.PortalLib.classNames('text-xs px-2.5 py-1 rounded-pill border', !status ? 'border-brand bg-brand-lightest text-brand-dark font-medium' : 'border-neutral-100 bg-neutral-50 text-neutral-600 hover:border-neutral-300')}>
+          Todas ({orders.length})
+        </button>
         {Object.keys(summary).map((s) => (
-          <span key={s} className="text-xs px-2.5 py-1 rounded-pill bg-neutral-50 border border-neutral-100 text-neutral-600">
+          <button key={s} onClick={() => setStatus((cur) => (cur === s ? '' : s))} className={window.PortalLib.classNames('text-xs px-2.5 py-1 rounded-pill border', status === s ? 'border-brand bg-brand-lightest text-brand-dark font-medium' : 'border-neutral-100 bg-neutral-50 text-neutral-600 hover:border-neutral-300')}>
             {summary[s]} {ORDER_STATUS_META[s].label.toLowerCase()}
-          </span>
-        ))}
-      </div>
-      <div className="bg-white rounded-large border border-neutral-100 divide-y divide-neutral-50">
-        {orders.map((o) => (
-          <button key={o.id} onClick={() => onOpenOrder(o.id)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-neutral-50 text-sm">
-            <div className="min-w-0">
-              <div className="font-medium text-neutral-900 truncate">{o.asset}</div>
-              <div className="text-xs text-neutral-400">{o.type} · enviada {formatDateTime(o.sentAt)}{o.origin ? ` · ${o.origin}` : ''}</div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="font-medium text-neutral-900">{formatCurrency(o.value)}</span>
-              <StatusPill label={ORDER_STATUS_META[o.status].label} className={ORDER_STATUS_META[o.status].className} size="sm" />
-            </div>
           </button>
         ))}
       </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={type} onChange={(e) => setType(e.target.value)} className="text-sm border border-neutral-200 rounded-pill px-3 py-1.5">
+          <option value="">Todos os tipos</option>
+          <option value="aplicacao">Aplicação</option>
+          <option value="resgate">Resgate</option>
+        </select>
+        <select value={period} onChange={(e) => setPeriod(e.target.value)} className="text-sm border border-neutral-200 rounded-pill px-3 py-1.5">
+          <option value="">Todo o período</option>
+          <option value="30">Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+        </select>
+        <span className="text-xs text-neutral-400 ml-auto">{filtered.length} de {orders.length} ordens</span>
+      </div>
+
+      <DataTable columns={columns} rows={filtered} keyField="id" onRowClick={(o) => onOpenOrder(o.id)} emptyLabel="Nenhuma ordem para esses filtros." />
     </div>
   );
 }
@@ -923,7 +954,13 @@ const ACTIVITY_CATEGORIES = [
   { key: 'atendimento', label: 'Atendimento', icon: 'lifeBuoy' },
 ];
 
-function ActivityView({ events, onBack }) {
+// Destino de cada categoria de evento ao ser clicado (aba ou drawer).
+const ACTIVITY_TARGET_LABEL = {
+  ordens: 'Ver ordens', movimentacoes: 'Ver movimentações', recomendacoes: 'Ver recomendações',
+  documentos: 'Ver documentos', investimentos: 'Ver carteira', cadastro: 'Ver dados', atendimento: 'Ver suporte',
+};
+
+function ActivityView({ events, onBack, onSelectEvent }) {
   const { formatDateTime } = window.PortalLib;
   const [cat, setCat] = React.useState('all');
   const filtered = events.filter((e) => cat === 'all' || e.category === cat);
@@ -943,14 +980,22 @@ function ActivityView({ events, onBack }) {
         <window.EmptyState icon="clock" title="Nenhum evento nesta categoria" />
       ) : (
         <div className="bg-white rounded-large border border-neutral-100 p-5">
-          <ol className="relative border-l border-neutral-100 ml-3 space-y-5">
-            {filtered.map((ev, i) => (
-              <li key={i} className="ml-5">
-                <span className="absolute -ml-[30px] mt-0.5 w-6 h-6 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center text-neutral-500"><Icon name={ev.icon} size={12} /></span>
-                <div className="text-xs text-neutral-400">{formatDateTime(ev.date)}</div>
-                <div className="text-sm text-neutral-800">{ev.label}</div>
-              </li>
-            ))}
+          <ol className="relative border-l border-neutral-100 ml-3 space-y-1">
+            {filtered.map((ev, i) => {
+              const target = ACTIVITY_TARGET_LABEL[ev.category];
+              return (
+                <li key={i} className="ml-5">
+                  <span className="absolute -ml-[30px] mt-2.5 w-6 h-6 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center text-neutral-500"><Icon name={ev.icon} size={12} /></span>
+                  <button onClick={() => onSelectEvent(ev)} className="w-full text-left rounded-large px-2 py-2 -mx-2 hover:bg-neutral-50 group flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs text-neutral-400">{formatDateTime(ev.date)}</div>
+                      <div className="text-sm text-neutral-800">{ev.label}</div>
+                    </div>
+                    {target && <span className="text-[11px] text-brand-dark opacity-0 group-hover:opacity-100 whitespace-nowrap flex items-center gap-0.5 mt-0.5">{target} <Icon name="chevronRight" size={12} /></span>}
+                  </button>
+                </li>
+              );
+            })}
           </ol>
         </div>
       )}
@@ -959,22 +1004,72 @@ function ActivityView({ events, onBack }) {
 }
 
 // Tela 13 — Drawer de suporte contextual (histórico + abrir atendimento).
-function ClientSupportDrawer({ client, tickets, onClose, onNewTicket }) {
-  const { TICKET_STATUS_META, formatDateTime } = window.PortalLib;
-  const CATS = ['Investimentos', 'Ordem', 'Cadastro', 'Acesso e senha', 'Banking', 'Cartão', 'Documentos', 'Internacional', 'Outro'];
+// Cada categoria pré-seleciona um tema no formulário de novo chamado; os
+// atendimentos existentes mostram protocolo, prazo (SLA) e linha do tempo.
+const SUPPORT_CATEGORIES = [
+  { label: 'Investimentos', theme: 'Outro' },
+  { label: 'Ordem', theme: 'Erro em ordem' },
+  { label: 'Cadastro', theme: 'Dúvida cadastral' },
+  { label: 'Acesso e senha', theme: 'Acesso/credenciais' },
+  { label: 'Banking', theme: 'Outro' },
+  { label: 'Cartão', theme: 'Outro' },
+  { label: 'Documentos', theme: 'Documento' },
+  { label: 'Internacional', theme: 'Outro' },
+  { label: 'Outro', theme: 'Outro' },
+];
+
+function SupportTicketCard({ ticket, now }) {
+  const { TICKET_STATUS_META, formatDateTime, daysUntil } = window.PortalLib;
+  const [open, setOpen] = React.useState(false);
+  const m = TICKET_STATUS_META[ticket.status] || { label: ticket.status, className: 'bg-neutral-100 text-neutral-600' };
+  const openTicket = ticket.status !== 'resolvido';
+  const slaDays = ticket.dueAt ? daysUntil(ticket.dueAt.slice(0, 10), now) : null;
+  const slaLabel = !ticket.dueAt ? null : slaDays < 0 ? `SLA vencido há ${-slaDays}d` : slaDays === 0 ? 'SLA vence hoje' : `SLA em ${slaDays}d`;
+  return (
+    <div className="border border-neutral-100 rounded-large p-3">
+      <button onClick={() => setOpen((o) => !o)} className="w-full text-left">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium text-neutral-900">{ticket.theme}</span>
+          <StatusPill label={m.label} className={m.className} size="sm" />
+        </div>
+        <div className="text-[11px] text-neutral-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+          <span>{ticket.protocol} · aberto {formatDateTime(ticket.createdAt)}</span>
+          {openTicket && slaLabel && <span className={slaDays < 0 ? 'text-alert-dark' : 'text-neutral-500'}>· {slaLabel}</span>}
+        </div>
+      </button>
+      {open && ticket.messages && ticket.messages.length > 0 && (
+        <ol className="relative border-l border-neutral-100 ml-1.5 mt-3 space-y-3">
+          {ticket.messages.map((msg, i) => (
+            <li key={i} className="ml-3">
+              <span className="absolute -ml-[19px] mt-1 w-2 h-2 rounded-full bg-brand" />
+              <div className="text-[11px] text-neutral-400">{msg.author} · {formatDateTime(msg.date)}</div>
+              <div className="text-xs text-neutral-700">{msg.text}</div>
+            </li>
+          ))}
+        </ol>
+      )}
+      {!open && ticket.messages && ticket.messages.length > 0 && (
+        <div className="text-xs text-neutral-500 mt-1.5 line-clamp-1">{ticket.messages[ticket.messages.length - 1].text}</div>
+      )}
+    </div>
+  );
+}
+
+function ClientSupportDrawer({ client, tickets, now, onClose, onNewTicket }) {
   return (
     <Drawer title="Suporte" subtitle={`${client.name} · conta ${client.account}`} onClose={onClose}>
       <div className="space-y-5">
         <div>
           <div className="text-sm font-medium text-neutral-800 mb-2">Sobre o que você precisa de ajuda?</div>
           <div className="flex flex-wrap gap-1.5">
-            {CATS.map((c) => (
-              <button key={c} onClick={onNewTicket} className="text-xs px-3 py-1.5 rounded-pill border border-neutral-200 text-neutral-600 hover:border-brand/40 hover:bg-neutral-50">{c}</button>
+            {SUPPORT_CATEGORIES.map((c) => (
+              <button key={c.label} onClick={() => onNewTicket(c.theme)} className="text-xs px-3 py-1.5 rounded-pill border border-neutral-200 text-neutral-600 hover:border-brand/40 hover:bg-neutral-50">{c.label}</button>
             ))}
           </div>
+          <p className="text-[11px] text-neutral-400 mt-2">Escolher uma categoria já preenche o tema do atendimento.</p>
         </div>
 
-        <button onClick={onNewTicket} className="w-full text-sm px-4 py-2.5 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center justify-center gap-1.5">
+        <button onClick={() => onNewTicket(null)} className="w-full text-sm px-4 py-2.5 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center justify-center gap-1.5">
           <Icon name="lifeBuoy" size={15} /> Abrir atendimento
         </button>
 
@@ -984,19 +1079,7 @@ function ClientSupportDrawer({ client, tickets, onClose, onNewTicket }) {
             <div className="text-xs text-neutral-400">Nenhum atendimento registrado ainda.</div>
           ) : (
             <div className="space-y-2">
-              {tickets.map((t) => {
-                const m = TICKET_STATUS_META[t.status] || { label: t.status, className: 'bg-neutral-100 text-neutral-600' };
-                return (
-                  <div key={t.id} className="border border-neutral-100 rounded-large p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-neutral-900">{t.theme}</span>
-                      <StatusPill label={m.label} className={m.className} size="sm" />
-                    </div>
-                    <div className="text-[11px] text-neutral-400 mt-0.5">{t.protocol} · aberto {formatDateTime(t.createdAt)}</div>
-                    {t.messages && t.messages.length > 0 && <div className="text-xs text-neutral-500 mt-1.5 line-clamp-2">{t.messages[t.messages.length - 1].text}</div>}
-                  </div>
-                );
-              })}
+              {tickets.map((t) => <SupportTicketCard key={t.id} ticket={t} now={now} />)}
             </div>
           )}
         </div>
@@ -1004,6 +1087,76 @@ function ClientSupportDrawer({ client, tickets, onClose, onNewTicket }) {
         <p className="text-[11px] text-neutral-400">O contexto do cliente (conta, ordem, produto) é anexado automaticamente ao abrir um atendimento a partir daqui.</p>
       </div>
     </Drawer>
+  );
+}
+
+// "Enviar relatório" (menu +Nova ação) — pré-visualiza o relatório consolidado
+// e, ao confirmar, baixa o arquivo e registra o documento como enviado.
+function ReportModal({ client, positions, now, onClose, onSend }) {
+  const { formatCurrency, formatDate, formatDateTime, nextMaturity, ASSET_CLASS_ORDER } = window.PortalLib;
+  const total = positions.reduce((s, p) => s + p.currentValue, 0);
+  const byClass = {};
+  positions.forEach((p) => (byClass[p.class] = (byClass[p.class] || 0) + p.currentValue));
+  const rows = ASSET_CLASS_ORDER.filter((c) => byClass[c]).map((c) => ({ c, v: byClass[c], pct: total ? (byClass[c] / total) * 100 : 0 }));
+  const nm = nextMaturity(positions, now);
+
+  function generate() {
+    const lines = [
+      `RELATÓRIO CONSOLIDADO — ${client.name}`,
+      `Conta ${client.account} · ${client.segment} · gerado em ${formatDateTime(now)}`,
+      '',
+      `Patrimônio total: ${formatCurrency(client.totalWealth)}`,
+      `Investido: ${formatCurrency(total)}`,
+      `Caixa disponível: ${formatCurrency(client.availableBalance)}`,
+      client.rentability12m != null ? `Rentabilidade 12m: ${client.rentability12m >= 0 ? '+' : ''}${client.rentability12m}%` : '',
+      '',
+      'ALOCAÇÃO POR CLASSE',
+      ...rows.map((r) => `  ${r.c}: ${formatCurrency(r.v)} (${r.pct.toFixed(1)}%)`),
+      '',
+      nm ? `Próximo vencimento: ${nm.position.asset} em ${formatDate(nm.position.maturityDate)} (${formatCurrency(nm.position.currentValue)})` : 'Sem vencimentos próximos.',
+      '',
+      'Documento simulado — protótipo do Portal do Consultor. Nenhum dado real.',
+    ].filter((l) => l !== '');
+    const doc = {
+      id: `RPT-${Date.now().toString().slice(-6)}`,
+      clientId: client.id,
+      name: `Relatório consolidado ${formatDate(now.slice(0, 10))}`,
+      category: 'relatorio',
+      year: Number(now.slice(0, 4)),
+      format: 'PDF',
+      status: 'enviado',
+      generatedAt: now.slice(0, 10),
+    };
+    window.PortalLib.download(`${client.id}-relatorio.txt`, lines.join('\n'), 'text/plain');
+    onSend(doc);
+    onClose();
+  }
+
+  return (
+    <Modal
+      title="Enviar relatório ao cliente"
+      onClose={onClose}
+      width="max-w-lg"
+      footer={
+        <React.Fragment>
+          <button onClick={onClose} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 hover:bg-neutral-50">Cancelar</button>
+          <button onClick={generate} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5"><Icon name="fileText" size={14} /> Gerar e enviar</button>
+        </React.Fragment>
+      }
+    >
+      <p className="text-neutral-500 mb-3">Prévia do relatório consolidado. Ao enviar, o arquivo é gerado (simulado), fica disponível na aba Documentos como “Enviado ao cliente” e registrado no histórico.</p>
+      <div className="rounded-large border border-neutral-100 p-4 space-y-2">
+        <div className="flex justify-between text-sm"><span className="text-neutral-500">Patrimônio total</span><span className="font-medium text-neutral-900">{formatCurrency(client.totalWealth)}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-neutral-500">Investido</span><span className="font-medium text-neutral-900">{formatCurrency(total)}</span></div>
+        {client.rentability12m != null && <div className="flex justify-between text-sm"><span className="text-neutral-500">Rentabilidade 12m</span><span className="font-medium text-success-dark">+{client.rentability12m}%</span></div>}
+        <div className="pt-2 border-t border-neutral-50">
+          <div className="text-[11px] uppercase tracking-wide text-neutral-400 mb-1.5">Alocação por classe</div>
+          {rows.length === 0 ? <div className="text-xs text-neutral-400">Sem posições.</div> : rows.map((r) => (
+            <div key={r.c} className="flex justify-between text-xs py-0.5"><span className="text-neutral-600">{r.c}</span><span className="text-neutral-900 tabular-nums">{r.pct.toFixed(1)}%</span></div>
+          ))}
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -1016,7 +1169,13 @@ function ClientProfilePage({
   const [selectedPosition, setSelectedPosition] = React.useState(null);
   const [showBridge, setShowBridge] = React.useState(false);
   const [showSupport, setShowSupport] = React.useState(false);
+  const [showReport, setShowReport] = React.useState(false);
+  const [sentReports, setSentReports] = React.useState([]);
   const loading = window.useSimulatedLoading(`${client.id}|${tab}`, 260);
+
+  // Relatórios enviados nesta sessão zeram ao trocar de cliente.
+  React.useEffect(() => { setSentReports([]); }, [client.id]);
+  const allDocuments = sentReports.concat(documents || []);
 
   const ordersAwaiting = orders.filter((o) => o.status === 'aguardando_aprovacao').length;
   const linkedClient = client.pfPjLinkId && allClients ? allClients.find((c) => c.id === client.pfPjLinkId) : null;
@@ -1056,7 +1215,7 @@ function ClientProfilePage({
   const novaAcoes = [
     { label: 'Simular carteira', icon: 'target', onClick: () => setShowBridge(true) },
     { label: 'Recomendar investimento', icon: 'sparkles', onClick: () => setShowBridge(true) },
-    { label: 'Enviar relatório', icon: 'fileText', onClick: () => setTab('recommendations') },
+    { label: 'Enviar relatório', icon: 'fileText', onClick: () => setShowReport(true) },
     { label: 'Solicitar documento', icon: 'file', onClick: () => setTab('documents') },
     { label: 'Abrir atendimento', icon: 'lifeBuoy', onClick: () => onOpenTicket(client, 'client', null, null) },
   ];
@@ -1064,6 +1223,14 @@ function ClientProfilePage({
   function startRecommendation(intent) {
     setShowBridge(false);
     onNewSimulation(client.id, intent ? intent.objectives : null);
+  }
+
+  // Clique num evento de "Toda atividade" → abre a aba/drawer correspondente.
+  const ACTIVITY_TO_TAB = { ordens: 'orders', movimentacoes: 'cash', recomendacoes: 'recommendations', documentos: 'documents', investimentos: 'portfolio', cadastro: 'dados' };
+  function onSelectActivity(ev) {
+    if (ev.category === 'atendimento') { setShowSupport(true); return; }
+    const dest = ACTIVITY_TO_TAB[ev.category];
+    if (dest) setTab(dest);
   }
 
   return (
@@ -1164,10 +1331,10 @@ function ClientProfilePage({
           {tab === 'recommendations' && (
             <ClientRecommendationsTab profile={profile} client={client} positions={positions} simulations={simulations} now={now} onOpenSimulation={onOpenSimulation} onNewRecommendation={() => setShowBridge(true)} />
           )}
-          {tab === 'orders' && <ClientOrdersTab orders={orders} onOpenOrder={onOpenOrder} />}
-          {tab === 'documents' && <DocumentsTab client={client} documents={documents} accessLog={accessLog} onOpenTicket={onOpenTicket} />}
+          {tab === 'orders' && <ClientOrdersTab orders={orders} now={now} onOpenOrder={onOpenOrder} />}
+          {tab === 'documents' && <DocumentsTab client={client} documents={allDocuments} accessLog={accessLog} onOpenTicket={onOpenTicket} />}
           {tab === 'banking' && <BankingTab client={client} profile={profile} bankingProfile={bankingProfile} serviceRequests={serviceRequests} onCreateServiceRequest={onCreateServiceRequest} onOpenServiceRequest={onOpenServiceRequest} />}
-          {tab === 'activity' && <ActivityView events={categorizedEvents} onBack={() => setTab('overview')} />}
+          {tab === 'activity' && <ActivityView events={categorizedEvents} onBack={() => setTab('overview')} onSelectEvent={onSelectActivity} />}
           {tab === 'dados' && <DadosTab client={client} linkedClient={linkedClient} holdingRelations={holdingRelations} onOpenLinked={onOpenClient} />}
         </React.Fragment>
       )}
@@ -1186,12 +1353,23 @@ function ClientProfilePage({
 
       {showBridge && <window.NewRecommendationBridge client={client} onContinue={startRecommendation} onClose={() => setShowBridge(false)} />}
 
+      {showReport && (
+        <ReportModal
+          client={client}
+          positions={positions}
+          now={now}
+          onClose={() => setShowReport(false)}
+          onSend={(doc) => { setSentReports((prev) => [doc, ...prev]); setTab('documents'); }}
+        />
+      )}
+
       {showSupport && (
         <ClientSupportDrawer
           client={client}
           tickets={tickets}
+          now={now}
           onClose={() => setShowSupport(false)}
-          onNewTicket={() => { setShowSupport(false); onOpenTicket(client, 'client', null, null); }}
+          onNewTicket={(theme) => { setShowSupport(false); onOpenTicket(client, 'client', null, null, theme); }}
         />
       )}
     </div>

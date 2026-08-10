@@ -93,6 +93,17 @@ function App() {
     );
   }
 
+  // Reenvia ao cliente a notificação de aprovação — só registra na timeline.
+  function resendOrderNotification(id) {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === id
+          ? { ...o, timeline: [...o.timeline, { date: DATA.now, status: o.status, detail: 'Notificação reenviada ao cliente para revisar e aprovar (ação simulada).' }] }
+          : o
+      )
+    );
+  }
+
   // Molde base de uma nova simulação (jornada consultiva, US-11/US-12).
   function blankSimulation(clientId, currentStep, extra) {
     return Object.assign(
@@ -263,8 +274,8 @@ function App() {
     );
   }
 
-  function openTicketModal(client, contextType, contextId, contextLabel) {
-    setNewTicketContext({ client, contextType, contextId, contextLabel });
+  function openTicketModal(client, contextType, contextId, contextLabel, suggestedTheme) {
+    setNewTicketContext({ client, contextType, contextId, contextLabel, suggestedTheme });
   }
 
   function submitNewTicket({ theme, impact, urgency, message }) {
@@ -362,6 +373,7 @@ function App() {
         now={DATA.now}
         onOpenClient={openClient}
         onRequestLink={() => setShowLinkRequest(true)}
+        onOpenTicket={openTicketModal}
       />
     );
   } else if (page === 'client' && selectedClient) {
@@ -405,6 +417,7 @@ function App() {
         onCloseOrder={() => setOpenOrderId(null)}
         onRetryOrder={retryOrder}
         onCancelOrder={cancelOrder}
+        onResendNotification={resendOrderNotification}
         onOpenTicket={openTicketModal}
       />
     );
@@ -525,6 +538,7 @@ function App() {
           onClose={() => setOpenOrderId(null)}
           onRetry={retryOrder}
           onCancel={cancelOrder}
+          onResendNotification={resendOrderNotification}
           onOpenTicket={openTicketModal}
         />
       )}
@@ -546,7 +560,7 @@ function App() {
           contextType={newTicketContext.contextType}
           contextId={newTicketContext.contextId}
           contextLabel={newTicketContext.contextLabel}
-          suggestedTheme={TICKET_SUGGESTED_THEME[newTicketContext.contextType]}
+          suggestedTheme={newTicketContext.suggestedTheme || TICKET_SUGGESTED_THEME[newTicketContext.contextType]}
           onCreate={submitNewTicket}
           onClose={() => setNewTicketContext(null)}
         />

@@ -3,11 +3,15 @@
 
 const CANCELABLE_STATUSES = ['rascunho', 'enviada', 'aguardando_aprovacao', 'aprovada'];
 
-function OrderDetailDrawer({ order, client, canOperate, onClose, onRetry, onCancel, onOpenTicket }) {
+function OrderDetailDrawer({ order, client, canOperate, onClose, onRetry, onCancel, onResendNotification, onOpenTicket }) {
   const { ORDER_STATUS_META, formatCurrency, formatDateTime } = window.PortalLib;
-  const [confirmKind, setConfirmKind] = React.useState(null); // 'retry' | 'cancel'
+  const [confirmKind, setConfirmKind] = React.useState(null); // 'retry' | 'cancel' | 'notify'
+  const [notified, setNotified] = React.useState(false);
   const canRetry = order.retriable && canOperate;
   const canCancel = CANCELABLE_STATUSES.indexOf(order.status) !== -1 && canOperate;
+  // Reenviar notificação faz sentido para ordens que aguardam ação do cliente.
+  const canNotify = onResendNotification && (order.status === 'aguardando_aprovacao' || order.status === 'enviada');
+  const isProblem = order.status === 'erro' || order.status === 'recusada';
 
   return (
     <React.Fragment>
@@ -18,22 +22,20 @@ function OrderDetailDrawer({ order, client, canOperate, onClose, onRetry, onCanc
           <span className="text-xs text-neutral-400">{order.type}</span>
         </div>
 
-        {order.status === 'erro' && (
-          <div className="flex items-start gap-2 text-sm bg-alert-light text-alert-dark rounded-medium px-3 py-2.5 mb-4">
-            <Icon name="alertTriangle" size={15} className="mt-0.5 shrink-0" />
-            <div>
-              <div className="font-medium">{order.errorReason}</div>
-              <div className="mt-0.5">Ação recomendada: {order.errorAction}</div>
-            </div>
+        {isProblem && (
+          <div className="bg-alert-light text-alert-dark rounded-medium px-3 py-3 mb-4">
+            <div className="flex items-center gap-2 font-medium mb-2"><Icon name="alertTriangle" size={15} className="shrink-0" /> {order.status === 'erro' ? 'Ordem com erro' : 'Ordem recusada'}</div>
+            <dl className="space-y-1.5 text-sm">
+              <div><dt className="text-[11px] uppercase tracking-wide opacity-70">O que aconteceu</dt><dd>{order.errorReason}</dd></div>
+              <div><dt className="text-[11px] uppercase tracking-wide opacity-70">Impacto</dt><dd>{order.errorImpact || 'A ordem não foi concluída; nenhuma posição foi criada por ela.'}</dd></div>
+              <div><dt className="text-[11px] uppercase tracking-wide opacity-70">Próxima ação</dt><dd>{order.errorAction}</dd></div>
+            </dl>
           </div>
         )}
-        {order.status === 'recusada' && (
-          <div className="flex items-start gap-2 text-sm bg-alert-light text-alert-dark rounded-medium px-3 py-2.5 mb-4">
-            <Icon name="alertTriangle" size={15} className="mt-0.5 shrink-0" />
-            <div>
-              <div className="font-medium">{order.errorReason}</div>
-              <div className="mt-0.5">Ação recomendada: {order.errorAction}</div>
-            </div>
+
+        {notified && (
+          <div className="flex items-center gap-2 text-sm bg-success-light text-success-dark rounded-medium px-3 py-2 mb-4">
+            <Icon name="check" size={15} /> Notificação reenviada ao cliente (ação simulada).
           </div>
         )}
 
@@ -41,6 +43,11 @@ function OrderDetailDrawer({ order, client, canOperate, onClose, onRetry, onCanc
           {canRetry && (
             <button onClick={() => setConfirmKind('retry')} className="text-sm px-3 py-1.5 rounded-pill bg-brand text-white flex items-center gap-1.5">
               <Icon name="refresh" size={14} /> Reenviar ordem
+            </button>
+          )}
+          {canNotify && (
+            <button onClick={() => setConfirmKind('notify')} className="text-sm px-3 py-1.5 rounded-pill border border-neutral-200 hover:bg-neutral-50 flex items-center gap-1.5">
+              <Icon name="inbox" size={14} /> Reenviar notificação
             </button>
           )}
           {canCancel && (
@@ -92,11 +99,20 @@ function OrderDetailDrawer({ order, client, canOperate, onClose, onRetry, onCanc
           onClose={() => setConfirmKind(null)}
         />
       )}
+      {confirmKind === 'notify' && (
+        <ConfirmAction
+          title="Reenviar notificação"
+          description="Reenvia ao cliente o aviso para revisar e aprovar esta recomendação. Registrado na linha do tempo (ação simulada)."
+          confirmLabel="Reenviar notificação"
+          onConfirm={() => { onResendNotification(order.id); setNotified(true); setConfirmKind(null); }}
+          onClose={() => setConfirmKind(null)}
+        />
+      )}
     </React.Fragment>
   );
 }
 
-function OrdersPage({ profile, clients, orders, initialFilters, openOrderId, onOpenOrder, onCloseOrder, onRetryOrder, onCancelOrder, onOpenTicket }) {
+function OrdersPage({ profile, clients, orders, initialFilters, openOrderId, onOpenOrder, onCloseOrder, onRetryOrder, onCancelOrder, onResendNotification, onOpenTicket }) {
   const { ORDER_STATUS_META, formatCurrency, formatDateTime } = window.PortalLib;
   const [status, setStatus] = React.useState((initialFilters && initialFilters.status) || '');
   const [clientQuery, setClientQuery] = React.useState('');
@@ -166,6 +182,7 @@ function OrdersPage({ profile, clients, orders, initialFilters, openOrderId, onO
           onClose={onCloseOrder}
           onRetry={onRetryOrder}
           onCancel={onCancelOrder}
+          onResendNotification={onResendNotification}
           onOpenTicket={onOpenTicket}
         />
       )}
