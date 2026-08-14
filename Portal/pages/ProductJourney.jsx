@@ -749,6 +749,20 @@ function ProdCarteiraView({ client, targetAllocation, positions, needs, items, p
   const concIssuer = Object.keys(issuerAfter).map((k) => ({ issuer: k, pct: base ? (issuerAfter[k] / base) * 100 : 0 })).filter((x) => x.pct > 25).sort((a, b) => b.pct - a.pct);
 
   const canContinue = !saldoExcedido && items.length > 0;
+  const hasStrategy = Object.keys(targetAllocation || {}).length > 0;
+
+  // Distribuição da carteira — atual × proposta, sempre disponível (não
+  // depende de estratégia); a marca de alvo só aparece quando ela existe.
+  const distClasses = window.PortalLib.ASSET_CLASS_ORDER.filter((c) => {
+    const inPositions = positions.some((p) => p.class === c);
+    const inItems = items.some((it) => productMap[it.productId] && productMap[it.productId].class === c);
+    return inPositions || inItems;
+  });
+  const distRows = distClasses.map((cls) => {
+    const cur = positions.filter((p) => p.class === cls).reduce((s, p) => s + p.currentValue, 0);
+    const sel = items.filter((it) => productMap[it.productId] && productMap[it.productId].class === cls).reduce((s, it) => s + it.value, 0);
+    return { cls, atual: base ? (cur / base) * 100 : 0, depois: base ? ((cur + sel) / base) * 100 : 0, target: hasStrategy ? targetAllocation[cls] : null };
+  });
 
   const num = (v, onChange, w) => (
     <input type="number" value={v} onChange={(e) => onChange(Math.max(0, parseFloat(e.target.value) || 0))} className={window.PortalLib.classNames('text-sm border border-neutral-200 rounded-medium px-2 py-1 text-right', w || 'w-24')} onClick={(e) => e.stopPropagation()} />
@@ -775,6 +789,17 @@ function ProdCarteiraView({ client, targetAllocation, positions, needs, items, p
       {saldoExcedido && (
         <div className="flex items-center gap-2 bg-alert-light text-alert-dark rounded-large px-4 py-3 text-sm font-medium">
           <Icon name="alertTriangle" size={16} /> A proposta excede o saldo disponível em {formatCurrency(total - available)}. Ajuste os valores antes de enviar.
+        </div>
+      )}
+
+      {distRows.length > 0 && (
+        <div className="bg-white border border-neutral-100 rounded-large p-5">
+          <h2 className="text-sm font-semibold text-neutral-800 mb-3">Distribuição da carteira <span className="text-neutral-400 font-normal">— atual × proposta{hasStrategy ? ' × alvo' : ''}</span></h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            {distRows.map((r) => (
+              <ProdImpactBar key={r.cls} label={window.PortalLib.strategyClassLabel(r.cls)} atual={r.atual} depois={r.depois} target={r.target} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -859,10 +884,37 @@ function ProdCarteiraView({ client, targetAllocation, positions, needs, items, p
 }
 
 // ---------- Tela 06 — Revisar recomendação ----------
-function ProdRevisarView({ client, items, productMap, now, adherencePct, onConfirm, onBack, onAcceptNewRate }) {
+// Resumo financeiro agregado da proposta. A taxa média só é calculada quando
+// todos os itens negociáveis compartilham o mesmo indexador — misturar % CDI
+// com IPCA+ numa única "taxa média" seria enganoso, não apenas simplificado.
+function prodFinancialSummary(items, productMap, now) {
+  const priced = items.map((it) => ({ it, p: productMap[it.productId] })).filter((x) => x.p);
+  const negotiableItems = priced.filter((x) => x.p.negotiable && x.it.rate != null);
+  const units = new Set(negotiableItems.map((x) => x.p.rateUnit));
+  let rateLabel = null;
+  if (negotiableItems.length > 0 && units.size === 1) {
+    const unit = negotiableItems[0].p.rateUnit;
+    const wsum = negotiableItems.reduce((s, x) => s + x.it.rate * x.it.value, 0);
+    const wtotal = negotiableItems.reduce((s, x) => s + x.it.value, 0);
+    const avg = wtotal ? wsum / wtotal : 0;
+    rateLabel = unit === 'IPCA+' ? `IPCA + ${avg.toFixed(1).replace('.', ',')}%` : `${avg.toFixed(1).replace('.', ',')}${unit}`;
+  }
+  const withMaturity = priced.filter((x) => x.p.maturityDate);
+  let avgYears = null;
+  if (withMaturity.length > 0) {
+    const wsum = withMaturity.reduce((s, x) => { const days = (new Date(x.p.maturityDate) - new Date(now)) / 86400000; return s + Math.max(0, days / 365) * x.it.value; }, 0);
+    const wtotal = withMaturity.reduce((s, x) => s + x.it.value, 0);
+    avgYears = wtotal ? wsum / wtotal : null;
+  }
+  return { rateLabel, mixedUnits: negotiableItems.length > 0 && units.size > 1, avgYears, hasMaturity: withMaturity.length > 0 };
+}
+
+function ProdRevisarView({ client, items, productMap, now, adherencePct, onConfirm, onBack, onAcceptNewRate, onSubstitute }) {
   const { formatCurrency } = window.PortalLib;
   const total = items.reduce((s, it) => s + it.value, 0);
   const remaining = client.availableBalance - total;
+  const summary = prodFinancialSummary(items, productMap, now);
+  const diverging = items.filter((it) => { const p = productMap[it.productId]; return p && p.rateUpdated && !it.rateAccepted; });
 
   return (
     <div className="space-y-4">
@@ -881,6 +933,30 @@ function ProdRevisarView({ client, items, productMap, now, adherencePct, onConfi
         <ProdKpi value={`${adherencePct}%`} label="Aderência à estratégia" />
       </div>
 
+      {diverging.length > 0 && (
+        <div className="border border-warning/40 rounded-large overflow-hidden">
+          <div className="bg-warning-light px-4 py-2.5 text-sm font-semibold text-warning-dark">Divergências de taxa e oportunidades atuais</div>
+          <div className="divide-y divide-neutral-50 bg-white">
+            {diverging.map((it) => {
+              const p = productMap[it.productId];
+              return (
+                <div key={it.productId} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div className="min-w-[160px]">
+                    <div className="font-medium text-neutral-900 text-sm">{p.name}</div>
+                    <div className="text-xs text-neutral-500">Antes <span className="line-through">{p.previousRateLabel}</span> · Agora <span className="font-medium text-neutral-800">{p.rateLabel}</span></div>
+                  </div>
+                  <StatusPill label="Taxa atualizada" className="bg-warning-light text-warning-dark" size="sm" />
+                  <div className="ml-auto flex items-center gap-2">
+                    <button onClick={() => onAcceptNewRate(it.productId)} className="text-xs px-3 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Aceitar nova taxa</button>
+                    <button onClick={() => onSubstitute(it.productId, p.class)} className="text-xs px-3 py-1.5 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Substituir ativo</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto border border-neutral-100 rounded-large bg-white">
         <table className="w-full text-sm min-w-[640px]">
           <thead className="bg-neutral-50">
@@ -892,13 +968,14 @@ function ProdRevisarView({ client, items, productMap, now, adherencePct, onConfi
               if (!p) return null;
               const rateLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(it.rate).replace('.', ',')}%` : `${it.rate}${p.rateUnit}`) : '—';
               const refLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(p.rateRef).replace('.', ',')}%` : `${p.rateRef}${p.rateUnit}`) : '—';
+              const isDiverging = diverging.indexOf(it) !== -1;
               return (
-                <tr key={it.productId} className="border-b border-neutral-50 last:border-0">
+                <tr key={it.productId} className={window.PortalLib.classNames('border-b border-neutral-50 last:border-0', isDiverging && 'bg-warning-light/40')}>
                   <td className="px-4 py-3 font-medium text-neutral-900">{p.name}</td>
                   <td className="px-4 py-3 text-neutral-700">{formatCurrency(it.value)}</td>
                   <td className="px-4 py-3 text-neutral-800 font-medium">{rateLabel}</td>
                   <td className="px-4 py-3 text-neutral-500">{refLabel}</td>
-                  <td className="px-4 py-3"><StatusPill label="Validado" className="bg-success-light text-success-dark" size="sm" /></td>
+                  <td className="px-4 py-3">{isDiverging ? <StatusPill label="Taxa atualizada" className="bg-warning-light text-warning-dark" size="sm" /> : <StatusPill label="Validado" className="bg-success-light text-success-dark" size="sm" />}</td>
                 </tr>
               );
             })}
@@ -908,10 +985,12 @@ function ProdRevisarView({ client, items, productMap, now, adherencePct, onConfi
 
       <div className="bg-white border border-neutral-100 rounded-large p-4">
         <h2 className="text-sm font-semibold text-neutral-800 mb-2">Resumo financeiro</h2>
-        <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
           <div><div className="text-xs text-neutral-400 uppercase tracking-wide">Investimento total</div><div className="font-semibold text-neutral-900 mt-0.5">{formatCurrency(total)}</div></div>
           <div><div className="text-xs text-neutral-400 uppercase tracking-wide">Caixa remanescente</div><div className="font-semibold text-neutral-900 mt-0.5">{formatCurrency(remaining)}</div></div>
           <div><div className="text-xs text-neutral-400 uppercase tracking-wide">Custos estimados</div><div className="font-semibold text-neutral-900 mt-0.5">R$ 0,00</div></div>
+          <div><div className="text-xs text-neutral-400 uppercase tracking-wide">Taxa média ponderada</div><div className="font-semibold text-neutral-900 mt-0.5">{summary.rateLabel || (summary.mixedUnits ? 'Múltiplos indexadores' : '—')}</div></div>
+          <div><div className="text-xs text-neutral-400 uppercase tracking-wide">Prazo médio</div><div className="font-semibold text-neutral-900 mt-0.5">{summary.avgYears != null ? `${summary.avgYears.toFixed(1).replace('.', ',')} anos` : '—'}</div></div>
         </div>
       </div>
 
@@ -921,6 +1000,7 @@ function ProdRevisarView({ client, items, productMap, now, adherencePct, onConfi
         <ProdValidationRow status="ok" label="Produtos disponíveis" />
         <ProdValidationRow status="ok" label="Aplicações mínimas" />
         <ProdValidationRow status="ok" label="Saldo suficiente" />
+        {diverging.length > 0 && <ProdValidationRow status="warn" label={`${diverging.length} taxa(s) atualizada(s) desde a seleção`} detail="Aceite a nova taxa ou substitua o ativo antes de enviar." />}
         {adherencePct < 100 && <ProdValidationRow status="warn" label={`Estratégia ${adherencePct}% implementada`} detail={`A recomendação pode ser enviada com ${formatCurrency(remaining)} ainda não alocados.`} />}
       </div>
 
@@ -1103,6 +1183,8 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
             client={client} items={items} productMap={productMap} now={now} adherencePct={adherencePct}
             onConfirm={() => setConfirm('ask')}
             onBack={() => setView('carteira')}
+            onAcceptNewRate={(productId) => updateItem(productId, { rateAccepted: true, rate: productMap[productId].rateValue })}
+            onSubstitute={(productId, cls) => { removeItem(productId); setNeedContext(cls); setView('explorar'); }}
           />
           {modal}
         </React.Fragment>
