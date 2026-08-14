@@ -37,9 +37,10 @@ function App() {
   const [openRequestId, setOpenRequestId] = React.useState(null);
   const [openTicketId, setOpenTicketId] = React.useState(null);
   const [newTicketContext, setNewTicketContext] = React.useState(null);
-  // EP-02 — jornada de Produtos: qual estratégia (simulação com targetAllocation)
-  // está sendo implementada. Default = vitrine João Pedro (SIM_JP).
-  const [proposalSimId, setProposalSimId] = React.useState('SIM_JP');
+  // EP-02 — jornada de Produtos: contexto de entrada (cliente + estratégia
+  // opcional + seleção prévia do catálogo). Default = vitrine João Pedro (SIM_JP,
+  // Nível 3 — cliente com estratégia definida no Simulador).
+  const [proposalContext, setProposalContext] = React.useState({ clientId: 'C17', simulationId: 'SIM_JP', initialProductIds: null, initialMode: null });
 
   const profile = DATA.profiles.find((p) => p.id === profileId);
   const scopedClients = React.useMemo(() => clientsInScope(profile, DATA.clients), [profile, DATA.clients]);
@@ -156,9 +157,22 @@ function App() {
   }
 
   // EP-02 — ponte "Implementar em Produtos": entra na jornada de Produtos com a
-  // carteira-alvo da simulação como contexto somente-leitura.
+  // carteira-alvo da simulação como contexto somente-leitura (Nível 3).
   function startRecommendation(simulationId) {
-    if (simulationId) setProposalSimId(simulationId);
+    const sim = simulations.find((s) => s.id === simulationId);
+    setProposalContext({ clientId: sim ? sim.clientId : null, simulationId: simulationId || null, initialProductIds: null, initialMode: null });
+    navigate('proposta', {});
+  }
+
+  // EP-02 — as duas portas "cliente-âncora" da jornada de Produtos:
+  //  (1) catálogo: Produto(s) → Cliente → Detalhe/Configuração (productIds preenchido);
+  //  (2) ficha do cliente: Cliente → Carteira → Produtos (productIds vazio).
+  // Em ambos os casos, se o cliente já tiver uma estratégia definida no
+  // Simulador (targetAllocation), ela é anexada automaticamente (Nível 3);
+  // senão a jornada segue sem estratégia (Nível 1→2).
+  function enterCatalogFlow(clientId, productIds, mode) {
+    const existingStrategy = simulations.find((s) => s.clientId === clientId && s.targetAllocation);
+    setProposalContext({ clientId, simulationId: existingStrategy ? existingStrategy.id : null, initialProductIds: productIds, initialMode: mode });
     navigate('proposta', {});
   }
 
@@ -259,26 +273,6 @@ function App() {
     setSimulations((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status: 'compartilhada', sharedAt: DATA.now, updatedAt: DATA.now, version: (s.version || 1) + 1 } : s))
     );
-  }
-
-  function addProductToProposal(clientId, product) {
-    const existingDraft = simulations.find((s) => s.clientId === clientId && s.status === 'rascunho');
-    if (existingDraft) {
-      const alreadyIn = existingDraft.items.some((it) => it.productId === product.id);
-      if (!alreadyIn) {
-        setSimulations((prev) =>
-          prev.map((s) => (s.id === existingDraft.id ? { ...s, items: [...s.items, { productId: product.id, allocatedValue: product.minApplication }], currentStep: 'alocacao', updatedAt: DATA.now } : s))
-        );
-      }
-      navigate('simulator', { simulationId: existingDraft.id });
-      return;
-    }
-    const sim = blankSimulation(clientId, 'alocacao', {
-      items: [{ productId: product.id, allocatedValue: product.minApplication }],
-      simulationValue: product.minApplication,
-    });
-    setSimulations((prev) => [...prev, sim]);
-    navigate('simulator', { simulationId: sim.id });
   }
 
   function sendBasket(product, items) {
@@ -469,6 +463,7 @@ function App() {
         onCreatePlan={createFinancialPlan}
         onGeneratePlanReport={generatePlanReport}
         onCommitPlan={commitPlanDraft}
+        onExploreProducts={(clientId) => enterCatalogFlow(clientId, [], null)}
       />
     );
   } else if (page === 'orders') {
@@ -503,14 +498,16 @@ function App() {
       />
     );
   } else if (page === 'products') {
-    content = <ProductsPage profile={profile} clients={scopedClients} products={DATA.products} now={DATA.now} initialFilters={pageParams} strategies={simulations.filter((s) => s.targetAllocation)} onStartRecommendation={startRecommendation} onAddToProposal={addProductToProposal} />;
+    content = <ProductsPage profile={profile} clients={scopedClients} products={DATA.products} now={DATA.now} initialFilters={pageParams} strategies={simulations.filter((s) => s.targetAllocation)} onStartRecommendation={startRecommendation} onEnterCatalogFlow={enterCatalogFlow} />;
   } else if (page === 'proposta') {
-    const sim = simulations.find((s) => s.id === proposalSimId) || simulations.find((s) => s.targetAllocation) || null;
-    const cli = sim ? DATA.clients.find((c) => c.id === sim.clientId) : null;
+    const sim = proposalContext.simulationId ? simulations.find((s) => s.id === proposalContext.simulationId) : null;
+    const cli = DATA.clients.find((c) => c.id === proposalContext.clientId) || null;
     content = cli ? (
       <window.ProductJourney
         client={cli}
         simulation={sim}
+        initialProductIds={proposalContext.initialProductIds}
+        initialMode={proposalContext.initialMode}
         positions={DATA.portfolioPositions.filter((p) => p.clientId === cli.id)}
         products={DATA.products}
         now={DATA.now}

@@ -248,6 +248,33 @@
   // mantém o nome; só troca a fachada de duas delas para a linguagem da spec).
   const STRATEGY_CLASS_LABEL = { 'Ações': 'Renda variável', 'Global': 'Internacional' };
   function strategyClassLabel(cls) { return STRATEGY_CLASS_LABEL[cls] || cls; }
+  // Tabs por classe — compartilhadas entre o catálogo (US-10) e a jornada de
+  // Produtos e Carteira Proposta (EP-02), fonte única.
+  const PROD_CLASS_TABS = [
+    { key: '', label: 'Todos', classes: null },
+    { key: 'Pós-fixado', label: 'Pós-fixado', classes: ['Pós-fixado'] },
+    { key: 'Inflação', label: 'Inflação', classes: ['Inflação'] },
+    { key: 'Prefixado', label: 'Prefixado', classes: ['Prefixado'] },
+    { key: 'Fundos', label: 'Fundos', classes: ['Fundos', 'Multimercado'] },
+    { key: 'Ações', label: 'Renda variável', classes: ['Ações'] },
+    { key: 'FIIs', label: 'FIIs', classes: ['FIIs'] },
+    { key: 'Global', label: 'Internacional', classes: ['Global'] },
+  ];
+
+  // Status de exibição de um produto no catálogo (US-10 / catálogo denso).
+  const PRODUCT_STATUS_META = {
+    indisponivel: { label: 'Indisponível', className: 'bg-alert-light text-alert-dark', rowClassName: 'bg-alert-light/30' },
+    estoque_baixo: { label: 'Estoque baixo', className: 'bg-alert-light text-alert-dark', rowClassName: 'bg-alert-light/30' },
+    taxa_atualizada: { label: 'Taxa atualizada', className: 'bg-warning-light text-warning-dark', rowClassName: 'bg-warning-light/40' },
+    disponivel: { label: 'Disponível', className: 'bg-success-light text-success-dark', rowClassName: '' },
+  };
+  function productStatus(p) {
+    if (!p.available) return 'indisponivel';
+    if (p.lowStock) return 'estoque_baixo';
+    if (p.rateUpdated) return 'taxa_atualizada';
+    return 'disponivel';
+  }
+
   // Status de uma recomendação enviada (Tela 08 — Ordens).
   const REC_STATUS_META = {
     aguardando_cliente: { label: 'Aguardando cliente', className: 'bg-warning-light text-warning-dark' },
@@ -358,6 +385,9 @@
     NEED_STATUS_META,
     STRATEGY_CLASS_LABEL,
     strategyClassLabel,
+    PROD_CLASS_TABS,
+    PRODUCT_STATUS_META,
+    productStatus,
     REC_STATUS_META,
     SERVICE_TYPE_META,
     SERVICE_REQUEST_STATUS_META,

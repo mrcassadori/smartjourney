@@ -392,6 +392,12 @@
     }
 
     const target = targetAllocation || {};
+    const hasStrategy = Object.keys(target).length > 0;
+    // Nível 2 (cliente sem estratégia definida no Simulador): não existe "fora da
+    // estratégia" quando não há estratégia nenhuma — cai para elegibilidade/perfil.
+    if (!hasStrategy) {
+      return { level: 'adequado', reasons: ['Elegível para o perfil do cliente — sem estratégia definida para comparar aderência.'] };
+    }
     if (target[product.class] == null) {
       return { level: 'atencao', reasons: ['Fora das classes da estratégia definida.'] };
     }

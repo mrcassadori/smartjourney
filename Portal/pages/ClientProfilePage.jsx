@@ -360,7 +360,7 @@ const MACRO_BY_CLASS = {
 function macroOf(cls) { return MACRO_BY_CLASS[cls] || 'Outros'; }
 function isInternational(p) { return macroOf(p.class) === 'Internacional' || /internacional|cambial|global/i.test(`${p.class || ''}${p.subclass || ''}${p.asset || ''}`); }
 
-function PortfolioTab({ client, positions, now, onExport, onOpenPosition, onSimulateRebalance }) {
+function PortfolioTab({ client, positions, now, onExport, onOpenPosition, onSimulateRebalance, onExploreProducts }) {
   const { formatCurrency, formatDate, daysUntil, nextMaturity, ASSET_CLASS_ORDER } = window.PortalLib;
   const [groupBy, setGroupBy] = React.useState('class');
   const [scope, setScope] = React.useState('nacional');
@@ -416,6 +416,9 @@ function PortfolioTab({ client, positions, now, onExport, onOpenPosition, onSimu
         <div className="flex items-center gap-2">
           <button onClick={onExport} className="text-sm px-3 py-2 rounded-pill border border-neutral-200 flex items-center gap-1.5 hover:bg-neutral-50">
             <Icon name="download" size={14} /> Exportar
+          </button>
+          <button onClick={onExploreProducts} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50 flex items-center gap-1.5">
+            <Icon name="layers" size={14} /> Explorar produtos
           </button>
           <button onClick={onSimulateRebalance} className="text-sm px-4 py-2 rounded-pill border border-brand text-brand-dark hover:bg-brand-lightest flex items-center gap-1.5">
             <Icon name="refresh" size={14} /> Simular rebalanceamento
@@ -1445,7 +1448,7 @@ function ReportModal({ client, positions, now, onClose, onSend }) {
 
 function ClientProfilePage({
   client, profile, positions, cashEvents, alerts, orders, onboardingEntry, simulations, serviceRequests, holdingRelations,
-  allClients, documents, accessLog, bankingProfile, tickets, plan, now, onBack, onOpenOrder, onOpenSimulation, onNewSimulation, onOpenServiceRequest, onCreateServiceRequest, onOpenTicket, onOpenClient, onCreatePlan, onGeneratePlanReport, onCommitPlan,
+  allClients, documents, accessLog, bankingProfile, tickets, plan, now, onBack, onOpenOrder, onOpenSimulation, onNewSimulation, onOpenServiceRequest, onCreateServiceRequest, onOpenTicket, onOpenClient, onCreatePlan, onGeneratePlanReport, onCommitPlan, onExploreProducts,
 }) {
   const { formatCurrency, formatDate, maskDocument, CLIENT_STATUS_META, OWNER_NAME_MAP, RISK_PROFILE_META } = window.PortalLib;
   const [tab, setTab] = React.useState('overview');
@@ -1614,6 +1617,7 @@ function ClientProfilePage({
               onExport={() => window.PortalLib.download(`${client.id}-carteira.json`, JSON.stringify(positions, null, 2))}
               onOpenPosition={setSelectedPosition}
               onSimulateRebalance={() => setShowBridge(true)}
+              onExploreProducts={() => onExploreProducts(client.id)}
             />
           )}
           {tab === 'cash' && <CashTab client={client} events={cashEvents} now={now} onSimulateApply={() => setShowBridge(true)} />}

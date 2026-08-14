@@ -15,16 +15,7 @@ function prodCompact(v) {
   return window.PortalLib.formatCurrency(v);
 }
 
-const PROD_CLASS_TABS = [
-  { key: '', label: 'Todos', classes: null },
-  { key: 'Pós-fixado', label: 'Pós-fixado', classes: ['Pós-fixado'] },
-  { key: 'Inflação', label: 'Inflação', classes: ['Inflação'] },
-  { key: 'Prefixado', label: 'Prefixado', classes: ['Prefixado'] },
-  { key: 'Fundos', label: 'Fundos', classes: ['Fundos', 'Multimercado'] },
-  { key: 'Ações', label: 'Renda variável', classes: ['Ações'] },
-  { key: 'FIIs', label: 'FIIs', classes: ['FIIs'] },
-  { key: 'Global', label: 'Internacional', classes: ['Global'] },
-];
+const PROD_CLASS_TABS = window.PortalLib.PROD_CLASS_TABS;
 
 // ---------- Blocos reutilizáveis ----------
 
@@ -167,12 +158,14 @@ function ProdSelectedBar({ count, onCompare, onAdd, onClear }) {
 }
 
 // ---------- Tela 01 — Necessidades de alocação ----------
-function ProdNeedsView({ client, targetAllocation, needs, now, itemCount, onExplore, onPickClass, onOpenCarteira, onEditStrategy, onOpenClient }) {
+function ProdNeedsView({ client, targetAllocation, needs, now, itemCount, hasStrategy, onExplore, onPickClass, onOpenCarteira, onEditStrategy, onOpenClient }) {
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-semibold text-neutral-900">Produtos</h1>
-        <p className="text-sm text-neutral-500 mt-1">Encontre os investimentos necessários para implementar a estratégia definida para o cliente.</p>
+        <p className="text-sm text-neutral-500 mt-1">
+          {hasStrategy ? 'Encontre os investimentos necessários para implementar a estratégia definida para o cliente.' : 'Explore o catálogo para este cliente e construa uma recomendação.'}
+        </p>
       </div>
 
       <ProdClientContextCard
@@ -181,14 +174,25 @@ function ProdNeedsView({ client, targetAllocation, needs, now, itemCount, onExpl
         right={<button onClick={() => onOpenClient(client.id)} className="text-sm text-brand font-medium hover:underline">Ver cliente</button>}
       />
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">Estratégia definida no Simulador</h2>
-          <button onClick={onEditStrategy} className="text-xs text-neutral-400 hover:text-brand">Editar estratégia no Simulador</button>
+      {hasStrategy ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">Estratégia definida no Simulador</h2>
+            <button onClick={onEditStrategy} className="text-xs text-neutral-400 hover:text-brand">Editar estratégia no Simulador</button>
+          </div>
+          <ProdStrategyTable needs={needs} onPickClass={onPickClass} />
         </div>
-        <ProdStrategyTable needs={needs} onPickClass={onPickClass} />
-      </div>
+      ) : (
+        <div className="bg-white border border-neutral-100 rounded-large px-5 py-4 flex items-start gap-3">
+          <Icon name="mapSignpost" size={18} className="text-neutral-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm text-neutral-700">Este cliente ainda não tem uma estratégia (carteira-alvo) definida no Simulador.</p>
+            <p className="text-xs text-neutral-400 mt-1">Você pode explorar o catálogo livremente e montar uma recomendação, ou <button onClick={onEditStrategy} className="text-brand hover:underline">definir a estratégia no Simulador</button> primeiro para ver aderência por classe.</p>
+          </div>
+        </div>
+      )}
 
+      {hasStrategy && (
       <div className="bg-brand-lightest border border-brand/20 rounded-large px-5 py-4">
         <div className="flex items-start gap-2.5">
           <Icon name="target" size={18} className="text-brand mt-0.5 shrink-0" />
@@ -206,6 +210,7 @@ function ProdNeedsView({ client, targetAllocation, needs, now, itemCount, onExpl
           </div>
         </div>
       </div>
+      )}
 
       <div className="flex justify-end gap-2">
         {itemCount > 0 && (
@@ -218,7 +223,7 @@ function ProdNeedsView({ client, targetAllocation, needs, now, itemCount, onExpl
 }
 
 // ---------- Tela 02 — Explorar investimentos ----------
-function ProdExploreView({ client, targetAllocation, positions, products, needs, items, now, needContext, onClearContext, onEditStrategy, onPickClass, onAddProducts, onCompare, onOpenDetail, onOpenCarteira, onBack }) {
+function ProdExploreView({ client, targetAllocation, positions, products, needs, items, now, needContext, hasStrategy, onClearContext, onEditStrategy, onPickClass, onAddProducts, onCompare, onOpenDetail, onOpenCarteira, onBack }) {
   const { formatCurrency, PRODUCT_RISK_LABELS } = window.PortalLib;
   const A = window.PortalAnalytics;
   const [query, setQuery] = React.useState('');
@@ -315,7 +320,7 @@ function ProdExploreView({ client, targetAllocation, positions, products, needs,
           {items.length > 0 && (
             <button onClick={onOpenCarteira} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5"><Icon name="briefcase" size={14} /> Ver carteira proposta ({items.length})</button>
           )}
-          <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1"><Icon name="arrowLeft" size={15} /> Necessidades</button>
+          <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1"><Icon name="arrowLeft" size={15} /> {hasStrategy ? 'Necessidades' : 'Produtos'}</button>
         </div>
       </div>
 
@@ -511,7 +516,7 @@ function ProdTag({ children }) {
 }
 
 // ---------- Tela 04 — Detalhe do investimento ----------
-function ProdDetailView({ product, client, targetAllocation, positions, items, productMap, needs, now, onAdd, onBack }) {
+function ProdDetailView({ product, client, targetAllocation, positions, items, productMap, needs, now, hasStrategy, onAdd, onBack }) {
   const { formatCurrency, strategyClassLabel, PRODUCT_RISK_LABELS } = window.PortalLib;
   const A = window.PortalAnalytics;
   const existing = items.find((it) => it.productId === product.id);
@@ -600,28 +605,38 @@ function ProdDetailView({ product, client, targetAllocation, positions, items, p
         <h2 className="text-sm font-semibold text-neutral-800 mb-3">Impacto na carteira <span className="text-neutral-400 font-normal">· aplicação de {formatCurrency(value)}</span></h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div>
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="font-medium text-neutral-700">Meta de aporte em {strategyClassLabel(product.class)}</span>
-              {aporteMeta > 0
-                ? (metaAtingida ? <StatusPill label="Meta atingida" className="bg-success-light text-success-dark" size="sm" /> : <StatusPill label={`${aportePct.toFixed(0)}% da meta`} className="bg-warning-light text-warning-dark" size="sm" />)
-                : <StatusPill label="Fora da necessidade" className="bg-neutral-100 text-neutral-500" size="sm" />}
-            </div>
-            {aporteMeta > 0 ? (
+            {!hasStrategy ? (
               <React.Fragment>
-                <div className="flex items-center gap-2 text-xs text-neutral-500 mb-1">
-                  <span>Já selecionado {prodCompact(selClassOther)}</span>
-                  <Icon name="chevronRight" size={12} className="text-neutral-300" />
-                  <span className="font-semibold text-neutral-800">Com este {prodCompact(aporteComEste)}</span>
-                  <span className="text-neutral-400">de {prodCompact(aporteMeta)}</span>
-                </div>
-                <div className="h-2 rounded-pill bg-neutral-100 overflow-hidden">
-                  <div className="h-full bg-brand" style={{ width: `${aportePct}%` }} />
-                </div>
+                <div className="text-xs font-medium text-neutral-700 mb-1">Participação na carteira — {strategyClassLabel(product.class)}</div>
+                <p className="text-xs text-neutral-500">Cliente sem estratégia definida no Simulador — sem meta de aporte para comparar.</p>
+                <div className="text-[11px] text-neutral-400 mt-1">Participação da classe na carteira: {imp.classAtual.toFixed(0)}% → {imp.classAposEste.toFixed(1)}%.</div>
               </React.Fragment>
             ) : (
-              <p className="text-xs text-neutral-500">{strategyClassLabel(product.class)} já está adequada ou acima do alvo — aplicar aqui não reduz a necessidade da estratégia.</p>
+              <React.Fragment>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-medium text-neutral-700">Meta de aporte em {strategyClassLabel(product.class)}</span>
+                  {aporteMeta > 0
+                    ? (metaAtingida ? <StatusPill label="Meta atingida" className="bg-success-light text-success-dark" size="sm" /> : <StatusPill label={`${aportePct.toFixed(0)}% da meta`} className="bg-warning-light text-warning-dark" size="sm" />)
+                    : <StatusPill label="Fora da necessidade" className="bg-neutral-100 text-neutral-500" size="sm" />}
+                </div>
+                {aporteMeta > 0 ? (
+                  <React.Fragment>
+                    <div className="flex items-center gap-2 text-xs text-neutral-500 mb-1">
+                      <span>Já selecionado {prodCompact(selClassOther)}</span>
+                      <Icon name="chevronRight" size={12} className="text-neutral-300" />
+                      <span className="font-semibold text-neutral-800">Com este {prodCompact(aporteComEste)}</span>
+                      <span className="text-neutral-400">de {prodCompact(aporteMeta)}</span>
+                    </div>
+                    <div className="h-2 rounded-pill bg-neutral-100 overflow-hidden">
+                      <div className="h-full bg-brand" style={{ width: `${aportePct}%` }} />
+                    </div>
+                  </React.Fragment>
+                ) : (
+                  <p className="text-xs text-neutral-500">{strategyClassLabel(product.class)} já está adequada ou acima do alvo — aplicar aqui não reduz a necessidade da estratégia.</p>
+                )}
+                <div className="text-[11px] text-neutral-400 mt-1">Participação da classe na carteira: {imp.classAtual.toFixed(0)}% → {imp.classAposEste.toFixed(1)}% (meta {imp.targetPct}%).</div>
+              </React.Fragment>
             )}
-            <div className="text-[11px] text-neutral-400 mt-1">Participação da classe na carteira: {imp.classAtual.toFixed(0)}% → {imp.classAposEste.toFixed(1)}% (meta {imp.targetPct}%).</div>
           </div>
           <ProdImpactBar
             label={`Concentração ${product.issuer}`}
@@ -763,6 +778,7 @@ function ProdCarteiraView({ client, targetAllocation, positions, needs, items, p
         </div>
       )}
 
+      {needs.rows.length > 0 && (
       <div>
         <h2 className="text-sm font-semibold text-neutral-700 mb-2">Estratégia <span className="text-neutral-400 font-normal">(definida no Simulador)</span> × Implementação <span className="text-neutral-400 font-normal">(produtos reais)</span></h2>
         <ProdStrategyImplTable needs={needs} items={items} productMap={productMap} />
@@ -776,6 +792,7 @@ function ProdCarteiraView({ client, targetAllocation, positions, needs, items, p
           </div>
         )}
       </div>
+      )}
 
       {/* Tabela de investimentos com edição inline */}
       <div className="overflow-x-auto border border-neutral-100 rounded-large bg-white">
@@ -951,20 +968,35 @@ function ProdConfirmModal({ client, items, sent, recId, onConfirm, onClose, onGo
 }
 
 // ---------- Root ----------
-function ProductJourney({ client, simulation, positions, products, now, onExit, onOpenClient, onOpenSimulation, onSubmitRecommendation, onGoOrders }) {
+function ProductJourney({ client, simulation, positions, products, now, initialProductIds, initialMode, onExit, onOpenClient, onOpenSimulation, onSubmitRecommendation, onGoOrders }) {
   const A = window.PortalAnalytics;
   const targetAllocation = (simulation && simulation.targetAllocation) || {};
-  const [view, setView] = React.useState('necessidades'); // necessidades | explorar | comparar | detalhe | (carteira/revisar — Fase 3)
-  const [items, setItems] = React.useState([]); // [{ productId, value, rate }]
-  const [needContext, setNeedContext] = React.useState(null);
-  const [compareIds, setCompareIds] = React.useState([]);
-  const [detailId, setDetailId] = React.useState(null);
-  const [returnView, setReturnView] = React.useState('explorar'); // para onde voltar do detalhe
-  const [confirm, setConfirm] = React.useState(null); // null | 'ask' | 'sent'
-  const [sentRecId, setSentRecId] = React.useState(null);
+  const hasStrategy = Object.keys(targetAllocation).length > 0;
 
   const productMap = {};
   products.forEach((p) => (productMap[p.id] = p));
+
+  // Entrada "produto-primeiro" do catálogo (Produto(s) → Cliente → …): 1 produto
+  // abre direto no Detalhe/Configuração; 2+ já entram como itens da carteira;
+  // modo "comparar" abre a Tela 03. Sem seleção prévia, começa nas Necessidades
+  // (Nível 3, com estratégia) ou é pulado adiante quando não há estratégia.
+  function initialViewAndState() {
+    const ids = (initialProductIds || []).filter((id) => productMap[id]);
+    if (ids.length === 0) return { view: hasStrategy ? 'necessidades' : 'explorar', items: [], compareIds: [], detailId: null };
+    if (initialMode === 'comparar') return { view: 'comparar', items: [], compareIds: ids, detailId: null };
+    if (ids.length === 1) return { view: 'detalhe', items: [], compareIds: [], detailId: ids[0] };
+    return { view: 'carteira', items: ids.map((id) => ({ productId: id, value: productMap[id].minApplication, rate: productMap[id].rateValue })), compareIds: [], detailId: null };
+  }
+  const initial = React.useMemo(initialViewAndState, []); // eslint-disable-line
+
+  const [view, setView] = React.useState(initial.view); // necessidades | explorar | comparar | detalhe | carteira | revisar
+  const [items, setItems] = React.useState(initial.items); // [{ productId, value, rate }]
+  const [needContext, setNeedContext] = React.useState(null);
+  const [compareIds, setCompareIds] = React.useState(initial.compareIds);
+  const [detailId, setDetailId] = React.useState(initial.detailId);
+  const [returnView, setReturnView] = React.useState('explorar'); // para onde voltar do detalhe
+  const [confirm, setConfirm] = React.useState(null); // null | 'ask' | 'sent'
+  const [sentRecId, setSentRecId] = React.useState(null);
 
   // Soma selecionada por classe, para o motor de necessidades descontar.
   const selectedByClass = {};
@@ -1048,7 +1080,7 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
     return (
       <ProdDetailView
         product={productMap[detailId]} client={client} targetAllocation={targetAllocation}
-        positions={positions} items={items} productMap={productMap} needs={needs} now={now}
+        positions={positions} items={items} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
         onAdd={(p, value, rate) => { upsertItem(p, value, rate); setView(returnView); }}
         onBack={() => setView(returnView)}
       />
@@ -1095,7 +1127,7 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
     return (
       <ProdExploreView
         client={client} targetAllocation={targetAllocation} positions={positions} products={products}
-        needs={needs} items={items} now={now} needContext={needContext}
+        needs={needs} items={items} now={now} needContext={needContext} hasStrategy={hasStrategy}
         onClearContext={() => setNeedContext(null)}
         onEditStrategy={editStrategy}
         onPickClass={(cls) => { setNeedContext(cls); }}
@@ -1103,14 +1135,14 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
         onCompare={(ids) => { setCompareIds(ids); setView('comparar'); }}
         onOpenDetail={(id) => { setDetailId(id); setReturnView('explorar'); setView('detalhe'); }}
         onOpenCarteira={() => setView('carteira')}
-        onBack={() => setView('necessidades')}
+        onBack={hasStrategy ? () => setView('necessidades') : onExit}
       />
     );
   }
 
   return (
     <ProdNeedsView
-      client={client} targetAllocation={targetAllocation} needs={needs} now={now} itemCount={items.length}
+      client={client} targetAllocation={targetAllocation} needs={needs} now={now} itemCount={items.length} hasStrategy={hasStrategy}
       onExplore={() => { setNeedContext(null); setView('explorar'); }}
       onPickClass={(cls) => { setNeedContext(cls); setView('explorar'); }}
       onOpenCarteira={() => setView('carteira')}

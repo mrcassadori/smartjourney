@@ -352,7 +352,22 @@
     { id: 'PR22', name: 'Debênture Infra X IPCA+ 7,0% 2031', class: 'Inflação', subclass: 'Debênture', issuer: 'Empresa X', indexer: 'IPCA', term: 'até jan/2031', liquidity: 'D+2', minApplication: 5000, riskLevel: 3, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'Debênture incentivada de infraestrutura, isenta de IR, indexada ao IPCA.', risks: 'Sem garantia do FGC. Risco de crédito do emissor e de liquidez de mercado secundário.', costs: 'Isenta de IR para pessoa física. Sem taxa de administração.', docs: ['Lâmina do produto', 'Escritura de emissão'] },
     { id: 'PR23', name: 'CDB Banco Alpha 112% CDI 2028', class: 'Pós-fixado', subclass: 'CDB', issuer: 'Banco Alpha', indexer: 'CDI', term: 'até nov/2028', liquidity: 'No vencimento', minApplication: 1000, riskLevel: 1, available: true, eligibleSegments: ['Standard', 'High', 'Private', 'Corporate'], description: 'CDB pós-fixado do Banco Alpha, protegido pelo FGC, vencimento 2028.', risks: 'Garantido pelo FGC até o limite legal. Risco de crédito do emissor acima do limite coberto.', costs: 'Sem taxa de administração. IR regressivo.', docs: ['Lâmina do produto', 'Regulamento FGC'] },
     { id: 'PR24', name: 'LCI Banco Beta 94% CDI 2027', class: 'Pós-fixado', subclass: 'LCI', issuer: 'Banco Beta', indexer: 'CDI', term: 'até jun/2027', liquidity: 'D+1', minApplication: 5000, riskLevel: 1, available: true, eligibleSegments: ['Standard', 'High', 'Private', 'Corporate'], description: 'Letra de crédito imobiliário isenta de IR para pessoa física, com liquidez após carência.', risks: 'Garantido pelo FGC até o limite legal.', costs: 'Isenta de IR para pessoa física. Sem taxa de administração.', docs: ['Lâmina do produto', 'Regulamento FGC'] },
-    { id: 'PR25', name: 'CDB Banco Gamma 110% CDI 2029', class: 'Pós-fixado', subclass: 'CDB', issuer: 'Banco Gamma', indexer: 'CDI', term: 'até jan/2029', liquidity: 'No vencimento', minApplication: 10000, riskLevel: 1, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'CDB pós-fixado do Banco Gamma, protegido pelo FGC, vencimento 2029.', risks: 'Garantido pelo FGC até o limite legal. Risco de crédito do emissor acima do limite coberto.', costs: 'Sem taxa de administração. IR regressivo.', docs: ['Lâmina do produto', 'Regulamento FGC'] },
+    { id: 'PR25', name: 'CDB Banco Gamma 110% CDI 2029', class: 'Pós-fixado', subclass: 'CDB', issuer: 'Banco Gamma', indexer: 'CDI', term: 'até jan/2029', liquidity: 'No vencimento', minApplication: 10000, riskLevel: 1, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'CDB pós-fixado do Banco Gamma, protegido pelo FGC, vencimento 2029.', risks: 'Garantido pelo FGC até o limite legal. Risco de crédito do emissor acima do limite coberto.', costs: 'Sem taxa de administração. IR regressivo.', docs: ['Lâmina do produto', 'Regulamento FGC'],
+      // Taxa atualizada desde que foi cotada — dispara o estado "Taxa atualizada" no catálogo e a Divergência na Revisão.
+      rateUpdated: true, previousRateValue: 112, previousRateLabel: '112% CDI' },
+
+    // Produtos nomeados no mockup da página de Produtos (catálogo denso) — já
+    // vêm com os campos de enriquecimento definidos manualmente (o loop abaixo
+    // não sobrescreve produtos que já chegam com `rating` preenchido).
+    { id: 'PR26', name: 'LF Banco Delta', class: 'Prefixado', subclass: 'LF', issuer: 'Banco Delta', indexer: 'Prefixado', term: 'até mai/2030', liquidity: 'Semestral', minApplication: 50000, riskLevel: 3, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'Letra financeira prefixada com resgate semestral, indicada para quem busca previsibilidade.', risks: 'Sem garantia do FGC (letra financeira). Risco de crédito do emissor.', costs: 'Sem taxa de administração. IR regressivo.', docs: ['Lâmina do produto'],
+      rating: 'AA', fgc: false, negotiable: true, rateUnit: '% a.a.', rateValue: 12.45, rateRef: 12.3, rateMin: 11.8, rateMax: 13.0, rateLabel: '12,45% a.a.',
+      availableStock: 150000, lowStock: true, maturityDate: '2030-05-10' },
+    { id: 'PR27', name: 'CRI Direcional', class: 'Inflação', subclass: 'CRI', issuer: 'Securitizadora Direcional', indexer: 'IPCA', term: 'até ago/2032', liquidity: 'No vencimento', minApplication: 1000, riskLevel: 4, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'Certificado de recebíveis imobiliários lastreado em recebíveis da Direcional, isento de IR.', risks: 'Sem garantia do FGC. Risco de crédito do lastro e do securitizador.', costs: 'Isento de IR para pessoa física. Sem taxa de administração.', docs: ['Lâmina do produto', 'Prospecto de emissão'],
+      rating: 'A-', fgc: false, negotiable: true, rateUnit: 'IPCA+', rateValue: 6.8, rateRef: 6.7, rateMin: 6.4, rateMax: 7.0, rateLabel: 'IPCA + 6,80%',
+      availableStock: 45000, lowStock: false, maturityDate: '2032-08-15' },
+    { id: 'PR28', name: 'Fundo Horizon FIM', class: 'Multimercado', subclass: 'Fundo multimercado', issuer: 'Horizon Asset', indexer: 'CDI+', term: 'aberto', liquidity: 'D+5', minApplication: 5000, riskLevel: 3, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'Fundo multimercado com meta de rentabilidade de 110% do CDI no médio prazo.', risks: 'Sem garantia do FGC. Volatilidade moderada; meta de rentabilidade não é garantia de retorno.', costs: 'Taxa de administração 1,2% a.a. + performance. IR regressivo.', docs: ['Lâmina do fundo', 'Regulamento'],
+      rating: 'AAA', fgc: false, negotiable: false, rateUnit: null, rateValue: null, rateRef: null, rateMin: null, rateMax: null, rateLabel: '110% CDI (Alvo)',
+      availableStock: null, unlimitedStock: true, lowStock: false, maturityDate: null },
   ];
 
   // Enriquecimento determinístico do catálogo para a jornada de Produtos (EP-02):
@@ -371,7 +386,27 @@
       if (p.indexer === 'Prefixado') { const m = name.match(/(\d{1,2}(?:\.\d)?)%\s*a\.a\./i); return m ? parseFloat(m[1]) : null; }
       return null;
     };
+    // "até <mês>/<ano>" → último dia do mês (ISO). "N meses" → NOW + N meses.
+    // Sem padrão reconhecível (aberto, aportes sem prazo etc.) → sem vencimento.
+    const MESES_PT = { jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5, jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11 };
+    function parseMaturity(term) {
+      if (!term) return null;
+      const abs = term.match(/at[ée]\s+([a-zç]{3})\/(\d{4})/i);
+      if (abs) {
+        const mi = MESES_PT[abs[1].toLowerCase()];
+        if (mi != null) return new Date(Date.UTC(parseInt(abs[2], 10), mi + 1, 0)).toISOString().slice(0, 10);
+      }
+      const rel = term.match(/(\d+)\s*meses/i);
+      if (rel) {
+        const d = new Date(NOW);
+        d.setUTCMonth(d.getUTCMonth() + parseInt(rel[1], 10));
+        return d.toISOString().slice(0, 10);
+      }
+      return null;
+    }
     products.forEach((p) => {
+      p.maturityDate = parseMaturity(p.term);
+      if (p.rating) return; // já enriquecido manualmente (produtos nomeados do mockup) — não sobrescrever.
       const seed = hash(p.id);
       const soberano = p.issuer === 'Tesouro Nacional';
       p.rating = soberano ? 'Soberano' : (RATING_BY_RISK[p.riskLevel] || 'A');

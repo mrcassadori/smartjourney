@@ -1,7 +1,7 @@
 // Tabela ordenável genérica — mesmo padrão de app.jsx (DataTable), adaptado
 // aos tokens visuais do Inter. Reaproveitada em Clientes, Ordens e Onboarding.
 
-function DataTable({ columns, rows, keyField, onRowClick, emptyLabel, selectable, selectedKeys, onToggleSelect, onToggleAll }) {
+function DataTable({ columns, rows, keyField, onRowClick, emptyLabel, selectable, selectedKeys, onToggleSelect, onToggleAll, rowClassName }) {
   const [sortCol, setSortCol] = React.useState(null);
   const [sortDir, setSortDir] = React.useState(1);
   const selSet = selectable ? new Set(selectedKeys || []) : null;
@@ -61,6 +61,7 @@ function DataTable({ columns, rows, keyField, onRowClick, emptyLabel, selectable
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               className={window.PortalLib.classNames(
                 'border-b border-neutral-50 last:border-0 align-top',
+                rowClassName && rowClassName(row),
                 selectable && selSet.has(row[keyField]) && 'bg-brand-lightest/30',
                 onRowClick && 'cursor-pointer hover:bg-neutral-50'
               )}
