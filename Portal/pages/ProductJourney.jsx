@@ -1048,7 +1048,7 @@ function ProdConfirmModal({ client, items, sent, recId, onConfirm, onClose, onGo
 }
 
 // ---------- Root ----------
-function ProductJourney({ client, simulation, positions, products, now, initialProductIds, initialMode, onExit, onOpenClient, onOpenSimulation, onSubmitRecommendation, onGoOrders }) {
+function ProductJourney({ client, simulation, positions, products, now, initialProductIds, initialMode, cartItems, onCartChange, onExit, onOpenClient, onOpenSimulation, onSubmitRecommendation, onGoOrders }) {
   const A = window.PortalAnalytics;
   const targetAllocation = (simulation && simulation.targetAllocation) || {};
   const hasStrategy = Object.keys(targetAllocation).length > 0;
@@ -1056,18 +1056,34 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
   const productMap = {};
   products.forEach((p) => (productMap[p.id] = p));
 
-  // Entrada "produto-primeiro" do catálogo (Produto(s) → Cliente → …): 1 produto
-  // abre direto no Detalhe/Configuração; 2+ já entram como itens da carteira;
-  // modo "comparar" abre a Tela 03. Sem seleção prévia, começa nas Necessidades
-  // (Nível 3, com estratégia) ou é pulado adiante quando não há estratégia.
+  // Entrada "produto-primeiro" do catálogo (Produto(s) → Cliente → …), Fase D/E:
+  //  - 1 produto, carrinho vazio → Detalhe/Configuração direto ao Confirmar
+  //    (sem Carteira/Revisar — "singleFlow", caso de uso de 1 ativo do mockup);
+  //  - 2+ produtos (ou carrinho já com itens) → Carteira Proposta, somando ao
+  //    que já estiver no carrinho persistido (`cartItems`, ver app.jsx);
+  //  - modo "comparar" abre a Tela 03 com o carrinho já carregado.
+  // Sem seleção prévia: retoma o carrinho existente, ou começa nas Necessidades
+  // (Nível 3, com estratégia) / Explorar (sem estratégia) — porta cliente→carteira.
   function initialViewAndState() {
     const ids = (initialProductIds || []).filter((id) => productMap[id]);
-    if (ids.length === 0) return { view: hasStrategy ? 'necessidades' : 'explorar', items: [], compareIds: [], detailId: null };
-    if (initialMode === 'comparar') return { view: 'comparar', items: [], compareIds: ids, detailId: null };
-    if (ids.length === 1) return { view: 'detalhe', items: [], compareIds: [], detailId: ids[0] };
-    return { view: 'carteira', items: ids.map((id) => ({ productId: id, value: productMap[id].minApplication, rate: productMap[id].rateValue })), compareIds: [], detailId: null };
+    const baseItems = (cartItems || []).map((it) => ({ ...it }));
+    if (initialMode === 'comparar') return { view: 'comparar', items: baseItems, compareIds: ids, detailId: null, singleFlow: false };
+    if (ids.length === 1 && baseItems.length === 0) return { view: 'detalhe', items: baseItems, compareIds: [], detailId: ids[0], singleFlow: true };
+    if (ids.length > 0) {
+      const have = new Set(baseItems.map((it) => it.productId));
+      const additions = ids.filter((id) => !have.has(id)).map((id) => ({ productId: id, value: productMap[id].minApplication, rate: productMap[id].rateValue }));
+      return { view: 'carteira', items: [...baseItems, ...additions], compareIds: [], detailId: null, singleFlow: false };
+    }
+    if (baseItems.length > 0) return { view: 'carteira', items: baseItems, compareIds: [], detailId: null, singleFlow: false };
+    return { view: hasStrategy ? 'necessidades' : 'explorar', items: baseItems, compareIds: [], detailId: null, singleFlow: false };
   }
   const initial = React.useMemo(initialViewAndState, []); // eslint-disable-line
+  // "Âncora catálogo": journey iniciada a partir do catálogo real (Produtos),
+  // não da porta cliente→carteira — "continuar buscando"/"voltar" devolvem pro
+  // catálogo (com carrinho), não pra uma tela interna de explorar simplificada.
+  const catalogAnchored = initial.view === 'comparar' || initial.view === 'carteira';
+  const compareOrigin = initial.view === 'comparar' ? 'catalog' : 'explorar';
+  const singleFlow = initial.singleFlow;
 
   const [view, setView] = React.useState(initial.view); // necessidades | explorar | comparar | detalhe | carteira | revisar
   const [items, setItems] = React.useState(initial.items); // [{ productId, value, rate }]
@@ -1086,33 +1102,39 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
   });
   const needs = A.strategyNeeds(targetAllocation, positions, client.availableBalance, selectedByClass);
 
+  // Fase D — as 4 mutações de item computam o próximo array e sincronizam com
+  // o carrinho em app.jsx NO MESMO tick (não via useEffect): alguns handlers
+  // (ex.: "Adicionar" do Comparar) mudam o item e navegam pra fora — se a
+  // sincronização dependesse de um efeito, o componente desmontaria antes de
+  // rodar e o item se perderia do carrinho persistido.
+  function syncCart(next) {
+    if (onCartChange) onCartChange(client.id, next);
+    return next;
+  }
+
   function addProducts(list) {
-    setItems((prev) => {
-      const have = new Set(prev.map((it) => it.productId));
-      const additions = list.filter((p) => !have.has(p.id)).map((p) => {
-        // valor inicial: o que falta na classe (se houver contexto), senão o mínimo.
-        const row = needs.rows.find((r) => r.class === p.class);
-        const seed = row && row.needRemaining > 0 ? Math.max(p.minApplication, row.needRemaining) : p.minApplication;
-        return { productId: p.id, value: seed, rate: p.rateValue };
-      });
-      return [...prev, ...additions];
+    const have = new Set(items.map((it) => it.productId));
+    const additions = list.filter((p) => !have.has(p.id)).map((p) => {
+      // valor inicial: o que falta na classe (se houver contexto), senão o mínimo.
+      const row = needs.rows.find((r) => r.class === p.class);
+      const seed = row && row.needRemaining > 0 ? Math.max(p.minApplication, row.needRemaining) : p.minApplication;
+      return { productId: p.id, value: seed, rate: p.rateValue };
     });
+    setItems(syncCart([...items, ...additions]));
   }
 
   // Adiciona/atualiza um item com valor e taxa específicos (vindo do Detalhe).
   function upsertItem(product, value, rate) {
-    setItems((prev) => {
-      const idx = prev.findIndex((it) => it.productId === product.id);
-      if (idx === -1) return [...prev, { productId: product.id, value, rate }];
-      return prev.map((it, i) => (i === idx ? { ...it, value, rate } : it));
-    });
+    const idx = items.findIndex((it) => it.productId === product.id);
+    const next = idx === -1 ? [...items, { productId: product.id, value, rate }] : items.map((it, i) => (i === idx ? { ...it, value, rate } : it));
+    setItems(syncCart(next));
   }
 
   function updateItem(productId, patch) {
-    setItems((prev) => prev.map((it) => (it.productId === productId ? { ...it, ...patch } : it)));
+    setItems(syncCart(items.map((it) => (it.productId === productId ? { ...it, ...patch } : it))));
   }
   function removeItem(productId) {
-    setItems((prev) => prev.filter((it) => it.productId !== productId));
+    setItems(syncCart(items.filter((it) => it.productId !== productId)));
   }
 
   function editStrategy() {
@@ -1144,69 +1166,57 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
     setConfirm('sent');
   }
 
+  // Fase D — Comparar/Carteira "âncora catálogo" devolvem pro catálogo real
+  // (onExit) em vez da Explorar interna; a porta cliente→carteira (Necessidades/
+  // Explorar) mantém a navegação interna como antes.
+  const backToCatalogOrExplore = catalogAnchored ? onExit : () => setView('explorar');
+  const backFromCompare = compareOrigin === 'catalog' ? onExit : () => setView('explorar');
+
+  let content;
   if (view === 'comparar') {
-    return (
+    content = (
       <ProdCompareView
         compareProducts={compareIds.map((id) => productMap[id]).filter(Boolean)}
         client={client} targetAllocation={targetAllocation} positions={positions}
         items={items} productMap={productMap} now={now}
-        onAdd={(list) => { addProducts(list); setView('explorar'); }}
-        onBack={() => setView('explorar')}
+        onAdd={(list) => { addProducts(list); backFromCompare(); }}
+        onBack={backFromCompare}
       />
     );
-  }
-
-  if (view === 'detalhe' && productMap[detailId]) {
-    return (
+  } else if (view === 'detalhe' && productMap[detailId]) {
+    // Fase E — fluxo de 1 produto (singleFlow): "Adicionar à carteira" vai
+    // direto para o Confirmar (sem Carteira/Revisar), igual ao mockup de 4 telas.
+    content = (
       <ProdDetailView
         product={productMap[detailId]} client={client} targetAllocation={targetAllocation}
         positions={positions} items={items} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
-        onAdd={(p, value, rate) => { upsertItem(p, value, rate); setView(returnView); }}
-        onBack={() => setView(returnView)}
+        onAdd={(p, value, rate) => { upsertItem(p, value, rate); if (singleFlow) { setConfirm('ask'); } else { setView(returnView); } }}
+        onBack={singleFlow ? onExit : () => setView(returnView)}
       />
     );
-  }
-
-  if (view === 'carteira' || view === 'revisar') {
-    const modal = confirm ? (
-      <ProdConfirmModal
-        client={client} items={items} sent={confirm === 'sent'} recId={sentRecId}
-        onConfirm={submitRecommendation}
-        onClose={() => { if (confirm === 'sent') { onGoOrders && onGoOrders(); } setConfirm(null); }}
-        onGoOrders={() => { setConfirm(null); onGoOrders && onGoOrders(); }}
+  } else if (view === 'revisar') {
+    content = (
+      <ProdRevisarView
+        client={client} items={items} productMap={productMap} now={now} adherencePct={adherencePct}
+        onConfirm={() => setConfirm('ask')}
+        onBack={() => setView('carteira')}
+        onAcceptNewRate={(productId) => updateItem(productId, { rateAccepted: true, rate: productMap[productId].rateValue })}
+        onSubstitute={(productId, cls) => { removeItem(productId); setNeedContext(cls); setView('explorar'); }}
       />
-    ) : null;
-    if (view === 'revisar') {
-      return (
-        <React.Fragment>
-          <ProdRevisarView
-            client={client} items={items} productMap={productMap} now={now} adherencePct={adherencePct}
-            onConfirm={() => setConfirm('ask')}
-            onBack={() => setView('carteira')}
-            onAcceptNewRate={(productId) => updateItem(productId, { rateAccepted: true, rate: productMap[productId].rateValue })}
-            onSubstitute={(productId, cls) => { removeItem(productId); setNeedContext(cls); setView('explorar'); }}
-          />
-          {modal}
-        </React.Fragment>
-      );
-    }
-    return (
-      <React.Fragment>
-        <ProdCarteiraView
-          client={client} targetAllocation={targetAllocation} positions={positions}
-          needs={needs} items={items} productMap={productMap} now={now}
-          onUpdateItem={updateItem} onRemoveItem={removeItem}
-          onFindMore={(cls) => { setNeedContext(cls); setView('explorar'); }}
-          onContinue={() => setView('revisar')}
-          onBack={() => setView('explorar')}
-        />
-        {modal}
-      </React.Fragment>
     );
-  }
-
-  if (view === 'explorar') {
-    return (
+  } else if (view === 'carteira') {
+    content = (
+      <ProdCarteiraView
+        client={client} targetAllocation={targetAllocation} positions={positions}
+        needs={needs} items={items} productMap={productMap} now={now}
+        onUpdateItem={updateItem} onRemoveItem={removeItem}
+        onFindMore={(cls) => { setNeedContext(cls); setView('explorar'); }}
+        onContinue={() => setView('revisar')}
+        onBack={backToCatalogOrExplore}
+      />
+    );
+  } else if (view === 'explorar') {
+    content = (
       <ProdExploreView
         client={client} targetAllocation={targetAllocation} positions={positions} products={products}
         needs={needs} items={items} now={now} needContext={needContext} hasStrategy={hasStrategy}
@@ -1220,18 +1230,31 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
         onBack={hasStrategy ? () => setView('necessidades') : onExit}
       />
     );
+  } else {
+    content = (
+      <ProdNeedsView
+        client={client} targetAllocation={targetAllocation} needs={needs} now={now} itemCount={items.length} hasStrategy={hasStrategy}
+        onExplore={() => { setNeedContext(null); setView('explorar'); }}
+        onPickClass={(cls) => { setNeedContext(cls); setView('explorar'); }}
+        onOpenCarteira={() => setView('carteira')}
+        onEditStrategy={editStrategy}
+        onOpenClient={onOpenClient}
+      />
+    );
   }
 
-  return (
-    <ProdNeedsView
-      client={client} targetAllocation={targetAllocation} needs={needs} now={now} itemCount={items.length} hasStrategy={hasStrategy}
-      onExplore={() => { setNeedContext(null); setView('explorar'); }}
-      onPickClass={(cls) => { setNeedContext(cls); setView('explorar'); }}
-      onOpenCarteira={() => setView('carteira')}
-      onEditStrategy={editStrategy}
-      onOpenClient={onOpenClient}
+  // Modal de confirmação — global, não só de Carteira/Revisar: o singleFlow
+  // (1 produto) pede confirmação direto a partir do Detalhe.
+  const modal = confirm ? (
+    <ProdConfirmModal
+      client={client} items={items} sent={confirm === 'sent'} recId={sentRecId}
+      onConfirm={submitRecommendation}
+      onClose={() => { if (confirm === 'sent') { onGoOrders && onGoOrders(); } setConfirm(null); }}
+      onGoOrders={() => { setConfirm(null); onGoOrders && onGoOrders(); }}
     />
-  );
+  ) : null;
+
+  return <React.Fragment>{content}{modal}</React.Fragment>;
 }
 
 window.ProductJourney = ProductJourney;

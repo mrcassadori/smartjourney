@@ -41,6 +41,11 @@ function App() {
   // opcional + seleção prévia do catálogo). Default = vitrine João Pedro (SIM_JP,
   // Nível 3 — cliente com estratégia definida no Simulador).
   const [proposalContext, setProposalContext] = React.useState({ clientId: 'C17', simulationId: 'SIM_JP', initialProductIds: null, initialMode: null });
+  // EP-02 (Fase D) — carrinho da proposta, com vida própria fora da jornada:
+  // sobrevive à ida-e-volta `proposta ⇄ products` para que o catálogo real
+  // mostre "carrinho em construção" e permita continuar adicionando produtos
+  // sem reabrir o seletor de cliente a cada item (ver GOVERNANCA.md).
+  const [cart, setCart] = React.useState(null); // { clientId, simulationId, items: [{productId,value,rate,rateAccepted}] }
 
   const profile = DATA.profiles.find((p) => p.id === profileId);
   const scopedClients = React.useMemo(() => clientsInScope(profile, DATA.clients), [profile, DATA.clients]);
@@ -160,7 +165,9 @@ function App() {
   // carteira-alvo da simulação como contexto somente-leitura (Nível 3).
   function startRecommendation(simulationId) {
     const sim = simulations.find((s) => s.id === simulationId);
-    setProposalContext({ clientId: sim ? sim.clientId : null, simulationId: simulationId || null, initialProductIds: null, initialMode: null });
+    const clientId = sim ? sim.clientId : null;
+    setCart((prev) => (prev && prev.clientId === clientId ? prev : (clientId ? { clientId, simulationId: simulationId || null, items: [] } : prev)));
+    setProposalContext({ clientId, simulationId: simulationId || null, initialProductIds: null, initialMode: null });
     navigate('proposta', {});
   }
 
@@ -170,10 +177,23 @@ function App() {
   // Em ambos os casos, se o cliente já tiver uma estratégia definida no
   // Simulador (targetAllocation), ela é anexada automaticamente (Nível 3);
   // senão a jornada segue sem estratégia (Nível 1→2).
+  // Fase D — reaproveita o carrinho já aberto para o mesmo cliente (não reseta
+  // os itens já escolhidos); só abre um carrinho novo ao trocar de cliente.
   function enterCatalogFlow(clientId, productIds, mode) {
     const existingStrategy = simulations.find((s) => s.clientId === clientId && s.targetAllocation);
+    setCart((prev) => (prev && prev.clientId === clientId ? prev : { clientId, simulationId: existingStrategy ? existingStrategy.id : null, items: [] }));
     setProposalContext({ clientId, simulationId: existingStrategy ? existingStrategy.id : null, initialProductIds: productIds, initialMode: mode });
     navigate('proposta', {});
+  }
+
+  // Fase D — sincroniza os itens do carrinho de volta pro estado do app (chamado
+  // pela jornada a cada mudança de item), e permite encerrar o carrinho a partir
+  // do próprio catálogo (botão "Encerrar" da barra de carrinho).
+  function updateCart(clientId, items) {
+    setCart((prev) => (prev && prev.clientId === clientId ? { ...prev, items } : prev));
+  }
+  function clearCart() {
+    setCart(null);
   }
 
   // EP-02 — envio da recomendação (Tela 07): cria o registro #REC que passa a ser
@@ -183,6 +203,7 @@ function App() {
     const recId = 'REC-' + (10452 + (recommendations.length - recSeedCount));
     const rec = { id: recId, clientId, consultor: profile.name, createdAt: DATA.now, value: total, status: 'aguardando_cliente', pendencias: 0, items };
     setRecommendations((prev) => [rec, ...prev]);
+    setCart(null); // carrinho encerrado — a recomendação enviada passa a viver em Ordens.
     return recId;
   }
 
@@ -498,16 +519,19 @@ function App() {
       />
     );
   } else if (page === 'products') {
-    content = <ProductsPage profile={profile} clients={scopedClients} products={DATA.products} now={DATA.now} initialFilters={pageParams} strategies={simulations.filter((s) => s.targetAllocation)} onStartRecommendation={startRecommendation} onEnterCatalogFlow={enterCatalogFlow} />;
+    content = <ProductsPage profile={profile} clients={scopedClients} products={DATA.products} now={DATA.now} initialFilters={pageParams} strategies={simulations.filter((s) => s.targetAllocation)} cart={cart} onClearCart={clearCart} onStartRecommendation={startRecommendation} onEnterCatalogFlow={enterCatalogFlow} />;
   } else if (page === 'proposta') {
     const sim = proposalContext.simulationId ? simulations.find((s) => s.id === proposalContext.simulationId) : null;
     const cli = DATA.clients.find((c) => c.id === proposalContext.clientId) || null;
+    const cartItems = cart && cart.clientId === proposalContext.clientId ? cart.items : [];
     content = cli ? (
       <window.ProductJourney
         client={cli}
         simulation={sim}
         initialProductIds={proposalContext.initialProductIds}
         initialMode={proposalContext.initialMode}
+        cartItems={cartItems}
+        onCartChange={updateCart}
         positions={DATA.portfolioPositions.filter((p) => p.clientId === cli.id)}
         products={DATA.products}
         now={DATA.now}

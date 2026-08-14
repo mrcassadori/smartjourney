@@ -135,6 +135,29 @@ function ProductDetailDrawer({ product, onClose, onAttachClient }) {
   );
 }
 
+// Fase D — carrinho em construção: aparece no catálogo real quando já existe um
+// cliente anexado com itens, permitindo continuar comprando sem repetir o
+// seletor de cliente (mockup "caso de uso de múltiplos ativos").
+function ProdCartBar({ cart, client, onOpenCart, onClear }) {
+  if (!client) return null;
+  const { formatCurrency } = window.PortalLib;
+  const count = cart.items.length;
+  const total = cart.items.reduce((s, it) => s + (it.value || 0), 0);
+  return (
+    <div className="flex items-center gap-3 bg-brand-lightest border border-brand/20 rounded-large px-4 py-2.5">
+      <Icon name="briefcase" size={16} className="text-brand shrink-0" />
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-brand-dark truncate">Carteira em construção — {client.name}</div>
+        <div className="text-xs text-neutral-500">{count} {count === 1 ? 'produto selecionado' : 'produtos selecionados'} · {formatCurrency(total)}</div>
+      </div>
+      <div className="ml-auto flex items-center gap-2 shrink-0">
+        <button onClick={onClear} className="text-xs text-neutral-500 hover:text-neutral-800 px-2">Encerrar carrinho</button>
+        <button onClick={onOpenCart} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Ver carteira proposta</button>
+      </div>
+    </div>
+  );
+}
+
 // EP-02 — inbox de handoff: estratégias definidas no Simulador (com carteira-alvo)
 // prontas para serem implementadas na jornada de Produtos (Nível 3).
 function ProdStrategyInbox({ strategies, clients, onStartRecommendation }) {
@@ -169,7 +192,7 @@ function ProdStrategyInbox({ strategies, clients, onStartRecommendation }) {
   );
 }
 
-function ProductsPage({ profile, clients, products, now, initialFilters, strategies, onStartRecommendation, onEnterCatalogFlow }) {
+function ProductsPage({ profile, clients, products, now, initialFilters, strategies, cart, onClearCart, onStartRecommendation, onEnterCatalogFlow }) {
   const { formatCurrency, formatDate, daysUntil, canAccess, classNames, PROD_CLASS_TABS, PRODUCT_STATUS_META, productStatus, strategyClassLabel } = window.PortalLib;
   const [query, setQuery] = React.useState('');
   const [tab, setTab] = React.useState((initialFilters && initialFilters.klass) || '');
@@ -247,9 +270,21 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
 
   const openProduct = products.find((p) => p.id === openProductId) || null;
 
+  const cartClient = cart ? clients.find((c) => c.id === cart.clientId) : null;
+
   function toggleCheck(id) { setChecked((prev) => (prev.indexOf(id) !== -1 ? prev.filter((x) => x !== id) : [...prev, id])); }
   function toggleAll(ids, next) { setChecked(next ? ids : []); }
-  function openPicker(productIds, mode) { setPicker({ productIds, mode }); }
+  // Fase D — com um carrinho já EM CONSTRUÇÃO (cliente anexado + pelo menos 1
+  // item), seguir adicionando ou comparando não repete o seletor: vai direto pro
+  // mesmo cliente do carrinho. Um cliente anexado mas ainda sem itens (ex.: só
+  // abriu o Detalhe e voltou) não deve "sequestrar" a próxima seleção — o
+  // seletor continua livre pra escolher qualquer cliente nesse caso.
+  function openPicker(productIds, mode) {
+    setChecked([]);
+    setOpenProductId(null);
+    if (cart && cart.clientId && cart.items.length > 0) { onEnterCatalogFlow(cart.clientId, productIds, mode); return; }
+    setPicker({ productIds, mode });
+  }
   function confirmPicker(clientId) {
     const { productIds, mode } = picker;
     setPicker(null);
@@ -310,6 +345,10 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
           ))}
         </div>
       </div>
+
+      {cart && cart.items.length > 0 && cartClient && (
+        <ProdCartBar cart={cart} client={cartClient} onOpenCart={() => onEnterCatalogFlow(cart.clientId, [], null)} onClear={onClearCart} />
+      )}
 
       {checked.length > 0 && (
         <div className="flex items-center gap-3 bg-brand-lightest border border-brand/20 rounded-large px-4 py-2.5">
