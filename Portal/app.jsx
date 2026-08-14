@@ -33,6 +33,7 @@ function App() {
   const [serviceRequests, setServiceRequests] = React.useState(DATA.serviceRequests);
   const [tickets, setTickets] = React.useState(DATA.tickets);
   const [financialPlans, setFinancialPlans] = React.useState(DATA.financialPlans);
+  const [recommendations, setRecommendations] = React.useState(DATA.recommendations);
   const [openRequestId, setOpenRequestId] = React.useState(null);
   const [openTicketId, setOpenTicketId] = React.useState(null);
   const [newTicketContext, setNewTicketContext] = React.useState(null);
@@ -159,6 +160,16 @@ function App() {
   function startRecommendation(simulationId) {
     if (simulationId) setProposalSimId(simulationId);
     navigate('proposta', {});
+  }
+
+  // EP-02 — envio da recomendação (Tela 07): cria o registro #REC que passa a ser
+  // acompanhado na Central de Ordens. Retorna o id gerado para o modal de sucesso.
+  const recSeedCount = DATA.recommendations.length;
+  function submitRecommendation(clientId, items, total) {
+    const recId = 'REC-' + (10452 + (recommendations.length - recSeedCount));
+    const rec = { id: recId, clientId, consultor: profile.name, createdAt: DATA.now, value: total, status: 'aguardando_cliente', pendencias: 0, items };
+    setRecommendations((prev) => [rec, ...prev]);
+    return recId;
   }
 
   function selectSimulationClient(id, clientId) {
@@ -466,6 +477,7 @@ function App() {
         profile={profile}
         clients={scopedClients}
         orders={scopedOrders}
+        recommendations={recommendations.filter((r) => scopedClientIds.has(r.clientId))}
         initialFilters={pageParams}
         openOrderId={openOrderId}
         onOpenOrder={setOpenOrderId}
@@ -505,6 +517,8 @@ function App() {
         onExit={() => navigate('products', {})}
         onOpenClient={openClient}
         onOpenSimulation={openSimulation}
+        onSubmitRecommendation={submitRecommendation}
+        onGoOrders={() => navigate('orders', {})}
       />
     ) : <ComingSoonPage pageKey="proposta" />;
   } else if (page === 'recommendations') {

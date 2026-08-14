@@ -710,5 +710,36 @@
     },
   ];
 
-  window.PORTAL_DATA = { now: NOW, profiles, clients, portfolioPositions, cashEvents, alerts, onboarding, orders, products, simulations, serviceRequests, tickets, holdingRelations, clientDocuments, documentAccessLog, bankingProfiles, financialPlans };
+  // ---------------------------------------------------------------------
+  // Recomendações enviadas (EP-02, Tela 08) — uma recomendação agrupa os ativos
+  // de uma carteira proposta e é acompanhada na Central de Ordens.
+  // ---------------------------------------------------------------------
+  const recommendations = [
+    {
+      id: 'REC-10448', clientId: 'C02', consultor: 'Marina Ferraz', createdAt: '2026-08-11T10:20:00-03:00',
+      value: 210000, status: 'aprovada', pendencias: 0,
+      items: [
+        { productId: 'PR05', asset: 'Tesouro IPCA+ 2035', class: 'Inflação', value: 120000, rate: 'IPCA + 6,1%', status: 'validado' },
+        { productId: 'PR03', asset: 'CDB Banco Inter Prefixado 12,5% a.a.', class: 'Prefixado', value: 90000, rate: '12,5% a.a.', status: 'validado' },
+      ],
+    },
+    {
+      id: 'REC-10450', clientId: 'C08', consultor: 'Diego Nunes', createdAt: '2026-08-12T09:05:00-03:00',
+      value: 380000, status: 'em_processamento', pendencias: 0,
+      items: [
+        { productId: 'PR07', asset: 'FIC FIRF Crédito Corporate', class: 'Fundos', value: 280000, rate: '—', status: 'validado' },
+        { productId: 'PR16', asset: 'ETF S&P 500 (via Global Account)', class: 'Global', value: 100000, rate: '—', status: 'validado' },
+      ],
+    },
+    {
+      id: 'REC-10451', clientId: 'C06', consultor: 'Bruno Castilho', createdAt: '2026-08-10T15:40:00-03:00',
+      value: 700000, status: 'executada', pendencias: 0,
+      items: [
+        { productId: 'PR07', asset: 'FIC FIRF Crédito Corporate', class: 'Fundos', value: 500000, rate: '—', status: 'executado' },
+        { productId: 'PR05', asset: 'Tesouro IPCA+ 2035', class: 'Inflação', value: 200000, rate: 'IPCA + 6,2%', status: 'executado' },
+      ],
+    },
+  ];
+
+  window.PORTAL_DATA = { now: NOW, profiles, clients, portfolioPositions, cashEvents, alerts, onboarding, orders, products, simulations, serviceRequests, tickets, holdingRelations, clientDocuments, documentAccessLog, bankingProfiles, financialPlans, recommendations };
 })();

@@ -167,7 +167,7 @@ function ProdSelectedBar({ count, onCompare, onAdd, onClear }) {
 }
 
 // ---------- Tela 01 — Necessidades de alocação ----------
-function ProdNeedsView({ client, targetAllocation, needs, now, onExplore, onPickClass, onEditStrategy, onOpenClient }) {
+function ProdNeedsView({ client, targetAllocation, needs, now, itemCount, onExplore, onPickClass, onOpenCarteira, onEditStrategy, onOpenClient }) {
   return (
     <div className="space-y-4">
       <div>
@@ -207,7 +207,10 @@ function ProdNeedsView({ client, targetAllocation, needs, now, onExplore, onPick
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {itemCount > 0 && (
+          <button onClick={onOpenCarteira} className="text-sm px-5 py-2 rounded-pill border border-brand/40 text-brand-dark hover:bg-brand-lightest flex items-center gap-1.5"><Icon name="briefcase" size={14} /> Ver carteira proposta ({itemCount})</button>
+        )}
         <button onClick={() => onExplore(null)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Explorar investimentos</button>
       </div>
     </div>
@@ -215,7 +218,7 @@ function ProdNeedsView({ client, targetAllocation, needs, now, onExplore, onPick
 }
 
 // ---------- Tela 02 — Explorar investimentos ----------
-function ProdExploreView({ client, targetAllocation, positions, products, needs, items, now, needContext, onClearContext, onEditStrategy, onPickClass, onAddProducts, onCompare, onOpenDetail, onBack }) {
+function ProdExploreView({ client, targetAllocation, positions, products, needs, items, now, needContext, onClearContext, onEditStrategy, onPickClass, onAddProducts, onCompare, onOpenDetail, onOpenCarteira, onBack }) {
   const { formatCurrency, PRODUCT_RISK_LABELS } = window.PortalLib;
   const A = window.PortalAnalytics;
   const [query, setQuery] = React.useState('');
@@ -308,7 +311,12 @@ function ProdExploreView({ client, targetAllocation, positions, products, needs,
           <h1 className="text-2xl font-semibold text-neutral-900">Explorar investimentos</h1>
           <p className="text-sm text-neutral-500 mt-1">Encontre produtos para atender às necessidades de alocação da carteira de {client.name.split(' ')[0]} {client.name.split(' ').slice(-1)}.</p>
         </div>
-        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1 shrink-0"><Icon name="arrowLeft" size={15} /> Necessidades</button>
+        <div className="flex items-center gap-2 shrink-0">
+          {items.length > 0 && (
+            <button onClick={onOpenCarteira} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5"><Icon name="briefcase" size={14} /> Ver carteira proposta ({items.length})</button>
+          )}
+          <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1"><Icon name="arrowLeft" size={15} /> Necessidades</button>
+        </div>
       </div>
 
       <ProdContextBar
@@ -376,7 +384,6 @@ function ProdRateInput({ product, value, onChange }) {
   }
   const prefix = product.rateUnit === 'IPCA+' ? 'IPCA +' : '';
   const suffix = product.rateUnit === 'IPCA+' ? '%' : product.rateUnit;
-  const fmt = (v) => (v == null ? '—' : `${prefix ? 'IPCA + ' : ''}${String(v).replace('.', ',')}${prefix ? '%' : ' ' + product.rateUnit.replace('% ', '%').replace('%', '%')}`);
   const clamp = (v) => Math.max(product.rateMin, Math.min(product.rateMax, v));
   return (
     <div>
@@ -633,8 +640,318 @@ function ProdDetailView({ product, client, targetAllocation, positions, items, p
   );
 }
 
+// KPI card no padrão da lista de Clientes.
+function ProdKpi({ value, label, accent }) {
+  return (
+    <div className="bg-white border border-neutral-100 rounded-large px-4 py-3">
+      <div className={window.PortalLib.classNames('text-2xl font-semibold', accent === 'brand' ? 'text-brand' : accent === 'alert' ? 'text-alert' : 'text-neutral-900')}>{value}</div>
+      <div className="text-[11px] uppercase tracking-wide text-neutral-400 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function ProdValidationRow({ status, label, detail }) {
+  const icon = status === 'ok' ? { name: 'check', cls: 'text-success' } : status === 'warn' ? { name: 'alertTriangle', cls: 'text-warning-dark' } : { name: 'alertTriangle', cls: 'text-alert' };
+  return (
+    <div className="flex items-start gap-2 py-1.5">
+      <Icon name={icon.name} size={15} className={window.PortalLib.classNames('mt-0.5 shrink-0', icon.cls)} />
+      <div>
+        <span className="text-sm text-neutral-800">{label}</span>
+        {detail && <div className="text-xs text-neutral-500">{detail}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Estratégia × Implementação (modelo "preencher lacunas": só as classes
+// deficitárias recebem aporte; as demais aparecem como adequada/reduzir).
+function ProdStrategyImplTable({ needs, items, productMap }) {
+  const { strategyClassLabel, formatCurrency } = window.PortalLib;
+  const countByClass = {};
+  const valueByClass = {};
+  items.forEach((it) => {
+    const p = productMap[it.productId];
+    if (!p) return;
+    countByClass[p.class] = (countByClass[p.class] || 0) + 1;
+    valueByClass[p.class] = (valueByClass[p.class] || 0) + it.value;
+  });
+  return (
+    <div className="overflow-x-auto border border-neutral-100 rounded-large bg-white">
+      <table className="w-full text-sm">
+        <thead className="bg-neutral-50">
+          <tr>
+            {['Classe', 'Target', 'Produtos selecionados', 'Valor', 'Resultado'].map((h) => (
+              <th key={h} className="text-left font-semibold text-neutral-500 px-4 py-2.5 border-b border-neutral-100 text-xs uppercase tracking-wide">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {needs.rows.map((r) => {
+            const cnt = countByClass[r.class] || 0;
+            const val = valueByClass[r.class] || 0;
+            let result;
+            if (r.status !== 'deficit') result = <span className="text-neutral-400">— sem aporte ({r.status === 'reduce' ? 'reduzir' : 'adequada'})</span>;
+            else if (val >= r.needValue - 1) result = <span className="text-success-dark font-medium">✓ meta de {prodCompact(r.needValue)}</span>;
+            else result = <span className="text-warning-dark font-medium">⚠ faltam {prodCompact(r.needValue - val)}</span>;
+            return (
+              <tr key={r.class} className="border-b border-neutral-50 last:border-0">
+                <td className="px-4 py-3 font-medium text-neutral-900">{strategyClassLabel(r.class)}</td>
+                <td className="px-4 py-3 text-neutral-600">{r.targetPct}%</td>
+                <td className="px-4 py-3 text-neutral-600">{cnt} {cnt === 1 ? 'produto' : 'produtos'}</td>
+                <td className="px-4 py-3 text-neutral-700">{formatCurrency(val)}</td>
+                <td className="px-4 py-3">{result}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ---------- Tela 05 — Carteira proposta ----------
+function ProdCarteiraView({ client, targetAllocation, positions, needs, items, productMap, now, onUpdateItem, onRemoveItem, onFindMore, onContinue, onBack }) {
+  const { formatCurrency, daysUntil } = window.PortalLib;
+  const total = items.reduce((s, it) => s + it.value, 0);
+  const available = client.availableBalance;
+  const naoAlocado = available - total;
+  const pctAlocado = available ? (total / available) * 100 : 0;
+  const saldoExcedido = total > available;
+
+  // validações
+  const minFail = items.filter((it) => { const p = productMap[it.productId]; return p && it.value < p.minApplication; });
+  const stockFail = items.filter((it) => { const p = productMap[it.productId]; return p && it.value > p.availableStock; });
+  const suitOk = daysUntil(client.suitabilityExpiry, now) >= 0;
+  const deficits = needs.rows.filter((r) => r.status === 'deficit');
+  const classFilled = (r) => (items.filter((it) => productMap[it.productId] && productMap[it.productId].class === r.class).reduce((s, it) => s + it.value, 0)) >= r.needValue - 1;
+  const classPending = deficits.filter((r) => !classFilled(r));
+  // concentração por emissor sobre base pós-implantação
+  const investedTotal = positions.reduce((s, p) => s + p.currentValue, 0);
+  const base = investedTotal + available;
+  const issuerAfter = {};
+  positions.forEach((p) => { issuerAfter[p.issuer] = (issuerAfter[p.issuer] || 0) + p.currentValue; });
+  items.forEach((it) => { const p = productMap[it.productId]; if (p) issuerAfter[p.issuer] = (issuerAfter[p.issuer] || 0) + it.value; });
+  const concIssuer = Object.keys(issuerAfter).map((k) => ({ issuer: k, pct: base ? (issuerAfter[k] / base) * 100 : 0 })).filter((x) => x.pct > 25).sort((a, b) => b.pct - a.pct);
+
+  const canContinue = !saldoExcedido && items.length > 0;
+
+  const num = (v, onChange, w) => (
+    <input type="number" value={v} onChange={(e) => onChange(Math.max(0, parseFloat(e.target.value) || 0))} className={window.PortalLib.classNames('text-sm border border-neutral-200 rounded-medium px-2 py-1 text-right', w || 'w-24')} onClick={(e) => e.stopPropagation()} />
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">Carteira proposta</h1>
+          <p className="text-sm text-neutral-500 mt-1">Revise os investimentos escolhidos para implementar a estratégia definida. <span className="text-neutral-400">{client.name} · Conta {client.account}</span></p>
+        </div>
+        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1 shrink-0"><Icon name="arrowLeft" size={15} /> Continuar buscando</button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <ProdKpi value={formatCurrency(available)} label="Disponível" />
+        <ProdKpi value={formatCurrency(total)} label="Alocado" accent="brand" />
+        <ProdKpi value={formatCurrency(naoAlocado)} label="Não alocado" accent={saldoExcedido ? 'alert' : undefined} />
+        <ProdKpi value={items.length} label="Investimentos" />
+        <ProdKpi value={`${pctAlocado.toFixed(0)}%`} label="Caixa alocado" />
+      </div>
+
+      {saldoExcedido && (
+        <div className="flex items-center gap-2 bg-alert-light text-alert-dark rounded-large px-4 py-3 text-sm font-medium">
+          <Icon name="alertTriangle" size={16} /> A proposta excede o saldo disponível em {formatCurrency(total - available)}. Ajuste os valores antes de enviar.
+        </div>
+      )}
+
+      <div>
+        <h2 className="text-sm font-semibold text-neutral-700 mb-2">Estratégia <span className="text-neutral-400 font-normal">(definida no Simulador)</span> × Implementação <span className="text-neutral-400 font-normal">(produtos reais)</span></h2>
+        <ProdStrategyImplTable needs={needs} items={items} productMap={productMap} />
+        {classPending.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {classPending.map((r) => (
+              <button key={r.class} onClick={() => onFindMore(r.class)} className="text-xs px-3 py-1.5 rounded-pill bg-white border border-brand/30 text-brand-dark hover:bg-brand hover:text-white">
+                Encontrar produtos de {window.PortalLib.strategyClassLabel(r.class)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Tabela de investimentos com edição inline */}
+      <div className="overflow-x-auto border border-neutral-100 rounded-large bg-white">
+        <table className="w-full text-sm min-w-[820px]">
+          <thead className="bg-neutral-50">
+            <tr>
+              {['Produto', 'Classe', 'Valor', '% do caixa', 'Taxa', 'Vencimento', 'Liquidez', ''].map((h) => (
+                <th key={h} className="text-left font-semibold text-neutral-500 px-3 py-2.5 border-b border-neutral-100 text-xs uppercase tracking-wide">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((it) => {
+              const p = productMap[it.productId];
+              if (!p) return null;
+              const belowMin = it.value < p.minApplication;
+              return (
+                <tr key={it.productId} className="border-b border-neutral-50 last:border-0 align-top">
+                  <td className="px-3 py-2.5 font-medium text-neutral-900">{p.name}</td>
+                  <td className="px-3 py-2.5 text-neutral-500">{window.PortalLib.strategyClassLabel(p.class)}</td>
+                  <td className="px-3 py-2.5">
+                    {num(it.value, (v) => onUpdateItem(it.productId, { value: v }), 'w-28')}
+                    {belowMin && <div className="text-[10px] text-alert-dark mt-0.5">mín {formatCurrency(p.minApplication)}</div>}
+                  </td>
+                  <td className="px-3 py-2.5 text-neutral-600">{available ? ((it.value / available) * 100).toFixed(0) : 0}%</td>
+                  <td className="px-3 py-2.5">
+                    {p.negotiable
+                      ? <span className="inline-flex items-center gap-1">{p.rateUnit === 'IPCA+' ? 'IPCA+' : ''}{num(it.rate, (v) => onUpdateItem(it.productId, { rate: v }), 'w-16')}<span className="text-xs text-neutral-400">{p.rateUnit === 'IPCA+' ? '%' : p.rateUnit}</span></span>
+                      : <span className="text-neutral-400">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5 text-neutral-600">{p.term && p.term !== '—' ? p.term.replace('até ', '') : '—'}</td>
+                  <td className="px-3 py-2.5 text-neutral-600">{p.liquidity}</td>
+                  <td className="px-3 py-2.5"><button onClick={() => onRemoveItem(it.productId)} className="text-neutral-300 hover:text-alert"><Icon name="x" size={15} /></button></td>
+                </tr>
+              );
+            })}
+            {items.length === 0 && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-neutral-400">Nenhum investimento selecionado ainda. Volte para Explorar e adicione produtos.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Validações */}
+      <div className="bg-white border border-neutral-100 rounded-large p-4">
+        <h2 className="text-sm font-semibold text-neutral-800 mb-1">Validações da recomendação</h2>
+        <ProdValidationRow status={suitOk ? 'ok' : 'block'} label={suitOk ? 'Suitability adequado' : 'Suitability vencido — renovar antes de recomendar'} />
+        <ProdValidationRow status={minFail.length === 0 ? 'ok' : 'warn'} label={minFail.length === 0 ? 'Valores mínimos atendidos' : `${minFail.length} investimento(s) abaixo da aplicação mínima`} />
+        <ProdValidationRow status={stockFail.length === 0 ? 'ok' : 'warn'} label={stockFail.length === 0 ? 'Estoque disponível' : `${stockFail.length} investimento(s) acima do estoque disponível`} />
+        <ProdValidationRow status={saldoExcedido ? 'block' : 'ok'} label={saldoExcedido ? `Saldo insuficiente — excede em ${formatCurrency(total - available)}` : 'Saldo disponível suficiente'} />
+        {deficits.map((r) => {
+          const filled = classFilled(r);
+          return <ProdValidationRow key={r.class} status={filled ? 'ok' : 'warn'} label={filled ? `Estratégia de ${window.PortalLib.strategyClassLabel(r.class)} atendida` : `${window.PortalLib.strategyClassLabel(r.class)} abaixo do target`} detail={filled ? null : `Faltam ${prodCompact(r.needValue - (items.filter((it) => productMap[it.productId] && productMap[it.productId].class === r.class).reduce((s, it) => s + it.value, 0)))} para atingir a estratégia definida.`} />;
+        })}
+        {concIssuer.map((c) => (
+          <ProdValidationRow key={c.issuer} status="warn" label={`Concentração por emissor: ${c.issuer} representará ${c.pct.toFixed(0)}% da carteira.`} />
+        ))}
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <button onClick={onBack} className="text-sm px-5 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Continuar buscando</button>
+        <button onClick={onContinue} disabled={!canContinue} className={window.PortalLib.classNames('text-sm px-5 py-2 rounded-pill text-white', canContinue ? 'bg-brand hover:bg-brand-dark' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed')}>Revisar recomendação</button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Tela 06 — Revisar recomendação ----------
+function ProdRevisarView({ client, items, productMap, now, adherencePct, onConfirm, onBack, onAcceptNewRate }) {
+  const { formatCurrency } = window.PortalLib;
+  const total = items.reduce((s, it) => s + it.value, 0);
+  const remaining = client.availableBalance - total;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">Revisar recomendação</h1>
+          <p className="text-sm text-neutral-500 mt-1">Confira produtos, valores, taxas e condições antes de enviar para {client.name}.</p>
+        </div>
+        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1 shrink-0"><Icon name="arrowLeft" size={15} /> Voltar</button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <ProdKpi value={client.name.split(' ').slice(0, 2).join(' ')} label="Cliente" />
+        <ProdKpi value={formatCurrency(total)} label="Valor" accent="brand" />
+        <ProdKpi value={items.length} label="Investimentos" />
+        <ProdKpi value={`${adherencePct}%`} label="Aderência à estratégia" />
+      </div>
+
+      <div className="overflow-x-auto border border-neutral-100 rounded-large bg-white">
+        <table className="w-full text-sm min-w-[640px]">
+          <thead className="bg-neutral-50">
+            <tr>{['Produto', 'Valor', 'Taxa selecionada', 'Referência', 'Status'].map((h) => <th key={h} className="text-left font-semibold text-neutral-500 px-4 py-2.5 border-b border-neutral-100 text-xs uppercase tracking-wide">{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            {items.map((it) => {
+              const p = productMap[it.productId];
+              if (!p) return null;
+              const rateLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(it.rate).replace('.', ',')}%` : `${it.rate}${p.rateUnit}`) : '—';
+              const refLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(p.rateRef).replace('.', ',')}%` : `${p.rateRef}${p.rateUnit}`) : '—';
+              return (
+                <tr key={it.productId} className="border-b border-neutral-50 last:border-0">
+                  <td className="px-4 py-3 font-medium text-neutral-900">{p.name}</td>
+                  <td className="px-4 py-3 text-neutral-700">{formatCurrency(it.value)}</td>
+                  <td className="px-4 py-3 text-neutral-800 font-medium">{rateLabel}</td>
+                  <td className="px-4 py-3 text-neutral-500">{refLabel}</td>
+                  <td className="px-4 py-3"><StatusPill label="Validado" className="bg-success-light text-success-dark" size="sm" /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="bg-white border border-neutral-100 rounded-large p-4">
+        <h2 className="text-sm font-semibold text-neutral-800 mb-2">Resumo financeiro</h2>
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div><div className="text-xs text-neutral-400 uppercase tracking-wide">Investimento total</div><div className="font-semibold text-neutral-900 mt-0.5">{formatCurrency(total)}</div></div>
+          <div><div className="text-xs text-neutral-400 uppercase tracking-wide">Caixa remanescente</div><div className="font-semibold text-neutral-900 mt-0.5">{formatCurrency(remaining)}</div></div>
+          <div><div className="text-xs text-neutral-400 uppercase tracking-wide">Custos estimados</div><div className="font-semibold text-neutral-900 mt-0.5">R$ 0,00</div></div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-neutral-100 rounded-large p-4">
+        <h2 className="text-sm font-semibold text-neutral-800 mb-1">Check final</h2>
+        <ProdValidationRow status="ok" label="Perfil compatível" />
+        <ProdValidationRow status="ok" label="Produtos disponíveis" />
+        <ProdValidationRow status="ok" label="Aplicações mínimas" />
+        <ProdValidationRow status="ok" label="Saldo suficiente" />
+        {adherencePct < 100 && <ProdValidationRow status="warn" label={`Estratégia ${adherencePct}% implementada`} detail={`A recomendação pode ser enviada com ${formatCurrency(remaining)} ainda não alocados.`} />}
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <button onClick={onBack} className="text-sm px-5 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Voltar</button>
+        <button onClick={onConfirm} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Enviar recomendação</button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Tela 07 — Confirmar envio (modal) ----------
+function ProdConfirmModal({ client, items, sent, recId, onConfirm, onClose, onGoOrders }) {
+  const { formatCurrency } = window.PortalLib;
+  const total = items.reduce((s, it) => s + it.value, 0);
+  return (
+    <Modal title={sent ? 'Recomendação enviada' : 'Enviar recomendação?'} onClose={onClose} width="max-w-md">
+      {sent ? (
+        <div className="text-center py-2">
+          <div className="w-12 h-12 rounded-full bg-success-light text-success-dark flex items-center justify-center mx-auto mb-3"><Icon name="check" size={24} /></div>
+          <div className="font-semibold text-neutral-900">Recomendação {recId} enviada</div>
+          <div className="text-sm text-neutral-500 mt-1">Aguardando aprovação do cliente. Cada investimento continuará sendo acompanhado individualmente.</div>
+          <div className="flex justify-center gap-2 mt-5">
+            <button onClick={onClose} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Fechar</button>
+            <button onClick={onGoOrders} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Ir para Ordens</button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="space-y-1 mb-3 text-sm">
+            <div className="flex justify-between"><span className="text-neutral-500">Cliente</span><span className="font-medium text-neutral-900">{client.name}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Valor</span><span className="font-medium text-neutral-900">{formatCurrency(total)}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Investimentos</span><span className="font-medium text-neutral-900">{items.length}</span></div>
+          </div>
+          <p className="text-sm text-neutral-600">O cliente receberá uma única recomendação para revisar e aprovar todos os investimentos selecionados.</p>
+          <p className="text-xs text-neutral-400 mt-1">Cada investimento continuará sendo acompanhado individualmente.</p>
+          <div className="flex justify-end gap-2 mt-5">
+            <button onClick={onClose} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Cancelar</button>
+            <button onClick={onConfirm} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Confirmar envio</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 // ---------- Root ----------
-function ProductJourney({ client, simulation, positions, products, now, onExit, onOpenClient, onOpenSimulation }) {
+function ProductJourney({ client, simulation, positions, products, now, onExit, onOpenClient, onOpenSimulation, onSubmitRecommendation, onGoOrders }) {
   const A = window.PortalAnalytics;
   const targetAllocation = (simulation && simulation.targetAllocation) || {};
   const [view, setView] = React.useState('necessidades'); // necessidades | explorar | comparar | detalhe | (carteira/revisar — Fase 3)
@@ -643,6 +960,8 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
   const [compareIds, setCompareIds] = React.useState([]);
   const [detailId, setDetailId] = React.useState(null);
   const [returnView, setReturnView] = React.useState('explorar'); // para onde voltar do detalhe
+  const [confirm, setConfirm] = React.useState(null); // null | 'ask' | 'sent'
+  const [sentRecId, setSentRecId] = React.useState(null);
 
   const productMap = {};
   products.forEach((p) => (productMap[p.id] = p));
@@ -677,8 +996,40 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
     });
   }
 
+  function updateItem(productId, patch) {
+    setItems((prev) => prev.map((it) => (it.productId === productId ? { ...it, ...patch } : it)));
+  }
+  function removeItem(productId) {
+    setItems((prev) => prev.filter((it) => it.productId !== productId));
+  }
+
   function editStrategy() {
     if (simulation && onOpenSimulation) onOpenSimulation(simulation.id);
+  }
+
+  // Aderência da recomendação: fração do total-necessário já coberta pelos aportes
+  // nas classes deficitárias (mesmo modelo da Tela 01).
+  const adherencePct = (() => {
+    const totalNeed = needs.rows.reduce((s, r) => s + (r.status === 'deficit' ? r.needValue : 0), 0);
+    if (totalNeed <= 0) return 100;
+    const covered = needs.rows.reduce((s, r) => {
+      if (r.status !== 'deficit') return s;
+      const sel = items.filter((it) => productMap[it.productId] && productMap[it.productId].class === r.class).reduce((a, it) => a + it.value, 0);
+      return s + Math.min(sel, r.needValue);
+    }, 0);
+    return Math.round((covered / totalNeed) * 100);
+  })();
+
+  function submitRecommendation() {
+    const recItems = items.map((it) => {
+      const p = productMap[it.productId];
+      const rateLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(it.rate).replace('.', ',')}%` : `${it.rate}${p.rateUnit}`) : '—';
+      return { productId: it.productId, asset: p.name, class: p.class, value: it.value, rate: rateLabel, status: 'validado' };
+    });
+    const total = items.reduce((s, it) => s + it.value, 0);
+    const recId = onSubmitRecommendation ? onSubmitRecommendation(client.id, recItems, total) : null;
+    setSentRecId(recId || 'REC-' + Math.floor(10000 + Math.random() * 900));
+    setConfirm('sent');
   }
 
   if (view === 'comparar') {
@@ -704,6 +1055,42 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
     );
   }
 
+  if (view === 'carteira' || view === 'revisar') {
+    const modal = confirm ? (
+      <ProdConfirmModal
+        client={client} items={items} sent={confirm === 'sent'} recId={sentRecId}
+        onConfirm={submitRecommendation}
+        onClose={() => { if (confirm === 'sent') { onGoOrders && onGoOrders(); } setConfirm(null); }}
+        onGoOrders={() => { setConfirm(null); onGoOrders && onGoOrders(); }}
+      />
+    ) : null;
+    if (view === 'revisar') {
+      return (
+        <React.Fragment>
+          <ProdRevisarView
+            client={client} items={items} productMap={productMap} now={now} adherencePct={adherencePct}
+            onConfirm={() => setConfirm('ask')}
+            onBack={() => setView('carteira')}
+          />
+          {modal}
+        </React.Fragment>
+      );
+    }
+    return (
+      <React.Fragment>
+        <ProdCarteiraView
+          client={client} targetAllocation={targetAllocation} positions={positions}
+          needs={needs} items={items} productMap={productMap} now={now}
+          onUpdateItem={updateItem} onRemoveItem={removeItem}
+          onFindMore={(cls) => { setNeedContext(cls); setView('explorar'); }}
+          onContinue={() => setView('revisar')}
+          onBack={() => setView('explorar')}
+        />
+        {modal}
+      </React.Fragment>
+    );
+  }
+
   if (view === 'explorar') {
     return (
       <ProdExploreView
@@ -715,6 +1102,7 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
         onAddProducts={addProducts}
         onCompare={(ids) => { setCompareIds(ids); setView('comparar'); }}
         onOpenDetail={(id) => { setDetailId(id); setReturnView('explorar'); setView('detalhe'); }}
+        onOpenCarteira={() => setView('carteira')}
         onBack={() => setView('necessidades')}
       />
     );
@@ -722,9 +1110,10 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
 
   return (
     <ProdNeedsView
-      client={client} targetAllocation={targetAllocation} needs={needs} now={now}
+      client={client} targetAllocation={targetAllocation} needs={needs} now={now} itemCount={items.length}
       onExplore={() => { setNeedContext(null); setView('explorar'); }}
       onPickClass={(cls) => { setNeedContext(cls); setView('explorar'); }}
+      onOpenCarteira={() => setView('carteira')}
       onEditStrategy={editStrategy}
       onOpenClient={onOpenClient}
     />

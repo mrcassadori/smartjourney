@@ -112,7 +112,91 @@ function OrderDetailDrawer({ order, client, canOperate, onClose, onRetry, onCanc
   );
 }
 
-function OrdersPage({ profile, clients, orders, initialFilters, openOrderId, onOpenOrder, onCloseOrder, onRetryOrder, onCancelOrder, onResendNotification, onOpenTicket }) {
+// EP-02 (Tela 08) — recomendações enviadas: KPIs + linhas #REC expansíveis.
+function RecommendationsSection({ recommendations, clientMap }) {
+  const { REC_STATUS_META, formatCurrency, formatDateTime, strategyClassLabel } = window.PortalLib;
+  const [expanded, setExpanded] = React.useState(null);
+  const [statusFilter, setStatusFilter] = React.useState('');
+  if (!recommendations || recommendations.length === 0) return null;
+
+  const kpi = (k) => recommendations.filter((r) => r.status === k).length;
+  const kpis = [
+    { v: kpi('aguardando_cliente'), l: 'Aguardando cliente' },
+    { v: kpi('aprovada'), l: 'Aprovadas' },
+    { v: kpi('em_processamento'), l: 'Em processamento' },
+    { v: kpi('executada'), l: 'Executadas' },
+    { v: recommendations.reduce((s, r) => s + (r.pendencias || 0), 0), l: 'Pendências', accent: 'alert' },
+  ];
+  const rows = recommendations.filter((r) => !statusFilter || r.status === statusFilter);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {kpis.map((k) => (
+          <div key={k.l} className="bg-white border border-neutral-100 rounded-large px-4 py-3">
+            <div className={window.PortalLib.classNames('text-2xl font-semibold', k.accent === 'alert' ? 'text-alert' : 'text-neutral-900')}>{k.v}</div>
+            <div className="text-[11px] uppercase tracking-wide text-neutral-400 mt-0.5">{k.l}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-neutral-700">Recomendações</h2>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-sm border border-neutral-200 rounded-pill px-3 py-1.5">
+          <option value="">Todos os status</option>
+          {Object.entries(REC_STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+
+      <div className="overflow-x-auto border border-neutral-100 rounded-large bg-white">
+        <table className="w-full text-sm min-w-[720px]">
+          <thead className="bg-neutral-50">
+            <tr>{['Cliente', 'Recomendação', 'Valor', 'Ativos', 'Data', 'Status', 'Pendências'].map((h) => <th key={h} className="text-left font-semibold text-neutral-500 px-4 py-2.5 border-b border-neutral-100 text-xs uppercase tracking-wide">{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const cli = clientMap[r.clientId];
+              const st = REC_STATUS_META[r.status] || { label: r.status, className: 'bg-neutral-100 text-neutral-600' };
+              const open = expanded === r.id;
+              return (
+                <React.Fragment key={r.id}>
+                  <tr className="border-b border-neutral-50 last:border-0 cursor-pointer hover:bg-neutral-50" onClick={() => setExpanded(open ? null : r.id)}>
+                    <td className="px-4 py-3 font-medium text-neutral-900">{cli ? cli.name : r.clientId}</td>
+                    <td className="px-4 py-3 text-neutral-600">#{r.id}</td>
+                    <td className="px-4 py-3 text-neutral-700">{formatCurrency(r.value)}</td>
+                    <td className="px-4 py-3 text-neutral-600">{r.items.length} ativo{r.items.length === 1 ? '' : 's'}</td>
+                    <td className="px-4 py-3 text-neutral-500">{formatDateTime(r.createdAt)}</td>
+                    <td className="px-4 py-3"><StatusPill label={st.label} className={st.className} size="sm" /></td>
+                    <td className="px-4 py-3 text-neutral-500 flex items-center gap-1">{r.pendencias > 0 ? <span className="text-alert-dark font-medium">{r.pendencias}</span> : 'Nenhuma'}<Icon name={open ? 'chevronDown' : 'chevronRight'} size={14} className="text-neutral-300" /></td>
+                  </tr>
+                  {open && (
+                    <tr className="bg-neutral-50/50">
+                      <td colSpan={7} className="px-4 py-3">
+                        <div className="border border-neutral-100 rounded-large bg-white divide-y divide-neutral-50">
+                          {r.items.map((it, i) => (
+                            <div key={i} className="flex items-center gap-4 px-4 py-2.5 text-sm">
+                              <span className="font-medium text-neutral-800 flex-1">{it.asset}</span>
+                              <span className="text-neutral-400 w-28">{strategyClassLabel(it.class)}</span>
+                              <span className="text-neutral-600 w-28 text-right">{formatCurrency(it.value)}</span>
+                              <span className="text-neutral-500 w-28 text-right">{it.rate}</span>
+                              <StatusPill label={it.status === 'executado' ? 'Executado' : 'Validado'} className={it.status === 'executado' ? 'bg-success-light text-success-dark' : 'bg-info-light text-info-dark'} size="sm" />
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function OrdersPage({ profile, clients, orders, recommendations, initialFilters, openOrderId, onOpenOrder, onCloseOrder, onRetryOrder, onCancelOrder, onResendNotification, onOpenTicket }) {
   const { ORDER_STATUS_META, formatCurrency, formatDateTime } = window.PortalLib;
   const [status, setStatus] = React.useState((initialFilters && initialFilters.status) || '');
   const [clientQuery, setClientQuery] = React.useState('');
@@ -145,11 +229,13 @@ function OrdersPage({ profile, clients, orders, initialFilters, openOrderId, onO
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <RecommendationsSection recommendations={recommendations} clientMap={clientMap} />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-neutral-900">Central de ordens</h1>
-          <p className="text-sm text-neutral-500">{filtered.length} ordem{filtered.length === 1 ? '' : 's'} no seu escopo</p>
+          <p className="text-sm text-neutral-500">{filtered.length} ordem{filtered.length === 1 ? '' : 's'} no seu escopo · execução individual dos ativos</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <input value={clientQuery} onChange={(e) => setClientQuery(e.target.value)} placeholder="Filtrar por cliente…" className="text-sm border border-neutral-200 rounded-pill px-3 py-1.5 w-56" />

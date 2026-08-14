@@ -248,6 +248,14 @@
   // mantém o nome; só troca a fachada de duas delas para a linguagem da spec).
   const STRATEGY_CLASS_LABEL = { 'Ações': 'Renda variável', 'Global': 'Internacional' };
   function strategyClassLabel(cls) { return STRATEGY_CLASS_LABEL[cls] || cls; }
+  // Status de uma recomendação enviada (Tela 08 — Ordens).
+  const REC_STATUS_META = {
+    aguardando_cliente: { label: 'Aguardando cliente', className: 'bg-warning-light text-warning-dark' },
+    aprovada: { label: 'Aprovada', className: 'bg-info-light text-info-dark' },
+    em_processamento: { label: 'Em processamento', className: 'bg-brand-lightest text-brand-dark' },
+    executada: { label: 'Executada', className: 'bg-success-light text-success-dark' },
+    recusada: { label: 'Recusada', className: 'bg-alert-light text-alert-dark' },
+  };
 
   const SERVICE_TYPE_META = {
     reset_credencial: { label: 'Reset de credencial', icon: 'shield' },
@@ -350,6 +358,7 @@
     NEED_STATUS_META,
     STRATEGY_CLASS_LABEL,
     strategyClassLabel,
+    REC_STATUS_META,
     SERVICE_TYPE_META,
     SERVICE_REQUEST_STATUS_META,
     TICKET_STATUS_META,
