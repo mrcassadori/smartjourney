@@ -215,7 +215,7 @@ function ProdNeedsView({ client, targetAllocation, needs, now, onExplore, onPick
 }
 
 // ---------- Tela 02 — Explorar investimentos ----------
-function ProdExploreView({ client, targetAllocation, positions, products, needs, items, now, needContext, onClearContext, onEditStrategy, onPickClass, onAddProducts, onCompare, onBack }) {
+function ProdExploreView({ client, targetAllocation, positions, products, needs, items, now, needContext, onClearContext, onEditStrategy, onPickClass, onAddProducts, onCompare, onOpenDetail, onBack }) {
   const { formatCurrency, PRODUCT_RISK_LABELS } = window.PortalLib;
   const A = window.PortalAnalytics;
   const [query, setQuery] = React.useState('');
@@ -263,6 +263,7 @@ function ProdExploreView({ client, targetAllocation, positions, products, needs,
 
   const selCol = { key: '_sel', label: '', sortable: false, render: (r) => (
     <input type="checkbox" className="accent-brand" checked={checked.indexOf(r.id) !== -1 || alreadyIn.has(r.id)} disabled={alreadyIn.has(r.id)}
+      onClick={(e) => e.stopPropagation()}
       onChange={() => setChecked((prev) => prev.indexOf(r.id) !== -1 ? prev.filter((x) => x !== r.id) : [...prev, r.id])} />
   ) };
 
@@ -342,8 +343,292 @@ function ProdExploreView({ client, targetAllocation, positions, products, needs,
         <ProdSelectedBar count={checked.length} onCompare={() => onCompare(checked)} onAdd={() => doAdd(checked)} onClear={() => setChecked([])} />
       )}
 
-      <div className="text-xs text-neutral-400">{rows.length} produto{rows.length === 1 ? '' : 's'}</div>
-      <DataTable columns={columns} rows={rows} keyField="id" emptyLabel="Nenhum produto para esses filtros." />
+      <div className="text-xs text-neutral-400">{rows.length} produto{rows.length === 1 ? '' : 's'} · clique numa linha para ver o detalhe</div>
+      <DataTable columns={columns} rows={rows} keyField="id" emptyLabel="Nenhum produto para esses filtros." onRowClick={(r) => onOpenDetail(r.id)} />
+    </div>
+  );
+}
+
+// Impacto de uma aplicação na estratégia: participação da classe e do emissor
+// antes/depois, sobre a base pós-implantação (carteira atual + caixa disponível).
+// Exclui o próprio produto das somas "já selecionadas" para não contar em dobro.
+function prodComputeImpact(product, value, client, positions, targetAllocation, items, productMap) {
+  const investedTotal = positions.reduce((s, p) => s + p.currentValue, 0);
+  const base = investedTotal + client.availableBalance;
+  const sum = (arr, pred) => arr.filter(pred).reduce((s, x) => s + (x.currentValue != null ? x.currentValue : x.value), 0);
+  const curClass = sum(positions, (p) => p.class === product.class);
+  const selClass = sum(items, (it) => it.productId !== product.id && productMap[it.productId] && productMap[it.productId].class === product.class);
+  const curIssuer = sum(positions, (p) => p.issuer === product.issuer);
+  const selIssuer = sum(items, (it) => it.productId !== product.id && productMap[it.productId] && productMap[it.productId].issuer === product.issuer);
+  const pct = (v) => (base ? (v / base) * 100 : 0);
+  return {
+    base,
+    targetPct: targetAllocation[product.class] || 0,
+    classAtual: pct(curClass), classAposSel: pct(curClass + selClass), classAposEste: pct(curClass + selClass + value),
+    issuerAtual: pct(curIssuer), issuerApos: pct(curIssuer + selIssuer + value),
+  };
+}
+
+// Input de taxa negociável (mín/ref/máx) — número editável + slider de apoio.
+function ProdRateInput({ product, value, onChange }) {
+  if (!product.negotiable) {
+    return <div className="text-sm text-neutral-500">Taxa de mercado — {product.rateLabel} (não negociável).</div>;
+  }
+  const prefix = product.rateUnit === 'IPCA+' ? 'IPCA +' : '';
+  const suffix = product.rateUnit === 'IPCA+' ? '%' : product.rateUnit;
+  const fmt = (v) => (v == null ? '—' : `${prefix ? 'IPCA + ' : ''}${String(v).replace('.', ',')}${prefix ? '%' : ' ' + product.rateUnit.replace('% ', '%').replace('%', '%')}`);
+  const clamp = (v) => Math.max(product.rateMin, Math.min(product.rateMax, v));
+  return (
+    <div>
+      <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Taxa proposta ao cliente</div>
+      <div className="flex items-center gap-2">
+        {prefix && <span className="text-sm text-neutral-600">{prefix}</span>}
+        <input
+          type="number" step="0.1" value={value}
+          onChange={(e) => onChange(clamp(parseFloat(e.target.value) || product.rateMin))}
+          className="w-24 text-sm border border-neutral-200 rounded-medium px-3 py-1.5 text-right font-medium"
+        />
+        <span className="text-sm text-neutral-600">{suffix}</span>
+      </div>
+      <input
+        type="range" min={product.rateMin} max={product.rateMax} step="0.1" value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full mt-3 accent-brand"
+      />
+      <div className="flex justify-between text-[11px] text-neutral-400 mt-1">
+        <span>mín {product.rateMin}{product.rateUnit === 'IPCA+' ? '%' : ''}</span>
+        <span>referência {product.rateRef}{product.rateUnit === 'IPCA+' ? '%' : ''} · 14:32</span>
+        <span>máx {product.rateMax}{product.rateUnit === 'IPCA+' ? '%' : ''}</span>
+      </div>
+    </div>
+  );
+}
+
+// Uma barra de participação (atual → depois) para o bloco de impacto.
+function ProdImpactBar({ label, atual, depois, target, badge }) {
+  return (
+    <div className="mb-3">
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="font-medium text-neutral-700">{label}</span>
+        {badge}
+      </div>
+      <div className="flex items-center gap-2 text-xs text-neutral-500">
+        <span>Atual {atual.toFixed(0)}%</span>
+        <Icon name="chevronRight" size={12} className="text-neutral-300" />
+        <span className="font-semibold text-neutral-800">Após {depois.toFixed(0)}%</span>
+        {target != null && <span className="text-neutral-400">· meta {target}%</span>}
+      </div>
+      <div className="h-2 rounded-pill bg-neutral-100 overflow-hidden mt-1 relative">
+        <div className="h-full bg-brand" style={{ width: `${Math.min(depois, 100)}%` }} />
+        {target != null && <span className="absolute top-0 bottom-0 w-0.5 bg-neutral-800/60" style={{ left: `${Math.min(target, 100)}%` }} />}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Tela 03 — Comparar investimentos ----------
+function ProdCompareView({ compareProducts, client, targetAllocation, positions, items, productMap, now, onAdd, onBack }) {
+  const { formatCurrency, strategyClassLabel } = window.PortalLib;
+  const A = window.PortalAnalytics;
+  const enriched = compareProducts.map((p) => {
+    const ad = A.productAdherence(p, client, targetAllocation, positions, now);
+    const imp = prodComputeImpact(p, p.minApplication, client, positions, targetAllocation, items, productMap);
+    return { ...p, _ad: ad, _conc: imp.issuerApos };
+  });
+  // destaques
+  const AD_RANK = { alta: 3, adequado: 2, atencao: 1, nao_recomendado: 0 };
+  const maxRate = Math.max(...enriched.filter((p) => p.negotiable).map((p) => p.rateValue || 0));
+  const bestLiq = Math.min(...enriched.map((p) => A.liquidityDays(p.liquidity)));
+  const minConc = Math.min(...enriched.map((p) => p._conc));
+  const bestAd = Math.max(...enriched.map((p) => AD_RANK[p._ad.level]));
+
+  const rows = [
+    ['Classe', (p) => strategyClassLabel(p.class)],
+    ['Indexador', (p) => p.indexer],
+    ['Taxa', (p) => <span className="font-medium text-neutral-900">{p.rateLabel}{p.negotiable && p.rateValue === maxRate ? <ProdTag>Maior taxa</ProdTag> : null}</span>],
+    ['Emissor', (p) => p.issuer],
+    ['Rating', (p) => p.rating],
+    ['FGC', (p) => (p.fgc ? 'Sim' : 'Não')],
+    ['Vencimento', (p) => (p.term && p.term !== '—' ? p.term.replace('até ', '') : '—')],
+    ['Liquidez', (p) => <span>{p.liquidity}{A.liquidityDays(p.liquidity) === bestLiq ? <ProdTag>Maior liquidez</ProdTag> : null}</span>],
+    ['Aplicação mínima', (p) => formatCurrency(p.minApplication)],
+    ['Disponibilidade', (p) => prodCompact(p.availableStock)],
+    ['Concentração após aplicação', (p) => <span>{p._conc.toFixed(0)}%{p._conc === minConc ? <ProdTag>Menor concentração</ProdTag> : null}</span>],
+    ['Aderência à estratégia', (p) => <span className="inline-flex items-center gap-1"><ProdAdherenceBadge level={p._ad.level} />{AD_RANK[p._ad.level] === bestAd ? <ProdTag>Maior aderência</ProdTag> : null}</span>],
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">Comparar investimentos</h1>
+          <p className="text-sm text-neutral-500 mt-1">Compare os produtos antes de decidir quais utilizar na carteira proposta.</p>
+        </div>
+        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1 shrink-0"><Icon name="arrowLeft" size={15} /> Voltar</button>
+      </div>
+
+      <div className="overflow-x-auto border border-neutral-100 rounded-large bg-white">
+        <table className="w-full text-sm min-w-[720px]">
+          <thead className="bg-neutral-50">
+            <tr>
+              <th className="text-left font-semibold text-neutral-500 px-4 py-3 border-b border-neutral-100 text-xs uppercase tracking-wide w-56">Critério</th>
+              {enriched.map((p) => (
+                <th key={p.id} className="text-left font-semibold text-neutral-900 px-4 py-3 border-b border-neutral-100 align-top">{p.name}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([label, render], i) => (
+              <tr key={i} className="border-b border-neutral-50 last:border-0">
+                <td className="px-4 py-3 text-neutral-500">{label}</td>
+                {enriched.map((p) => <td key={p.id} className="px-4 py-3 text-neutral-700 align-top">{render(p)}</td>)}
+              </tr>
+            ))}
+            <tr>
+              <td className="px-4 py-3" />
+              {enriched.map((p) => (
+                <td key={p.id} className="px-4 py-3">
+                  <button onClick={() => onAdd([p])} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Adicionar à carteira</button>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ProdTag({ children }) {
+  return <span className="ml-1.5 align-middle text-[10px] px-1.5 py-0.5 rounded bg-brand-lightest text-brand-dark">{children}</span>;
+}
+
+// ---------- Tela 04 — Detalhe do investimento ----------
+function ProdDetailView({ product, client, targetAllocation, positions, items, productMap, needs, now, onAdd, onBack }) {
+  const { formatCurrency, strategyClassLabel, PRODUCT_RISK_LABELS } = window.PortalLib;
+  const A = window.PortalAnalytics;
+  const existing = items.find((it) => it.productId === product.id);
+  const needRow = needs.rows.find((r) => r.class === product.class);
+  const defaultValue = existing ? existing.value : (needRow && needRow.needRemaining > 0 ? Math.max(product.minApplication, needRow.needRemaining) : product.minApplication);
+  const [value, setValue] = React.useState(defaultValue);
+  const [rate, setRate] = React.useState(existing && existing.rate != null ? existing.rate : product.rateValue);
+  const ad = A.productAdherence(product, client, targetAllocation, positions, now);
+  const imp = prodComputeImpact(product, value, client, positions, targetAllocation, items, productMap);
+  // Meta de APORTE da classe (mesmo modelo da Tela 01): quanto do caixa alocar
+  // nesta classe. Progresso = o que já foi selecionado na classe (fora este) + este.
+  const selClassOther = items.filter((it) => it.productId !== product.id && productMap[it.productId] && productMap[it.productId].class === product.class).reduce((s, it) => s + it.value, 0);
+  const aporteMeta = needRow ? needRow.needValue : 0;
+  const aporteComEste = selClassOther + value;
+  const aportePct = aporteMeta > 0 ? Math.min(100, (aporteComEste / aporteMeta) * 100) : 100;
+  const metaAtingida = aporteMeta > 0 && aporteComEste >= aporteMeta - 1;
+
+  const kpi = (v, l) => (
+    <div className="bg-white border border-neutral-100 rounded-large px-4 py-3">
+      <div className="text-lg font-semibold text-neutral-900">{v}</div>
+      <div className="text-[11px] uppercase tracking-wide text-neutral-400 mt-0.5">{l}</div>
+    </div>
+  );
+  const pair = (l, v) => (
+    <div className="flex items-center justify-between py-2 border-b border-neutral-50 last:border-0">
+      <span className="text-sm text-neutral-500">{l}</span>
+      <span className="text-sm font-medium text-neutral-800">{v}</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs text-neutral-400 mb-1">Produtos / {strategyClassLabel(product.class)} / {product.name}</div>
+          <h1 className="text-2xl font-semibold text-neutral-900">{product.name}</h1>
+          <p className="text-sm text-neutral-500 mt-1">{strategyClassLabel(product.class)} · {product.issuer}{product.term && product.term !== '—' ? ` · ${product.term}` : ''}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <ProdAdherenceBadge level={ad.level} />
+          <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1"><Icon name="arrowLeft" size={15} /> Voltar</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {kpi(product.rateLabel, 'Taxa')}
+        {kpi(product.term && product.term !== '—' ? product.term.replace('até ', '') : '—', 'Vencimento')}
+        {kpi(product.rating, 'Rating')}
+        {kpi(formatCurrency(product.minApplication), 'Aplicação mínima')}
+        {kpi(prodCompact(product.availableStock), 'Disponibilidade')}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Esquerda — características */}
+        <div className="bg-white border border-neutral-100 rounded-large p-5">
+          <h2 className="text-sm font-semibold text-neutral-800 mb-2">Características do investimento</h2>
+          {pair('Emissor', product.issuer)}
+          {pair('Produto', product.subclass)}
+          {pair('Indexador', product.indexer)}
+          {pair('Liquidez', product.liquidity)}
+          {pair('Garantia', product.fgc ? 'FGC' : (product.rating === 'Soberano' ? 'Risco soberano' : 'Sem FGC'))}
+          {pair('Risco', PRODUCT_RISK_LABELS[product.riskLevel])}
+        </div>
+
+        {/* Direita — condições da operação */}
+        <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-neutral-800">Condições da operação</h2>
+          <div>
+            <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Valor da aplicação</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-neutral-500">R$</span>
+              <input type="number" step="1000" value={value} onChange={(e) => setValue(Math.max(0, parseInt(e.target.value, 10) || 0))} className="w-40 text-sm border border-neutral-200 rounded-medium px-3 py-1.5 text-right font-medium" />
+            </div>
+          </div>
+          <ProdRateInput product={product} value={rate} onChange={setRate} />
+          <div className="border-t border-neutral-100 pt-3">
+            <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Custos da operação</div>
+            <div className="text-sm text-neutral-700">Custos estimados para o cliente: <span className="font-semibold">{product.costs && /isent/i.test(product.costs) ? 'R$ 0,00' : 'R$ 0,00'}</span></div>
+            <div className="text-[11px] text-neutral-400 mt-0.5">{product.costs}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Impacto na estratégia */}
+      <div className="bg-white border border-neutral-100 rounded-large p-5">
+        <h2 className="text-sm font-semibold text-neutral-800 mb-3">Impacto na carteira <span className="text-neutral-400 font-normal">· aplicação de {formatCurrency(value)}</span></h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <div>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="font-medium text-neutral-700">Meta de aporte em {strategyClassLabel(product.class)}</span>
+              {aporteMeta > 0
+                ? (metaAtingida ? <StatusPill label="Meta atingida" className="bg-success-light text-success-dark" size="sm" /> : <StatusPill label={`${aportePct.toFixed(0)}% da meta`} className="bg-warning-light text-warning-dark" size="sm" />)
+                : <StatusPill label="Fora da necessidade" className="bg-neutral-100 text-neutral-500" size="sm" />}
+            </div>
+            {aporteMeta > 0 ? (
+              <React.Fragment>
+                <div className="flex items-center gap-2 text-xs text-neutral-500 mb-1">
+                  <span>Já selecionado {prodCompact(selClassOther)}</span>
+                  <Icon name="chevronRight" size={12} className="text-neutral-300" />
+                  <span className="font-semibold text-neutral-800">Com este {prodCompact(aporteComEste)}</span>
+                  <span className="text-neutral-400">de {prodCompact(aporteMeta)}</span>
+                </div>
+                <div className="h-2 rounded-pill bg-neutral-100 overflow-hidden">
+                  <div className="h-full bg-brand" style={{ width: `${aportePct}%` }} />
+                </div>
+              </React.Fragment>
+            ) : (
+              <p className="text-xs text-neutral-500">{strategyClassLabel(product.class)} já está adequada ou acima do alvo — aplicar aqui não reduz a necessidade da estratégia.</p>
+            )}
+            <div className="text-[11px] text-neutral-400 mt-1">Participação da classe na carteira: {imp.classAtual.toFixed(0)}% → {imp.classAposEste.toFixed(1)}% (meta {imp.targetPct}%).</div>
+          </div>
+          <ProdImpactBar
+            label={`Concentração ${product.issuer}`}
+            atual={imp.issuerAtual} depois={imp.issuerApos} target={null}
+            badge={imp.issuerApos <= 25 ? <StatusPill label="Dentro do limite" className="bg-success-light text-success-dark" size="sm" /> : <StatusPill label="Acima de 25%" className="bg-warning-light text-warning-dark" size="sm" />}
+          />
+        </div>
+        {ad.reasons.length > 0 && <div className="text-xs text-neutral-500 mt-2 border-t border-neutral-50 pt-2">{ad.reasons.join(' ')}</div>}
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <button onClick={onBack} className="text-sm px-5 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Voltar</button>
+        <button onClick={() => onAdd(product, value, rate)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">{existing ? 'Atualizar na carteira' : 'Adicionar à carteira'}</button>
+      </div>
     </div>
   );
 }
@@ -352,9 +637,12 @@ function ProdExploreView({ client, targetAllocation, positions, products, needs,
 function ProductJourney({ client, simulation, positions, products, now, onExit, onOpenClient, onOpenSimulation }) {
   const A = window.PortalAnalytics;
   const targetAllocation = (simulation && simulation.targetAllocation) || {};
-  const [view, setView] = React.useState('necessidades'); // necessidades | explorar | (comparar/detalhe/carteira — Fases 2-3)
+  const [view, setView] = React.useState('necessidades'); // necessidades | explorar | comparar | detalhe | (carteira/revisar — Fase 3)
   const [items, setItems] = React.useState([]); // [{ productId, value, rate }]
   const [needContext, setNeedContext] = React.useState(null);
+  const [compareIds, setCompareIds] = React.useState([]);
+  const [detailId, setDetailId] = React.useState(null);
+  const [returnView, setReturnView] = React.useState('explorar'); // para onde voltar do detalhe
 
   const productMap = {};
   products.forEach((p) => (productMap[p.id] = p));
@@ -380,8 +668,40 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
     });
   }
 
+  // Adiciona/atualiza um item com valor e taxa específicos (vindo do Detalhe).
+  function upsertItem(product, value, rate) {
+    setItems((prev) => {
+      const idx = prev.findIndex((it) => it.productId === product.id);
+      if (idx === -1) return [...prev, { productId: product.id, value, rate }];
+      return prev.map((it, i) => (i === idx ? { ...it, value, rate } : it));
+    });
+  }
+
   function editStrategy() {
     if (simulation && onOpenSimulation) onOpenSimulation(simulation.id);
+  }
+
+  if (view === 'comparar') {
+    return (
+      <ProdCompareView
+        compareProducts={compareIds.map((id) => productMap[id]).filter(Boolean)}
+        client={client} targetAllocation={targetAllocation} positions={positions}
+        items={items} productMap={productMap} now={now}
+        onAdd={(list) => { addProducts(list); setView('explorar'); }}
+        onBack={() => setView('explorar')}
+      />
+    );
+  }
+
+  if (view === 'detalhe' && productMap[detailId]) {
+    return (
+      <ProdDetailView
+        product={productMap[detailId]} client={client} targetAllocation={targetAllocation}
+        positions={positions} items={items} productMap={productMap} needs={needs} now={now}
+        onAdd={(p, value, rate) => { upsertItem(p, value, rate); setView(returnView); }}
+        onBack={() => setView(returnView)}
+      />
+    );
   }
 
   if (view === 'explorar') {
@@ -393,7 +713,8 @@ function ProductJourney({ client, simulation, positions, products, now, onExit, 
         onEditStrategy={editStrategy}
         onPickClass={(cls) => { setNeedContext(cls); }}
         onAddProducts={addProducts}
-        onCompare={() => { /* Fase 2 */ }}
+        onCompare={(ids) => { setCompareIds(ids); setView('comparar'); }}
+        onOpenDetail={(id) => { setDetailId(id); setReturnView('explorar'); setView('detalhe'); }}
         onBack={() => setView('necessidades')}
       />
     );
