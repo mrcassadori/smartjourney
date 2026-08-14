@@ -548,7 +548,7 @@ function ComparacaoTab({ ctx, client, analysis, onGenerateProposal, simulationId
 }
 
 // ---------- Shell do dashboard ----------
-function SimulatorDashboard({ simulation, client, products, ctx, onBack, onGenerateProposal }) {
+function SimulatorDashboard({ simulation, client, products, ctx, onBack, onGenerateProposal, onImplementProducts }) {
   const A = window.PortalAnalytics;
   const [tab, setTab] = React.useState('resumo');
 
@@ -575,9 +575,16 @@ function SimulatorDashboard({ simulation, client, products, ctx, onBack, onGener
           <h1 className="text-lg font-semibold text-neutral-900">Análise da proposta</h1>
           <p className="text-sm text-neutral-500 mt-0.5">Use esta visão durante a reunião com o cliente.</p>
         </div>
-        <button onClick={() => onGenerateProposal(simulation.id)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5">
-          <Icon name="fileText" size={15} /> Gerar proposta
-        </button>
+        <div className="flex items-center gap-2">
+          {onImplementProducts && simulation.targetAllocation && (
+            <button onClick={() => onImplementProducts(simulation.id)} title="Selecionar os ativos reais que implementam esta estratégia" className="text-sm px-4 py-2 rounded-pill border border-brand/40 text-brand-dark hover:bg-brand-lightest flex items-center gap-1.5">
+              <Icon name="layers" size={15} /> Implementar em Produtos
+            </button>
+          )}
+          <button onClick={() => onGenerateProposal(simulation.id)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5">
+            <Icon name="fileText" size={15} /> Gerar proposta
+          </button>
+        </div>
       </div>
 
       <div className="border-b border-neutral-100 flex gap-1 overflow-x-auto">

@@ -752,6 +752,58 @@ flowchart TD
 
 ---
 
+# EP-02 — Jornada de Produtos e Carteira Proposta
+
+> **Natureza desta etapa:** fluxo e comportamento simulados com dados fictícios. Continuação operacional do EP-01.
+
+**Declaração do épico:** transformar a estratégia definida no Simulador em uma **recomendação executável**, ajudando o consultor a encontrar, comparar, selecionar e validar os **ativos reais** que implementam a carteira-alvo.
+
+## Separação de responsabilidades (decisão de arquitetura — Opção A)
+
+| | Simulador (EP-01, US-11/12) | Produtos + Carteira Proposta (EP-02) |
+|---|---|---|
+| Pergunta | "Como a carteira **deveria** ficar?" | "Quais ativos reais **implementam** isso?" |
+| Momento | Planejamento / estratégia | Implementação / execução |
+| Trabalha com | Classes e percentuais-alvo | Ativos reais, taxa, estoque, mínimo |
+| Resultado | **Carteira-alvo** (target allocation) | **Recomendação executável** (#REC) |
+
+A jornada **recebe** do Simulador `{ cliente, valor disponível, targetAllocation }` como contexto **somente-leitura** — não edita estratégia, cenários nem percentuais-alvo (isso permanece no Simulador). O Simulador ganha uma ponte **"Implementar em Produtos"**. Nesta fase o Simulador **não** é refatorado (mantém sua seleção de produtos legada); o cleanup da sobreposição fica para depois.
+
+## Telas (8)
+
+1. **Produtos — Necessidades de alocação** — contexto do cliente + tabela Estratégia definida (target × carteira atual × necessidade) + destaque "R$ X a alocar" + CTAs por classe + link "Editar estratégia no Simulador".
+2. **Explorar investimentos** — barra de contexto persistente (cliente, disponível, estratégia, progresso) + necessidade atual (classe/meta/falta) + busca + 11 filtros + tabs por classe + tabela com coluna **Aderência** (Alta/Adequado/Atenção/Não recomendado, com motivo) + multi-select.
+3. **Comparar investimentos** — tabela comparativa horizontal (produtos em colunas, critérios em linhas) + labels de destaque (maior taxa/liquidez/menor concentração/maior aderência).
+4. **Detalhe do investimento** — KPIs + características + **condições da operação com taxa negociável (RateInput, min/max/referência)** + custos separados + **impacto na estratégia** (classe: meta/atual/após seleção/após este) + concentração por emissor.
+5. **Carteira proposta** — KPIs + bloco **Estratégia × Implementação** (target read-only × produtos reais) + tabela com edição inline (valor/taxa) + validações + concentração.
+6. **Revisar recomendação** — resumo + tabela de condições + alerta de taxa atualizada (aceitar/substituir) + resumo financeiro + check final.
+7. **Confirmar envio** — modal sobre a mesma tela + estado de sucesso ("Aguardando aprovação do cliente").
+8. **Ordens** — KPIs + filtros + tabela com linha expansível por recomendação (**#REC**, ativos).
+
+## Componentes novos (prefixo `Prod*` — escopo global compartilhado)
+
+`ProdAdherenceBadge`, `ProdRateInput`, `ProdComparisonTable`, `ProdValidationRow`, `ProdSelectedBar`, `ProdStrategyContext`, `ProdAllocationCompare`. Reusam `DataTable`, `Drawer`, `Modal`, `StatusPill`, tokens e o motor `isEligible`.
+
+## Estados obrigatórios
+
+Meta atingida · abaixo do target (Faltam R$ X + "Encontrar produtos") · acima do target · produto não adequado · estoque insuficiente · aplicação mínima · taxa atualizada · **saldo excedido (bloqueia envio)**.
+
+## Cliente-vitrine
+
+**João Pedro Silva** (C16, PF, Private, patrimônio R$ 12,8 mi, disponível R$ 450 mil, perfil Moderado) — mesmo padrão de vitrine da Mariana no Planejamento; com `targetAllocation` semeado. Demais simulações mostram o handoff genérico.
+
+## Critérios de aceite
+
+1. A jornada nunca edita a estratégia (targets read-only) e sempre oferece "Editar estratégia no Simulador".
+2. Aderência considera estratégia, risco, suitability, liquidez, concentração, prazo e disponibilidade — nunca só rentabilidade — e sempre expõe o motivo.
+3. A taxa por ativo é negociável dentro de min/max, com referência de mercado.
+4. A carteira proposta valida suitability, mínimos, estoque, saldo e aderência à estratégia por classe.
+5. Erros bloqueantes (saldo excedido) impedem o envio; alertas não-bloqueantes permitem "Continuar mesmo assim".
+6. O envio gera uma recomendação única (#REC) rastreável em Ordens, com os ativos acompanhados individualmente.
+7. Toda a jornada é visualmente indistinguível do Portal existente (mesmo Design System da tela de Clientes).
+
+---
+
 # 8. Priorização sugerida
 
 ## Release 1 — Fundamentos do workspace

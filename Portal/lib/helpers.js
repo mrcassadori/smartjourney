@@ -230,6 +230,25 @@
 
   const PRODUCT_RISK_LABELS = { 1: 'Muito baixo', 2: 'Baixo', 3: 'Moderado', 4: 'Alto', 5: 'Muito alto' };
 
+  // Jornada de Produtos e Carteira Proposta (EP-02).
+  // Aderência de um produto à estratégia (motor em analytics.js → productAdherence).
+  const ADHERENCE_META = {
+    alta: { label: 'Alta aderência', className: 'bg-success-light text-success-dark' },
+    adequado: { label: 'Adequado', className: 'bg-info-light text-info-dark' },
+    atencao: { label: 'Atenção', className: 'bg-warning-light text-warning-dark' },
+    nao_recomendado: { label: 'Não recomendado', className: 'bg-alert-light text-alert-dark' },
+  };
+  // Situação de uma classe na carteira-alvo (motor → strategyNeeds).
+  const NEED_STATUS_META = {
+    deficit: { label: 'A alocar', className: 'text-brand', dot: 'bg-brand' },
+    reduce: { label: 'Reduzir exposição', className: 'text-neutral-500', dot: 'bg-neutral-300' },
+    ok: { label: 'Alocação adequada', className: 'text-success-dark', dot: 'bg-success' },
+  };
+  // Rótulo de exibição das classes da estratégia (a classe canônica do catálogo
+  // mantém o nome; só troca a fachada de duas delas para a linguagem da spec).
+  const STRATEGY_CLASS_LABEL = { 'Ações': 'Renda variável', 'Global': 'Internacional' };
+  function strategyClassLabel(cls) { return STRATEGY_CLASS_LABEL[cls] || cls; }
+
   const SERVICE_TYPE_META = {
     reset_credencial: { label: 'Reset de credencial', icon: 'shield' },
     bloqueio_preventivo: { label: 'Bloqueio preventivo', icon: 'alertTriangle' },
@@ -327,6 +346,10 @@
     SIMULATION_OBJECTIVES,
     SIMULATION_FUNDING_META,
     PRODUCT_RISK_LABELS,
+    ADHERENCE_META,
+    NEED_STATUS_META,
+    STRATEGY_CLASS_LABEL,
+    strategyClassLabel,
     SERVICE_TYPE_META,
     SERVICE_REQUEST_STATUS_META,
     TICKET_STATUS_META,

@@ -299,7 +299,7 @@ function StepRevisao({ simulation, client, ctx, onPatch, onContinue, onBack, onS
 }
 
 // ---------- Shell ----------
-function SimulatorJourney({ simulation, client, clients, products, positions, now, profile, onPatch, onSelectClient, onSaveDraft, onExit, onGenerateProposal, onRegisterShared, onNewSimulation, onOpenClient }) {
+function SimulatorJourney({ simulation, client, clients, products, positions, now, profile, onPatch, onSelectClient, onSaveDraft, onExit, onGenerateProposal, onRegisterShared, onNewSimulation, onOpenClient, onImplementProducts }) {
   const { SimulatorStepper, SimulationContextBar } = window.SimulatorChrome;
   const step = simulation.currentStep || 'cliente';
   const idx = SIM_STEPS.indexOf(step);
@@ -378,6 +378,7 @@ function SimulatorJourney({ simulation, client, clients, products, positions, no
         ctx={ctx}
         onBack={() => goTo('revisao')}
         onGenerateProposal={() => onPatch({ reportGeneratedAt: simulation.reportGeneratedAt || new Date().toISOString(), currentStep: 'relatorio' })}
+        onImplementProducts={onImplementProducts}
       />
     );
   } else if (step === 'relatorio') {

@@ -36,6 +36,9 @@ function App() {
   const [openRequestId, setOpenRequestId] = React.useState(null);
   const [openTicketId, setOpenTicketId] = React.useState(null);
   const [newTicketContext, setNewTicketContext] = React.useState(null);
+  // EP-02 — jornada de Produtos: qual estratégia (simulação com targetAllocation)
+  // está sendo implementada. Default = vitrine João Pedro (SIM_JP).
+  const [proposalSimId, setProposalSimId] = React.useState('SIM_JP');
 
   const profile = DATA.profiles.find((p) => p.id === profileId);
   const scopedClients = React.useMemo(() => clientsInScope(profile, DATA.clients), [profile, DATA.clients]);
@@ -149,6 +152,13 @@ function App() {
 
   function openSimulation(id) {
     navigate('simulator', { simulationId: id });
+  }
+
+  // EP-02 — ponte "Implementar em Produtos": entra na jornada de Produtos com a
+  // carteira-alvo da simulação como contexto somente-leitura.
+  function startRecommendation(simulationId) {
+    if (simulationId) setProposalSimId(simulationId);
+    navigate('proposta', {});
   }
 
   function selectSimulationClient(id, clientId) {
@@ -369,6 +379,7 @@ function App() {
     if (page === 'onboarding') return [{ label: 'Onboarding e pendências' }];
     if (page === 'alerts') return [{ label: 'Central de alertas' }];
     if (page === 'products') return [{ label: 'Produtos' }];
+    if (page === 'proposta') return [{ label: 'Produtos', onClick: () => navigate('products', {}) }, { label: 'Carteira proposta' }];
     if (page === 'recommendations') return [{ label: 'Recomendações' }];
     if (page === 'operations') return [{ label: 'Operações' }];
     if (page === 'support') return [{ label: 'Central de suporte' }];
@@ -480,7 +491,22 @@ function App() {
       />
     );
   } else if (page === 'products') {
-    content = <ProductsPage profile={profile} clients={scopedClients} products={DATA.products} now={DATA.now} initialFilters={pageParams} onAddToProposal={addProductToProposal} />;
+    content = <ProductsPage profile={profile} clients={scopedClients} products={DATA.products} now={DATA.now} initialFilters={pageParams} strategies={simulations.filter((s) => s.targetAllocation)} onStartRecommendation={startRecommendation} onAddToProposal={addProductToProposal} />;
+  } else if (page === 'proposta') {
+    const sim = simulations.find((s) => s.id === proposalSimId) || simulations.find((s) => s.targetAllocation) || null;
+    const cli = sim ? DATA.clients.find((c) => c.id === sim.clientId) : null;
+    content = cli ? (
+      <window.ProductJourney
+        client={cli}
+        simulation={sim}
+        positions={DATA.portfolioPositions.filter((p) => p.clientId === cli.id)}
+        products={DATA.products}
+        now={DATA.now}
+        onExit={() => navigate('products', {})}
+        onOpenClient={openClient}
+        onOpenSimulation={openSimulation}
+      />
+    ) : <ComingSoonPage pageKey="proposta" />;
   } else if (page === 'recommendations') {
     content = (
       <RecommendationsPage
@@ -523,6 +549,7 @@ function App() {
         onRegisterShared={registerSharedSimulation}
         onNewSimulation={newBlankSimulation}
         onOpenClient={openClient}
+        onImplementProducts={startRecommendation}
       />
     );
   } else if (page === 'operations') {

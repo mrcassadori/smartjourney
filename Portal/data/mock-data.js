@@ -82,6 +82,8 @@
     // Cliente vitrine da jornada 360 (spec do workspace do cliente).
     { id: 'C15', name: 'Mariana Costa', type: 'PF', cpfCnpj: '321.654.987-00', riskProfile: 'Moderado', email: 'mariana.costa@exemplo.com', phone: '(11) 98877-2020', account: '123456-7', escritorio: 'Åpen Capital', ownerId: 'consultor', status: 'ativo', segment: 'High', suitabilityExpiry: '2026-12-15', firstApplicationDone: true, totalWealth: 3450000, availableBalance: 185000, investableCashEstimate: 170000, updatedAt: '2026-07-20T18:42:00-03:00', stale: false, rentability12m: 8.7, investedWealth: 3265000, dateOfBirth: '1985-03-22', linkDate: '2025-03-14', pfPjLinkId: 'C16', security: { accessActive: true, tokenActive: true, lastLoginAt: '2026-07-20T16:31:00-03:00' } },
     { id: 'C16', name: 'Costa Participações Ltda', type: 'PJ', cpfCnpj: '45.678.901/0001-23', riskProfile: 'Moderado', email: 'financeiro@costapart.com.br', phone: '(11) 3344-2020', account: '123457-5', escritorio: 'Åpen Capital', ownerId: 'consultor', status: 'ativo', segment: 'Corporate', suitabilityExpiry: '2026-11-30', firstApplicationDone: true, totalWealth: 5200000, availableBalance: 90000, investableCashEstimate: 70000, updatedAt: '2026-07-20T18:42:00-03:00', stale: false, rentability12m: 7.2, investedWealth: 5110000, dateOfBirth: null, linkDate: '2025-03-14', pfPjLinkId: 'C15', security: { accessActive: true, tokenActive: true, lastLoginAt: '2026-07-19T10:05:00-03:00' } },
+    // Cliente-vitrine da jornada de Produtos e Carteira Proposta (EP-02).
+    { id: 'C17', name: 'João Pedro Silva', type: 'PF', cpfCnpj: '111.222.333-44', riskProfile: 'Moderado', email: 'joao.pedro.silva@exemplo.com', phone: '(11) 97654-0789', account: '789012-3', escritorio: 'Åpen Capital', ownerId: 'consultor', status: 'ativo', segment: 'Private', suitabilityExpiry: '2027-04-30', firstApplicationDone: true, totalWealth: 12800000, availableBalance: 450000, investableCashEstimate: 450000, updatedAt: '2026-08-12T15:10:00-03:00', stale: false, rentability12m: 9.4, investedWealth: 12000000, dateOfBirth: '1979-09-08', linkDate: '2024-02-19', pfPjLinkId: null, security: { accessActive: true, tokenActive: true, lastLoginAt: '2026-08-12T09:22:00-03:00' } },
   ];
 
   // ---------------------------------------------------------------------
@@ -143,6 +145,16 @@
     { id: 'P41', clientId: 'C16', class: 'Pós-fixado', subclass: 'CDB', asset: 'CDB Banco Inter PJ 116% CDI', issuer: 'Banco Inter', quantity: 1, currentValue: 3000000, rate: '116% CDI', liquidity: 'D+1', applicationDate: '2024-03-01', maturityDate: '2027-03-01' },
     { id: 'P42', clientId: 'C16', class: 'Fundos', subclass: 'Fundo de crédito privado', asset: 'FIC FIRF Crédito Corporate', issuer: 'Gestora Parceira', quantity: 1, currentValue: 1610000, rate: '—', liquidity: 'D+5', applicationDate: '2023-10-20', maturityDate: null },
     { id: 'P43', clientId: 'C16', class: 'Caixa', subclass: 'Conta corrente', asset: 'Saldo em conta PJ', issuer: 'Banco Inter', quantity: 1, currentValue: 500000, rate: '100% CDI', liquidity: 'Imediata', applicationDate: null, maturityDate: null },
+
+    // Carteira atual de João Pedro Silva (C17) — vitrine da jornada de Produtos.
+    // Alocação (base R$ 12 mi): Pós 42% · Inflação 8% · Prefixado 5% · Multi 15% · RV 20% · Internacional 10%.
+    { id: 'P44', clientId: 'C17', class: 'Pós-fixado', subclass: 'CDB', asset: 'CDB Banco Alpha 112% CDI', issuer: 'Banco Alpha', quantity: 1, currentValue: 3200000, rate: '112% CDI', liquidity: 'D+1', applicationDate: '2024-06-15', maturityDate: '2027-11-15' },
+    { id: 'P45', clientId: 'C17', class: 'Pós-fixado', subclass: 'LCI', asset: 'LCI Banco Beta 94% CDI', issuer: 'Banco Beta', quantity: 1, currentValue: 1840000, rate: '94% CDI', liquidity: 'D+90', applicationDate: '2024-08-20', maturityDate: '2027-06-20' },
+    { id: 'P46', clientId: 'C17', class: 'Inflação', subclass: 'Tesouro IPCA+', asset: 'Tesouro IPCA+ 2032', issuer: 'Tesouro Nacional', quantity: 32, currentValue: 960000, rate: 'IPCA + 6,0%', liquidity: 'D+1', applicationDate: '2023-11-10', maturityDate: '2032-05-15' },
+    { id: 'P47', clientId: 'C17', class: 'Prefixado', subclass: 'Tesouro Prefixado', asset: 'Tesouro Prefixado 2031', issuer: 'Tesouro Nacional', quantity: 18, currentValue: 600000, rate: '11,8% a.a.', liquidity: 'D+1', applicationDate: '2024-01-25', maturityDate: '2031-01-01' },
+    { id: 'P48', clientId: 'C17', class: 'Multimercado', subclass: 'Fundo multimercado', asset: 'FIC FIM Estratégia Total', issuer: 'Gestora Parceira', quantity: 1, currentValue: 1800000, rate: '—', liquidity: 'D+30', applicationDate: '2024-03-30', maturityDate: null },
+    { id: 'P49', clientId: 'C17', class: 'Ações', subclass: 'Ações BR', asset: 'Carteira Ações Ibovespa', issuer: 'B3', quantity: 1, currentValue: 2400000, rate: '—', liquidity: 'D+2', applicationDate: '2023-05-12', maturityDate: null },
+    { id: 'P50', clientId: 'C17', class: 'Global', subclass: 'ETF internacional', asset: 'ETF Global (via Global Account)', issuer: 'Inter Global', quantity: 1, currentValue: 1200000, rate: '—', liquidity: 'D+2', applicationDate: '2024-07-08', maturityDate: null, currency: 'USD', fxRate: 5.2 },
   ];
 
   // ---------------------------------------------------------------------
@@ -332,7 +344,63 @@
     { id: 'PR17', name: 'ETF Nasdaq 100 (via Global Account)', class: 'Global', subclass: 'ETF internacional', issuer: 'Inter Global', indexer: 'Nasdaq 100', term: '—', liquidity: 'D+3', minApplication: 1000, riskLevel: 4, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'Exposição concentrada em empresas de tecnologia listadas nos EUA, em dólar.', risks: 'Sem garantia do FGC. Risco cambial, setorial e de mercado internacional.', costs: 'Corretagem internacional por operação. IR de 15% sobre ganho de capital.', docs: ['Lâmina do ETF', 'Termo de abertura Global Account'] },
     { id: 'PR18', name: 'Fundo Cambial Dólar', class: 'Global', subclass: 'Fundo cambial', issuer: 'Gestora Parceira', indexer: 'USD', term: 'aberto', liquidity: 'D+1', minApplication: 500, riskLevel: 2, available: true, eligibleSegments: ['Standard', 'High', 'Private', 'Corporate'], description: 'Exposição à variação cambial do dólar americano via fundo local.', risks: 'Sem garantia do FGC. Risco cambial.', costs: 'Taxa de administração 1,0% a.a. IR regressivo.', docs: ['Lâmina do fundo'] },
     { id: 'PR19', name: 'Conta Remunerada 100% CDI', class: 'Caixa', subclass: 'Conta corrente', issuer: 'Banco Inter', indexer: 'CDI', term: '—', liquidity: 'Imediata', minApplication: 0, riskLevel: 1, available: true, eligibleSegments: ['Standard', 'High', 'Private', 'Corporate'], description: 'Saldo em conta corrente com rendimento automático de 100% do CDI.', risks: 'Garantido pelo FGC até o limite legal.', costs: 'Sem taxa. IR regressivo sobre o rendimento.', docs: ['Regulamento da conta remunerada'] },
+
+    // Produtos citados nominalmente na jornada de Produtos (EP-02) — ampliam as
+    // classes Inflação e Pós-fixado para a vitrine de João Pedro Silva (C17).
+    { id: 'PR20', name: 'Tesouro IPCA+ 2032', class: 'Inflação', subclass: 'Tesouro IPCA+', issuer: 'Tesouro Nacional', indexer: 'IPCA', term: 'até mai/2032', liquidity: 'D+1', minApplication: 100, riskLevel: 1, available: true, eligibleSegments: ['Standard', 'High', 'Private', 'Corporate'], description: 'Título público indexado à inflação com juro real definido na compra, vencimento 2032.', risks: 'Risco soberano (baixo). Marcação a mercado no resgate antecipado.', costs: 'Taxa de custódia B3 de 0,20% a.a. IR regressivo.', docs: ['Lâmina do Tesouro Direto'] },
+    { id: 'PR21', name: 'CDB Banco Alpha IPCA+ 6,5% 2030', class: 'Inflação', subclass: 'CDB', issuer: 'Banco Alpha', indexer: 'IPCA', term: 'até nov/2030', liquidity: 'No vencimento', minApplication: 1000, riskLevel: 1, available: true, eligibleSegments: ['Standard', 'High', 'Private', 'Corporate'], description: 'CDB indexado ao IPCA com juro real prefixado, protegido pelo FGC.', risks: 'Garantido pelo FGC até o limite legal. Risco de crédito do emissor acima do limite coberto.', costs: 'Sem taxa de administração. IR regressivo.', docs: ['Lâmina do produto', 'Regulamento FGC'] },
+    { id: 'PR22', name: 'Debênture Infra X IPCA+ 7,0% 2031', class: 'Inflação', subclass: 'Debênture', issuer: 'Empresa X', indexer: 'IPCA', term: 'até jan/2031', liquidity: 'D+2', minApplication: 5000, riskLevel: 3, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'Debênture incentivada de infraestrutura, isenta de IR, indexada ao IPCA.', risks: 'Sem garantia do FGC. Risco de crédito do emissor e de liquidez de mercado secundário.', costs: 'Isenta de IR para pessoa física. Sem taxa de administração.', docs: ['Lâmina do produto', 'Escritura de emissão'] },
+    { id: 'PR23', name: 'CDB Banco Alpha 112% CDI 2028', class: 'Pós-fixado', subclass: 'CDB', issuer: 'Banco Alpha', indexer: 'CDI', term: 'até nov/2028', liquidity: 'No vencimento', minApplication: 1000, riskLevel: 1, available: true, eligibleSegments: ['Standard', 'High', 'Private', 'Corporate'], description: 'CDB pós-fixado do Banco Alpha, protegido pelo FGC, vencimento 2028.', risks: 'Garantido pelo FGC até o limite legal. Risco de crédito do emissor acima do limite coberto.', costs: 'Sem taxa de administração. IR regressivo.', docs: ['Lâmina do produto', 'Regulamento FGC'] },
+    { id: 'PR24', name: 'LCI Banco Beta 94% CDI 2027', class: 'Pós-fixado', subclass: 'LCI', issuer: 'Banco Beta', indexer: 'CDI', term: 'até jun/2027', liquidity: 'D+1', minApplication: 5000, riskLevel: 1, available: true, eligibleSegments: ['Standard', 'High', 'Private', 'Corporate'], description: 'Letra de crédito imobiliário isenta de IR para pessoa física, com liquidez após carência.', risks: 'Garantido pelo FGC até o limite legal.', costs: 'Isenta de IR para pessoa física. Sem taxa de administração.', docs: ['Lâmina do produto', 'Regulamento FGC'] },
+    { id: 'PR25', name: 'CDB Banco Gamma 110% CDI 2029', class: 'Pós-fixado', subclass: 'CDB', issuer: 'Banco Gamma', indexer: 'CDI', term: 'até jan/2029', liquidity: 'No vencimento', minApplication: 10000, riskLevel: 1, available: true, eligibleSegments: ['High', 'Private', 'Corporate'], description: 'CDB pós-fixado do Banco Gamma, protegido pelo FGC, vencimento 2029.', risks: 'Garantido pelo FGC até o limite legal. Risco de crédito do emissor acima do limite coberto.', costs: 'Sem taxa de administração. IR regressivo.', docs: ['Lâmina do produto', 'Regulamento FGC'] },
   ];
+
+  // Enriquecimento determinístico do catálogo para a jornada de Produtos (EP-02):
+  // rating, cobertura FGC, estoque disponível e a banda de taxa negociável
+  // (mín/ref/máx). Derivado dos campos existentes — sem editar os 25 à mão.
+  (function enrichProducts() {
+    const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
+    const RATING_BY_RISK = { 1: 'AAA', 2: 'AA+', 3: 'AA', 4: 'A', 5: 'BBB' };
+    const isFixedIncome = (p) => ['CDI', 'IPCA', 'Prefixado'].indexOf(p.indexer) !== -1 && p.class !== 'Caixa';
+    // Extrai o número da taxa embutido no nome, quando houver (ex.: "112% CDI", "IPCA+ 6,5%", "12,5% a.a.").
+    const parseRate = (p) => {
+      const name = p.name.replace(/,/g, '.');
+      // Sempre exige o sinal de % para não confundir com o ano no nome (ex.: "IPCA+ 2035").
+      if (p.indexer === 'CDI') { const m = name.match(/(\d{2,3})%\s*(?:do\s*)?CDI/i); return m ? parseFloat(m[1]) : null; }
+      if (p.indexer === 'IPCA') { const m = name.match(/IPCA\+?\s*(\d{1,2}(?:\.\d)?)\s*%/i); return m ? parseFloat(m[1]) : null; }
+      if (p.indexer === 'Prefixado') { const m = name.match(/(\d{1,2}(?:\.\d)?)%\s*a\.a\./i); return m ? parseFloat(m[1]) : null; }
+      return null;
+    };
+    products.forEach((p) => {
+      const seed = hash(p.id);
+      const soberano = p.issuer === 'Tesouro Nacional';
+      p.rating = soberano ? 'Soberano' : (RATING_BY_RISK[p.riskLevel] || 'A');
+      p.fgc = /CDB|LCI|LCA/i.test(p.subclass);
+      // Estoque disponível: R$ 200 mil a ~R$ 4,8 mi (arredondado a 10 mil); soberano é "ilimitado" (estoque alto).
+      p.availableStock = soberano ? 4800000 : Math.round((200000 + seed * 2600000) / 10000) * 10000;
+      p.lowStock = !soberano && p.availableStock < 350000;
+      p.negotiable = isFixedIncome(p);
+      if (p.negotiable) {
+        const ref = parseRate(p);
+        if (p.indexer === 'CDI') {
+          const r = ref != null ? ref : Math.round(96 + seed * 22);
+          p.rateUnit = '% CDI'; p.rateRef = r - 1; p.rateMin = r - 4; p.rateMax = r + 2; p.rateValue = r;
+          p.rateLabel = `${r}% CDI`;
+        } else if (p.indexer === 'IPCA') {
+          const r = ref != null ? ref : Math.round((5.5 + seed * 1.7) * 10) / 10;
+          p.rateUnit = 'IPCA+'; p.rateRef = Math.round((r - 0.1) * 10) / 10; p.rateMin = Math.round((r - 0.4) * 10) / 10; p.rateMax = Math.round((r + 0.2) * 10) / 10; p.rateValue = r;
+          p.rateLabel = `IPCA + ${r.toString().replace('.', ',')}%`;
+        } else { // Prefixado
+          const r = ref != null ? ref : Math.round((11 + seed * 2.5) * 10) / 10;
+          p.rateUnit = '% a.a.'; p.rateRef = Math.round((r - 0.2) * 10) / 10; p.rateMin = Math.round((r - 0.7) * 10) / 10; p.rateMax = Math.round((r + 0.5) * 10) / 10; p.rateValue = r;
+          p.rateLabel = `${r.toString().replace('.', ',')}% a.a.`;
+        }
+      } else {
+        p.rateValue = null; p.rateRef = null; p.rateMin = null; p.rateMax = null; p.rateUnit = null;
+        p.rateLabel = p.indexer && p.indexer !== '—' ? p.indexer : '—';
+      }
+    });
+  })();
 
   // ---------------------------------------------------------------------
   // Simulações / propostas (US-11, US-12) — alguns exemplos pré-existentes
@@ -411,6 +479,17 @@
       notes: 'Aplicar caixa PJ ocioso em crédito privado de alta qualidade.', rationale: '',
       currentStep: 'analise', items: [{ productId: 'PR07', allocatedValue: 500000 }, { productId: 'PR05', allocatedValue: 200000 }],
       reportGeneratedAt: null, sharedAt: null, reportConfig: null, version: 1,
+    },
+    // Estratégia definida no Simulador para João Pedro Silva (C17) — carteira-alvo
+    // que a jornada de Produtos (EP-02) recebe como contexto somente-leitura.
+    {
+      id: 'SIM_JP', clientId: 'C17', name: 'Estratégia de rebalanceamento 2026 — João Pedro', status: 'compartilhada',
+      createdBy: 'Rafael Almeida', createdAt: '2026-08-11T14:00:00-03:00', updatedAt: '2026-08-12T15:00:00-03:00',
+      objectives: ['rebalancear', 'diversificar'], simulationValue: 450000, fundingSource: 'novo',
+      notes: 'Reduzir concentração em pós-fixado e renda variável; elevar inflação e prefixado ao alvo.', rationale: 'Aproxima a carteira do perfil Moderado, ampliando a proteção à inflação e reduzindo o risco de renda variável.',
+      currentStep: 'analise', items: [],
+      targetAllocation: { 'Pós-fixado': 30, 'Inflação': 20, 'Prefixado': 10, 'Multimercado': 15, 'Ações': 15, 'Global': 10 },
+      reportGeneratedAt: '2026-08-12T15:00:00-03:00', sharedAt: '2026-08-12T15:05:00-03:00', reportConfig: null, version: 2,
     },
   ];
 

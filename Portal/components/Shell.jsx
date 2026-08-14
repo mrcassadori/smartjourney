@@ -9,7 +9,7 @@
 const NAV_ITEMS = [
   { key: 'visao-geral', label: 'Visão geral', icon: 'home', route: 'home' },
   { key: 'clientes', label: 'Clientes', icon: 'users', route: 'clients' },
-  { key: 'produtos', label: 'Produtos', icon: 'layers', route: 'products' },
+  { key: 'produtos', label: 'Produtos', icon: 'layers', route: 'products', activeRoutes: ['proposta'] },
   { key: 'recomendacoes', label: 'Recomendações', icon: 'target', route: 'simulacoes', permKey: 'recommendations' },
   { key: 'ordens', label: 'Ordens', icon: 'inbox', route: 'orders' },
   { key: 'relatorios', label: 'Relatórios', icon: 'fileText', comingSoon: true },
@@ -128,6 +128,7 @@ function paramsEqual(a, b) {
 
 function isItemActive(item, current, pageParams) {
   if (item.comingSoon) return current === item.key;
+  if (item.activeRoutes && item.activeRoutes.indexOf(current) !== -1) return true;
   return current === item.route && paramsEqual(item.routeParams, pageParams);
 }
 

@@ -106,7 +106,41 @@ function ProductDetailDrawer({ product, client, now, onClose, onAddToProposal })
   );
 }
 
-function ProductsPage({ profile, clients, products, now, initialFilters, onAddToProposal }) {
+// EP-02 — inbox de handoff: estratégias definidas no Simulador (com carteira-alvo)
+// prontas para serem implementadas na jornada de Produtos.
+function ProdStrategyInbox({ strategies, clients, onStartRecommendation }) {
+  const { formatCurrency, SIMULATION_STATUS_META } = window.PortalLib;
+  if (!strategies || !strategies.length) return null;
+  return (
+    <div className="bg-white border border-neutral-100 rounded-large p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon name="target" size={16} className="text-brand" />
+        <h2 className="text-sm font-semibold text-neutral-800">Estratégias prontas para implementar</h2>
+        <span className="text-xs text-neutral-400">definidas no Simulador</span>
+      </div>
+      <div className="space-y-2">
+        {strategies.map((s) => {
+          const cli = clients.find((c) => c.id === s.clientId);
+          if (!cli) return null;
+          const st = SIMULATION_STATUS_META[s.status] || { label: s.status, className: 'bg-neutral-100 text-neutral-600' };
+          return (
+            <div key={s.id} className="flex flex-wrap items-center gap-3 border border-neutral-100 rounded-large px-4 py-3 hover:border-brand/40">
+              <div className="min-w-[200px]">
+                <div className="font-medium text-neutral-900">{cli.name}</div>
+                <div className="text-xs text-neutral-400">{s.name}</div>
+              </div>
+              <StatusPill label={st.label} className={st.className} size="sm" />
+              <div className="text-xs text-neutral-500">Disponível <span className="font-medium text-neutral-800">{formatCurrency(cli.availableBalance)}</span></div>
+              <button onClick={() => onStartRecommendation(s.id)} className="ml-auto text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark whitespace-nowrap">Implementar em Produtos</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ProductsPage({ profile, clients, products, now, initialFilters, strategies, onStartRecommendation, onAddToProposal }) {
   const { ASSET_CLASS_ORDER, PRODUCT_RISK_LABELS, formatCurrency, isEligible, canAccess } = window.PortalLib;
   const [query, setQuery] = React.useState('');
   const [klass, setKlass] = React.useState((initialFilters && initialFilters.klass) || '');
@@ -135,6 +169,7 @@ function ProductsPage({ profile, clients, products, now, initialFilters, onAddTo
 
   return (
     <div className="space-y-4">
+      {onStartRecommendation && <ProdStrategyInbox strategies={strategies} clients={clients} onStartRecommendation={onStartRecommendation} />}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-neutral-900">Produtos</h1>

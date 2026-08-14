@@ -338,9 +338,90 @@
     return out;
   }
 
+  // ---------------------------------------------------------------------
+  // Motor de estratégia da jornada de Produtos e Carteira Proposta (EP-02).
+  // ---------------------------------------------------------------------
+
+  // Percentual atual da carteira por classe (só as classes da estratégia).
+  function currentPctByClass(positions) {
+    const alloc = allocationByClass(positions.map((p) => ({ class: p.class, value: p.currentValue })));
+    const map = {};
+    alloc.byClass.forEach((c) => { map[c.class] = c.pct; });
+    return { map, total: alloc.total };
+  }
+
+  // Necessidades de alocação: para cada classe da carteira-alvo, compara alvo ×
+  // atual e traduz o gap em "reduzir", "+R$ X a alocar" ou "adequado", já
+  // descontando o que o consultor selecionou naquela classe.
+  // targetAllocation: { classe: pct }. selectedByClass: { classe: valorR$ }.
+  function strategyNeeds(targetAllocation, positions, availableCash, selectedByClass) {
+    const order = window.PortalLib.ASSET_CLASS_ORDER;
+    const { map: curPct } = currentPctByClass(positions);
+    const sel = selectedByClass || {};
+    const classes = Object.keys(targetAllocation).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    const rows = classes.map((cls) => {
+      const targetPct = targetAllocation[cls];
+      const currentPct = curPct[cls] || 0;
+      const gapPct = targetPct - currentPct;
+      let status = 'ok';
+      if (gapPct > 2) status = 'deficit';
+      else if (gapPct < -2) status = 'reduce';
+      const needValue = status === 'deficit' ? Math.round((gapPct / 100) * availableCash / 500) * 500 : 0;
+      const selectedValue = sel[cls] || 0;
+      const needRemaining = Math.max(0, needValue - selectedValue);
+      return { class: cls, targetPct, currentPct, gapPct, status, needValue, selectedValue, needRemaining };
+    });
+    const totalNeed = rows.reduce((s, r) => s + r.needValue, 0);
+    const totalRemaining = rows.reduce((s, r) => s + r.needRemaining, 0);
+    return { rows, totalNeed, totalRemaining };
+  }
+
+  const MAX_RISK_BY_PROFILE = { Conservador: 2, Moderado: 3, Agressivo: 5, Sofisticado: 5 };
+
+  // Aderência de um produto à estratégia do cliente — NUNCA só rentabilidade:
+  // considera suitability/perfil, estratégia (classe deficitária × excedente),
+  // risco, cobertura (FGC/soberano). Devolve nível + motivos.
+  function productAdherence(product, client, targetAllocation, positions, now) {
+    const reasons = [];
+    const elig = window.PortalLib.isEligible(client, product, now);
+    if (!elig.eligible) return { level: 'nao_recomendado', reasons: elig.reasons };
+
+    const maxRisk = MAX_RISK_BY_PROFILE[client.riskProfile] != null ? MAX_RISK_BY_PROFILE[client.riskProfile] : 3;
+    if (product.riskLevel > maxRisk) {
+      return { level: 'nao_recomendado', reasons: [`Incompatível com o perfil de risco ${client.riskProfile} do cliente.`] };
+    }
+
+    const target = targetAllocation || {};
+    if (target[product.class] == null) {
+      return { level: 'atencao', reasons: ['Fora das classes da estratégia definida.'] };
+    }
+
+    const { map: curPct } = currentPctByClass(positions);
+    const gap = target[product.class] - (curPct[product.class] || 0);
+    const protectedAsset = product.fgc || product.rating === 'Soberano';
+
+    if (gap <= -2) {
+      return { level: 'atencao', reasons: [`${product.class} já está acima da estratégia — aplicar aqui aumenta o desvio.`] };
+    }
+    if (gap > 2) { // classe deficitária: bom para aproximar do alvo
+      if (product.riskLevel <= 2 && protectedAsset) return { level: 'alta', reasons: [`Ajuda a atingir o alvo de ${product.class} com baixo risco.`] };
+      if (product.riskLevel >= 3 || !protectedAsset) {
+        if (!protectedAsset && product.riskLevel >= 3) reasons.push('Maior risco e sem cobertura do FGC.');
+        else if (!protectedAsset) reasons.push('Sem cobertura do FGC.');
+        else reasons.push('Risco moderado — avaliar contra o perfil.');
+        return { level: 'atencao', reasons };
+      }
+      return { level: 'adequado', reasons: [`Contribui para o alvo de ${product.class}.`] };
+    }
+    return { level: 'adequado', reasons: [`${product.class} próximo do alvo.`] };
+  }
+
   window.PortalAnalytics = {
     ASSET_CLASS_ASSUMPTIONS,
     CDI_ANNUAL,
+    currentPctByClass,
+    strategyNeeds,
+    productAdherence,
     wealthSeries,
     mulberry32,
     hashString,
