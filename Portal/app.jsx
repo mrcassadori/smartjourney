@@ -161,12 +161,21 @@ function App() {
     navigate('simulator', { simulationId: id });
   }
 
+  // Garante um carrinho aberto para `clientId`, reaproveitando o que já existe
+  // (não reseta itens já escolhidos) — só cria um novo ao trocar de cliente.
+  // Anexa a estratégia do cliente (targetAllocation) automaticamente quando existe.
+  function ensureCartFor(clientId) {
+    const existingStrategy = simulations.find((s) => s.clientId === clientId && s.targetAllocation);
+    setCart((prev) => (prev && prev.clientId === clientId ? prev : { clientId, simulationId: existingStrategy ? existingStrategy.id : null, items: [] }));
+    return existingStrategy ? existingStrategy.id : null;
+  }
+
   // EP-02 — ponte "Implementar em Produtos": entra na jornada de Produtos com a
   // carteira-alvo da simulação como contexto somente-leitura (Nível 3).
   function startRecommendation(simulationId) {
     const sim = simulations.find((s) => s.id === simulationId);
     const clientId = sim ? sim.clientId : null;
-    setCart((prev) => (prev && prev.clientId === clientId ? prev : (clientId ? { clientId, simulationId: simulationId || null, items: [] } : prev)));
+    if (clientId) ensureCartFor(clientId);
     setProposalContext({ clientId, simulationId: simulationId || null, initialProductIds: null, initialMode: null });
     navigate('proposta', {});
   }
@@ -177,13 +186,17 @@ function App() {
   // Em ambos os casos, se o cliente já tiver uma estratégia definida no
   // Simulador (targetAllocation), ela é anexada automaticamente (Nível 3);
   // senão a jornada segue sem estratégia (Nível 1→2).
-  // Fase D — reaproveita o carrinho já aberto para o mesmo cliente (não reseta
-  // os itens já escolhidos); só abre um carrinho novo ao trocar de cliente.
   function enterCatalogFlow(clientId, productIds, mode) {
-    const existingStrategy = simulations.find((s) => s.clientId === clientId && s.targetAllocation);
-    setCart((prev) => (prev && prev.clientId === clientId ? prev : { clientId, simulationId: existingStrategy ? existingStrategy.id : null, items: [] }));
-    setProposalContext({ clientId, simulationId: existingStrategy ? existingStrategy.id : null, initialProductIds: productIds, initialMode: mode });
+    const simulationId = ensureCartFor(clientId);
+    setProposalContext({ clientId, simulationId, initialProductIds: productIds, initialMode: mode });
     navigate('proposta', {});
+  }
+
+  // Fase 8 — anexa o cliente ao carrinho SEM navegar: o slide-over de 1 ativo
+  // (ProductsPage) fica na própria página de Produtos e revela taxa/impacto
+  // in-place assim que o cliente é escolhido no seletor inline (sem modal).
+  function attachCartClient(clientId) {
+    ensureCartFor(clientId);
   }
 
   // Fase D — sincroniza os itens do carrinho de volta pro estado do app (chamado
@@ -519,7 +532,16 @@ function App() {
       />
     );
   } else if (page === 'products') {
-    content = <ProductsPage profile={profile} clients={scopedClients} products={DATA.products} now={DATA.now} initialFilters={pageParams} strategies={simulations.filter((s) => s.targetAllocation)} cart={cart} onClearCart={clearCart} onStartRecommendation={startRecommendation} onEnterCatalogFlow={enterCatalogFlow} />;
+    content = (
+      <ProductsPage
+        profile={profile} clients={scopedClients} products={DATA.products} now={DATA.now} initialFilters={pageParams}
+        strategies={simulations.filter((s) => s.targetAllocation)} positions={DATA.portfolioPositions}
+        cart={cart} onClearCart={clearCart}
+        onStartRecommendation={startRecommendation} onEnterCatalogFlow={enterCatalogFlow}
+        onAttachCartClient={attachCartClient} onUpdateCart={updateCart}
+        onSubmitRecommendation={submitRecommendation} onGoOrders={() => navigate('orders', {})}
+      />
+    );
   } else if (page === 'proposta') {
     const sim = proposalContext.simulationId ? simulations.find((s) => s.id === proposalContext.simulationId) : null;
     const cli = DATA.clients.find((c) => c.id === proposalContext.clientId) || null;

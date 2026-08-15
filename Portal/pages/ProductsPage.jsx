@@ -72,66 +72,188 @@ function ProdClientPickerModal({ clients, title, onSelect, onClose }) {
 // Drawer de detalhe (Nível 1 — sem cliente): só características do produto.
 // Elegibilidade, taxa negociável e impacto na carteira exigem anexar um
 // cliente — daí o CTA único que leva ao mesmo seletor do multi-select.
-function ProductDetailDrawer({ product, onClose, onAttachClient }) {
+// Fase 8 — seletor de cliente inline (sem modal): campo de busca com lista de
+// sugestões dentro do próprio drawer, substituindo o antigo botão que abria o
+// ProdClientPickerModal por cima de tudo.
+function ProdInlineClientPicker({ clients, value, onSelect }) {
+  const { onlyDigits, maskDocument } = window.PortalLib;
+  const [q, setQ] = React.useState('');
+  const [open, setOpen] = React.useState(false);
+  const selected = clients.find((c) => c.id === value) || null;
+  const query = q.trim().toLowerCase();
+  const queryDigits = onlyDigits(query);
+  const filtered = clients.filter((c) => {
+    if (!query) return true;
+    const nameMatch = c.name.toLowerCase().indexOf(query) !== -1;
+    const docMatch = queryDigits.length > 0 && onlyDigits(c.cpfCnpj).indexOf(queryDigits) !== -1;
+    return nameMatch || docMatch;
+  }).slice(0, 8);
+
+  return (
+    <div className="relative">
+      <input
+        value={open ? q : (selected ? selected.name : '')}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Busque por nome ou CPF/CNPJ…"
+        className="w-full text-sm border border-neutral-200 rounded-medium px-3 py-2"
+      />
+      {open && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-neutral-100 rounded-medium shadow-lg max-h-56 overflow-y-auto">
+          {filtered.length === 0 && <div className="px-3 py-2.5 text-sm text-neutral-400">Nenhum cliente encontrado.</div>}
+          {filtered.map((c) => (
+            <button
+              key={c.id}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onSelect(c.id); setQ(''); setOpen(false); }}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-neutral-50"
+            >
+              <span className="text-sm font-medium text-neutral-900 truncate">{c.name}</span>
+              <span className="text-xs text-neutral-400 shrink-0">{maskDocument(c.cpfCnpj)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Fase 8 — Detalhe/Configuração de 1 ativo num único painel, sem modal
+// separado: o cliente é escolhido inline (ProdInlineClientPicker) e, assim que
+// escolhido, o MESMO drawer revela condições da operação e impacto na
+// carteira in-place (ProdDetailBody, reaproveitado de ProductJourney.jsx —
+// escopo global compartilhado, mesmo padrão do resto do Portal). Até lá, só
+// as características (Nível 1) aparecem e "Adicionar à carteira" fica
+// desabilitado — regra de negócio do mockup de referência.
+function ProductDetailDrawer({ product, clients, cart, strategies, positions, productMap, now, onClose, onAttachCartClient, onUpdateCart, onSubmitRecommendation, onGoOrders }) {
   const { PRODUCT_RISK_LABELS, formatCurrency, formatDate, PRODUCT_STATUS_META, productStatus } = window.PortalLib;
   const status = PRODUCT_STATUS_META[productStatus(product)];
 
+  // Carrinho já EM CONSTRUÇÃO (com itens) pré-preenche o cliente; um carrinho
+  // vazio não "sequestra" a escolha (mesma regra da Fase D/6).
+  const [clientId, setClientId] = React.useState((cart && cart.items.length > 0) ? cart.clientId : '');
+  const [confirm, setConfirm] = React.useState(null); // null | 'ask' | 'sent'
+  const [sentRecId, setSentRecId] = React.useState(null);
+
+  const client = clients.find((c) => c.id === clientId) || null;
+  const cartItems = (cart && cart.clientId === clientId) ? cart.items : [];
+  const strategy = clientId ? strategies.find((s) => s.clientId === clientId) : null;
+  const targetAllocation = (strategy && strategy.targetAllocation) || {};
+  const hasStrategy = Object.keys(targetAllocation).length > 0;
+  const clientPositions = clientId ? positions.filter((p) => p.clientId === clientId) : [];
+
+  let needs = null;
+  if (client) {
+    const selectedByClass = {};
+    cartItems.forEach((it) => { const p = productMap[it.productId]; if (p) selectedByClass[p.class] = (selectedByClass[p.class] || 0) + (it.value || 0); });
+    needs = window.PortalAnalytics.strategyNeeds(targetAllocation, clientPositions, client.availableBalance, selectedByClass);
+  }
+
+  function selectClient(id) {
+    setClientId(id);
+    onAttachCartClient(id);
+  }
+
+  function handleAdd(p, value, rate) {
+    const have = new Set(cartItems.map((it) => it.productId));
+    const next = have.has(p.id)
+      ? cartItems.map((it) => (it.productId === p.id ? { ...it, value, rate } : it))
+      : [...cartItems, { productId: p.id, value, rate }];
+    onUpdateCart(clientId, next);
+    setConfirm('ask');
+  }
+
+  function submit() {
+    const recItems = cartItems.map((it) => {
+      const p = productMap[it.productId];
+      const rateLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(it.rate).replace('.', ',')}%` : `${it.rate}${p.rateUnit}`) : '—';
+      return { productId: it.productId, asset: p.name, class: p.class, value: it.value, rate: rateLabel, status: 'validado' };
+    });
+    const total = cartItems.reduce((s, it) => s + it.value, 0);
+    const recId = onSubmitRecommendation(clientId, recItems, total);
+    setSentRecId(recId || 'REC-' + Math.floor(10000 + Math.random() * 900));
+    setConfirm('sent');
+  }
+
   return (
-    <Drawer title={product.name} subtitle={`${product.class} · ${product.subclass}`} onClose={onClose}>
-      <div className="flex items-center gap-2 mb-4">
-        <StatusPill label={status.label} className={status.className} size="sm" />
-        {product.rateUpdated && <span className="text-xs text-neutral-400">antes {product.previousRateLabel}</span>}
-      </div>
-
-      {!product.available && (
-        <div className="flex items-start gap-2 text-sm bg-alert-light text-alert-dark rounded-medium px-3 py-2.5 mb-4">
-          <Icon name="alertTriangle" size={15} className="mt-0.5 shrink-0" />
-          {product.unavailableReason || 'Produto indisponível para novas aplicações.'}
+    <React.Fragment>
+      <Drawer title={product.name} subtitle={`${product.class} · ${product.subclass}`} onClose={onClose} width="w-full max-w-2xl">
+        <div className="flex items-center gap-2 mb-4">
+          <StatusPill label={status.label} className={status.className} size="sm" />
+          {product.rateUpdated && <span className="text-xs text-neutral-400">antes {product.previousRateLabel}</span>}
         </div>
+
+        {!product.available && (
+          <div className="flex items-start gap-2 text-sm bg-alert-light text-alert-dark rounded-medium px-3 py-2.5 mb-4">
+            <Icon name="alertTriangle" size={15} className="mt-0.5 shrink-0" />
+            {product.unavailableReason || 'Produto indisponível para novas aplicações.'}
+          </div>
+        )}
+
+        <div className="mb-4">
+          <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Para continuar selecione um cliente</div>
+          <ProdInlineClientPicker clients={clients} value={clientId} onSelect={selectClient} />
+        </div>
+
+        {!client ? (
+          <React.Fragment>
+            <p className="text-sm text-neutral-700 mb-4">{product.description}</p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <ProdFact label="Emissor" value={product.issuer} />
+              <ProdFact label="Indexador" value={product.indexer} />
+              <ProdFact label="Taxa" value={product.rateLabel} />
+              <ProdFact label="Vencimento" value={product.maturityDate ? formatDate(product.maturityDate) : 'Sem vencimento'} />
+              <ProdFact label="Liquidez" value={product.liquidity} />
+              <ProdFact label="Rating" value={product.rating} />
+              <ProdFact label="Aplicação mínima" value={formatCurrency(product.minApplication)} />
+              <ProdFact label="Risco" value={PRODUCT_RISK_LABELS[product.riskLevel]} />
+            </div>
+
+            <div className="mb-4">
+              <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Público elegível</div>
+              <div className="flex flex-wrap gap-1.5">
+                {product.eligibleSegments.map((s) => (
+                  <StatusPill key={s} label={s} className="bg-neutral-100 text-neutral-600" size="sm" />
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Riscos</div>
+              <p className="text-sm text-neutral-700">{product.risks}</p>
+            </div>
+
+            <div className="mb-5">
+              <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Custos</div>
+              <p className="text-sm text-neutral-700">{product.costs}</p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button onClick={onClose} className="text-sm px-5 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Voltar</button>
+              <button disabled title="Selecione um cliente para continuar" className="text-sm px-5 py-2 rounded-pill bg-neutral-200 text-neutral-400 cursor-not-allowed">Adicionar à carteira</button>
+            </div>
+          </React.Fragment>
+        ) : (
+          <div className="space-y-4">
+            <ProdDetailBody
+              product={product} client={client} targetAllocation={targetAllocation} positions={clientPositions}
+              items={cartItems} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
+              onAdd={handleAdd} onBack={onClose} backLabel="Fechar" compact
+            />
+          </div>
+        )}
+      </Drawer>
+
+      {confirm && (
+        <ProdConfirmModal
+          client={client} items={cartItems} sent={confirm === 'sent'} recId={sentRecId}
+          onConfirm={submit}
+          onClose={() => { if (confirm === 'sent') { onGoOrders && onGoOrders(); } setConfirm(null); onClose(); }}
+          onGoOrders={() => { setConfirm(null); onClose(); onGoOrders && onGoOrders(); }}
+        />
       )}
-
-      <p className="text-sm text-neutral-700 mb-4">{product.description}</p>
-
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <ProdFact label="Emissor" value={product.issuer} />
-        <ProdFact label="Indexador" value={product.indexer} />
-        <ProdFact label="Taxa" value={product.rateLabel} />
-        <ProdFact label="Vencimento" value={product.maturityDate ? formatDate(product.maturityDate) : 'Sem vencimento'} />
-        <ProdFact label="Liquidez" value={product.liquidity} />
-        <ProdFact label="Rating" value={product.rating} />
-        <ProdFact label="Aplicação mínima" value={formatCurrency(product.minApplication)} />
-        <ProdFact label="Risco" value={PRODUCT_RISK_LABELS[product.riskLevel]} />
-      </div>
-
-      <div className="mb-4">
-        <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Público elegível</div>
-        <div className="flex flex-wrap gap-1.5">
-          {product.eligibleSegments.map((s) => (
-            <StatusPill key={s} label={s} className="bg-neutral-100 text-neutral-600" size="sm" />
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Riscos</div>
-        <p className="text-sm text-neutral-700">{product.risks}</p>
-      </div>
-
-      <div className="mb-5">
-        <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Custos</div>
-        <p className="text-sm text-neutral-700">{product.costs}</p>
-      </div>
-
-      <div className="border-t border-neutral-100 pt-4">
-        <button
-          onClick={() => onAttachClient([product.id], 'add')}
-          className="w-full text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center justify-center gap-1.5"
-        >
-          <Icon name="userPlus" size={14} /> Selecionar cliente para configurar
-        </button>
-        <p className="text-xs text-neutral-400 mt-2 text-center">Anexe um cliente para ver elegibilidade, taxa negociável e montar a recomendação.</p>
-      </div>
-    </Drawer>
+    </React.Fragment>
   );
 }
 
@@ -192,7 +314,7 @@ function ProdStrategyInbox({ strategies, clients, onStartRecommendation }) {
   );
 }
 
-function ProductsPage({ profile, clients, products, now, initialFilters, strategies, cart, onClearCart, onStartRecommendation, onEnterCatalogFlow }) {
+function ProductsPage({ profile, clients, products, now, initialFilters, strategies, positions, cart, onClearCart, onStartRecommendation, onEnterCatalogFlow, onAttachCartClient, onUpdateCart, onSubmitRecommendation, onGoOrders }) {
   const { formatCurrency, formatDate, daysUntil, canAccess, classNames, PROD_CLASS_TABS, PRODUCT_STATUS_META, productStatus, strategyClassLabel } = window.PortalLib;
   const [query, setQuery] = React.useState('');
   const [tab, setTab] = React.useState((initialFilters && initialFilters.klass) || '');
@@ -269,6 +391,8 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
   const kAlerts = products.filter((p) => p.lowStock || !p.available).length;
 
   const openProduct = products.find((p) => p.id === openProductId) || null;
+  const productMap = {};
+  products.forEach((p) => (productMap[p.id] = p));
 
   const cartClient = cart ? clients.find((c) => c.id === cart.clientId) : null;
 
@@ -383,7 +507,12 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
       {onStartRecommendation && <ProdStrategyInbox strategies={strategies} clients={clients} onStartRecommendation={onStartRecommendation} />}
 
       {openProduct && (
-        <ProductDetailDrawer product={openProduct} onClose={() => setOpenProductId(null)} onAttachClient={(ids, mode) => openPicker(ids, mode)} />
+        <ProductDetailDrawer
+          product={openProduct} clients={clients} cart={cart} strategies={strategies} positions={positions} productMap={productMap} now={now}
+          onClose={() => setOpenProductId(null)}
+          onAttachCartClient={onAttachCartClient} onUpdateCart={onUpdateCart}
+          onSubmitRecommendation={onSubmitRecommendation} onGoOrders={onGoOrders}
+        />
       )}
 
       {picker && (
