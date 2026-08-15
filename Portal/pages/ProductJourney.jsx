@@ -515,16 +515,20 @@ function ProdTag({ children }) {
   return <span className="ml-1.5 align-middle text-[10px] px-1.5 py-0.5 rounded bg-brand-lightest text-brand-dark">{children}</span>;
 }
 
-// ---------- Tela 04 — Detalhe do investimento ----------
-function ProdDetailView({ product, client, targetAllocation, positions, items, productMap, needs, now, hasStrategy, onAdd, onBack }) {
+// Miolo do Detalhe (características, condições da operação, impacto na
+// carteira) — compartilhado entre a página cheia (ProdDetailView, porta
+// cliente-primeiro) e o drawer (ProdConfigDrawer, Fase E/singleFlow: 1 produto
+// vindo direto do catálogo, mesmo conteúdo em painel lateral sobre o catálogo
+// escurecido, como no mockup). `compact` empilha as colunas para caber na
+// largura mais estreita do drawer.
+function ProdDetailBody({ product, client, targetAllocation, positions, items, productMap, needs, now, hasStrategy, onAdd, onBack, backLabel, compact }) {
   const { formatCurrency, strategyClassLabel, PRODUCT_RISK_LABELS } = window.PortalLib;
-  const A = window.PortalAnalytics;
   const existing = items.find((it) => it.productId === product.id);
   const needRow = needs.rows.find((r) => r.class === product.class);
   const defaultValue = existing ? existing.value : (needRow && needRow.needRemaining > 0 ? Math.max(product.minApplication, needRow.needRemaining) : product.minApplication);
   const [value, setValue] = React.useState(defaultValue);
   const [rate, setRate] = React.useState(existing && existing.rate != null ? existing.rate : product.rateValue);
-  const ad = A.productAdherence(product, client, targetAllocation, positions, now);
+  const ad = window.PortalAnalytics.productAdherence(product, client, targetAllocation, positions, now);
   const imp = prodComputeImpact(product, value, client, positions, targetAllocation, items, productMap);
   // Meta de APORTE da classe (mesmo modelo da Tela 01): quanto do caixa alocar
   // nesta classe. Progresso = o que já foi selecionado na classe (fora este) + este.
@@ -534,12 +538,6 @@ function ProdDetailView({ product, client, targetAllocation, positions, items, p
   const aportePct = aporteMeta > 0 ? Math.min(100, (aporteComEste / aporteMeta) * 100) : 100;
   const metaAtingida = aporteMeta > 0 && aporteComEste >= aporteMeta - 1;
 
-  const kpi = (v, l) => (
-    <div className="bg-white border border-neutral-100 rounded-large px-4 py-3">
-      <div className="text-lg font-semibold text-neutral-900">{v}</div>
-      <div className="text-[11px] uppercase tracking-wide text-neutral-400 mt-0.5">{l}</div>
-    </div>
-  );
   const pair = (l, v) => (
     <div className="flex items-center justify-between py-2 border-b border-neutral-50 last:border-0">
       <span className="text-sm text-neutral-500">{l}</span>
@@ -548,28 +546,8 @@ function ProdDetailView({ product, client, targetAllocation, positions, items, p
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs text-neutral-400 mb-1">Produtos / {strategyClassLabel(product.class)} / {product.name}</div>
-          <h1 className="text-2xl font-semibold text-neutral-900">{product.name}</h1>
-          <p className="text-sm text-neutral-500 mt-1">{strategyClassLabel(product.class)} · {product.issuer}{product.term && product.term !== '—' ? ` · ${product.term}` : ''}</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <ProdAdherenceBadge level={ad.level} />
-          <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1"><Icon name="arrowLeft" size={15} /> Voltar</button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {kpi(product.rateLabel, 'Taxa')}
-        {kpi(product.term && product.term !== '—' ? product.term.replace('até ', '') : '—', 'Vencimento')}
-        {kpi(product.rating, 'Rating')}
-        {kpi(formatCurrency(product.minApplication), 'Aplicação mínima')}
-        {kpi(prodCompact(product.availableStock), 'Disponibilidade')}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <React.Fragment>
+      <div className={window.PortalLib.classNames('grid grid-cols-1 gap-4', !compact && 'lg:grid-cols-2')}>
         {/* Esquerda — características */}
         <div className="bg-white border border-neutral-100 rounded-large p-5">
           <h2 className="text-sm font-semibold text-neutral-800 mb-2">Características do investimento</h2>
@@ -603,7 +581,7 @@ function ProdDetailView({ product, client, targetAllocation, positions, items, p
       {/* Impacto na estratégia */}
       <div className="bg-white border border-neutral-100 rounded-large p-5">
         <h2 className="text-sm font-semibold text-neutral-800 mb-3">Impacto na carteira <span className="text-neutral-400 font-normal">· aplicação de {formatCurrency(value)}</span></h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+        <div className={window.PortalLib.classNames('grid grid-cols-1 gap-x-8 gap-y-4', !compact && 'md:grid-cols-2')}>
           <div>
             {!hasStrategy ? (
               <React.Fragment>
@@ -648,10 +626,84 @@ function ProdDetailView({ product, client, targetAllocation, positions, items, p
       </div>
 
       <div className="flex justify-end gap-2">
-        <button onClick={onBack} className="text-sm px-5 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Voltar</button>
+        <button onClick={onBack} className="text-sm px-5 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">{backLabel || 'Voltar'}</button>
         <button onClick={() => onAdd(product, value, rate)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">{existing ? 'Atualizar na carteira' : 'Adicionar à carteira'}</button>
       </div>
+    </React.Fragment>
+  );
+}
+
+// ---------- Tela 04 — Detalhe do investimento (porta cliente-primeiro) ----------
+function ProdDetailView({ product, client, targetAllocation, positions, items, productMap, needs, now, hasStrategy, onAdd, onBack }) {
+  const { formatCurrency, strategyClassLabel } = window.PortalLib;
+  const A = window.PortalAnalytics;
+  const ad = A.productAdherence(product, client, targetAllocation, positions, now);
+
+  const kpi = (v, l) => (
+    <div className="bg-white border border-neutral-100 rounded-large px-4 py-3">
+      <div className="text-lg font-semibold text-neutral-900">{v}</div>
+      <div className="text-[11px] uppercase tracking-wide text-neutral-400 mt-0.5">{l}</div>
     </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs text-neutral-400 mb-1">Produtos / {strategyClassLabel(product.class)} / {product.name}</div>
+          <h1 className="text-2xl font-semibold text-neutral-900">{product.name}</h1>
+          <p className="text-sm text-neutral-500 mt-1">{strategyClassLabel(product.class)} · {product.issuer}{product.term && product.term !== '—' ? ` · ${product.term}` : ''}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <ProdAdherenceBadge level={ad.level} />
+          <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1"><Icon name="arrowLeft" size={15} /> Voltar</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {kpi(product.rateLabel, 'Taxa')}
+        {kpi(product.term && product.term !== '—' ? product.term.replace('até ', '') : '—', 'Vencimento')}
+        {kpi(product.rating, 'Rating')}
+        {kpi(formatCurrency(product.minApplication), 'Aplicação mínima')}
+        {kpi(prodCompact(product.availableStock), 'Disponibilidade')}
+      </div>
+
+      <ProdDetailBody
+        product={product} client={client} targetAllocation={targetAllocation} positions={positions}
+        items={items} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
+        onAdd={onAdd} onBack={onBack}
+      />
+    </div>
+  );
+}
+
+// ---------- Fase E — Detalhe/Configuração de 1 produto como drawer sobre o
+// catálogo escurecido (singleFlow: entrada direta Produto → Cliente → Detalhe,
+// sem página cheia — igual ao caso de uso de 4 telas do mockup). ----------
+function ProdConfigDrawer({ product, client, targetAllocation, positions, items, productMap, needs, now, hasStrategy, onAdd, onClose }) {
+  const { PRODUCT_STATUS_META, productStatus, strategyClassLabel } = window.PortalLib;
+  const A = window.PortalAnalytics;
+  const ad = A.productAdherence(product, client, targetAllocation, positions, now);
+  const status = PRODUCT_STATUS_META[productStatus(product)];
+  return (
+    <Drawer
+      title={product.name}
+      subtitle={`${strategyClassLabel(product.class)} · ${product.issuer}${product.term && product.term !== '—' ? ` · ${product.term}` : ''}`}
+      onClose={onClose}
+      width="w-full max-w-2xl"
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <StatusPill label={status.label} className={status.className} size="sm" />
+        <ProdAdherenceBadge level={ad.level} />
+      </div>
+      <div className="space-y-4">
+        <ProdDetailBody
+          product={product} client={client} targetAllocation={targetAllocation} positions={positions}
+          items={items} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
+          onAdd={onAdd} onBack={onClose} backLabel="Cancelar" compact
+        />
+      </div>
+    </Drawer>
   );
 }
 
@@ -1184,16 +1236,21 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
       />
     );
   } else if (view === 'detalhe' && productMap[detailId]) {
-    // Fase E — fluxo de 1 produto (singleFlow): "Adicionar à carteira" vai
-    // direto para o Confirmar (sem Carteira/Revisar), igual ao mockup de 4 telas.
-    content = (
-      <ProdDetailView
-        product={productMap[detailId]} client={client} targetAllocation={targetAllocation}
-        positions={positions} items={items} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
-        onAdd={(p, value, rate) => { upsertItem(p, value, rate); if (singleFlow) { setConfirm('ask'); } else { setView(returnView); } }}
-        onBack={singleFlow ? onExit : () => setView(returnView)}
-      />
-    );
+    // Fase E — fluxo de 1 produto (singleFlow): drawer sobre o catálogo
+    // escurecido (não página cheia) e "Adicionar à carteira" vai direto pro
+    // Confirmar (sem Carteira/Revisar) — igual ao mockup de 4 telas.
+    if (singleFlow) {
+      content = <div className="min-h-[50vh]" />; // fundo neutro atrás do drawer
+    } else {
+      content = (
+        <ProdDetailView
+          product={productMap[detailId]} client={client} targetAllocation={targetAllocation}
+          positions={positions} items={items} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
+          onAdd={(p, value, rate) => { upsertItem(p, value, rate); setView(returnView); }}
+          onBack={() => setView(returnView)}
+        />
+      );
+    }
   } else if (view === 'revisar') {
     content = (
       <ProdRevisarView
@@ -1243,8 +1300,19 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
     );
   }
 
+  // Fase E — drawer do singleFlow, sobreposto ao `content` acima; escondido
+  // assim que a confirmação abre (evita empilhar dois overlays escurecidos).
+  const drawer = (view === 'detalhe' && singleFlow && productMap[detailId] && !confirm) ? (
+    <ProdConfigDrawer
+      product={productMap[detailId]} client={client} targetAllocation={targetAllocation}
+      positions={positions} items={items} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
+      onAdd={(p, value, rate) => { upsertItem(p, value, rate); setConfirm('ask'); }}
+      onClose={onExit}
+    />
+  ) : null;
+
   // Modal de confirmação — global, não só de Carteira/Revisar: o singleFlow
-  // (1 produto) pede confirmação direto a partir do Detalhe.
+  // (1 produto) pede confirmação direto a partir do drawer de Detalhe.
   const modal = confirm ? (
     <ProdConfirmModal
       client={client} items={items} sent={confirm === 'sent'} recId={sentRecId}
@@ -1254,7 +1322,7 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
     />
   ) : null;
 
-  return <React.Fragment>{content}{modal}</React.Fragment>;
+  return <React.Fragment>{content}{drawer}{modal}</React.Fragment>;
 }
 
 window.ProductJourney = ProductJourney;
