@@ -257,6 +257,60 @@ function ProductDetailDrawer({ product, clients, cart, strategies, positions, pr
   );
 }
 
+// Fase 10 — Comparar investimentos com cliente inline (sem modal separado):
+// mesmo padrão do ProdInlineClientPicker do drawer de 1 ativo (Fase 8),
+// aplicado à porta catálogo→Comparar. Enquanto não há cliente escolhido, só o
+// seletor aparece; assim que escolhido, revela a tabela de comparação
+// (ProdCompareView, compartilhada com a porta cliente-primeiro) in-place.
+function ProdCompareInline({ clients, cart, compareIds, productMap, positions, strategies, now, onAttachCartClient, onUpdateCart, onBack }) {
+  const [clientId, setClientId] = React.useState((cart && cart.items.length > 0) ? cart.clientId : '');
+  const client = clients.find((c) => c.id === clientId) || null;
+  const cartItems = (cart && cart.clientId === clientId) ? cart.items : [];
+  const strategy = clientId ? strategies.find((s) => s.clientId === clientId) : null;
+  const targetAllocation = (strategy && strategy.targetAllocation) || {};
+  const clientPositions = clientId ? positions.filter((p) => p.clientId === clientId) : [];
+  const compareProducts = compareIds.map((id) => productMap[id]).filter(Boolean);
+
+  function selectClient(id) {
+    setClientId(id);
+    onAttachCartClient(id);
+  }
+
+  function handleAdd(list) {
+    const have = new Set(cartItems.map((it) => it.productId));
+    const next = [...cartItems, ...list.filter((p) => !have.has(p.id)).map((p) => ({ productId: p.id, value: p.minApplication, rate: p.rateValue }))];
+    onUpdateCart(clientId, next);
+    onBack();
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">Comparar investimentos</h1>
+          <p className="text-sm text-neutral-500 mt-1">Compare as principais condições antes de adicionar ativos à recomendação.</p>
+        </div>
+        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1 shrink-0"><Icon name="arrowLeft" size={15} /> Voltar</button>
+      </div>
+
+      <div className="max-w-md">
+        <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Para continuar selecione um cliente</div>
+        <ProdInlineClientPicker clients={clients} value={clientId} onSelect={selectClient} />
+      </div>
+
+      {client ? (
+        <ProdCompareView
+          compareProducts={compareProducts} client={client} targetAllocation={targetAllocation} positions={clientPositions}
+          items={cartItems} productMap={productMap} now={now}
+          onAdd={handleAdd} onBack={onBack} hideHeader
+        />
+      ) : (
+        <div className="bg-white border border-neutral-100 rounded-large p-10 text-center text-sm text-neutral-400">Selecione um cliente para comparar as condições dos ativos escolhidos.</div>
+      )}
+    </div>
+  );
+}
+
 // Fase D — carrinho em construção: aparece no catálogo real quando já existe um
 // cliente anexado com itens, permitindo continuar comprando sem repetir o
 // seletor de cliente (mockup "caso de uso de múltiplos ativos").
@@ -329,12 +383,17 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
   const [minBucket, setMinBucket] = React.useState('');
   const [openProductId, setOpenProductId] = React.useState(null);
   const [checked, setChecked] = React.useState([]);
-  const [picker, setPicker] = React.useState(null); // { productIds, mode: 'add' | 'comparar' }
+  const [picker, setPicker] = React.useState(null); // { productIds, mode: 'add' }
+  // Fase 10 — ids em comparação (porta catálogo→Comparar, cliente inline).
+  const [compareIds, setCompareIds] = React.useState(null);
   // Fase 9 — Confirmar Envio é página cheia: quando o drawer de 1 ativo envia
   // uma recomendação, a página inteira troca de conteúdo (não é mais modal).
   const [sentRecommendation, setSentRecommendation] = React.useState(null); // { client, items, recId, total }
 
   const loading = window.useSimulatedLoading(`${profile.id}|${query}|${tab}`, 280);
+
+  const productMap = {};
+  products.forEach((p) => (productMap[p.id] = p));
 
   if (sentRecommendation) {
     const finish = () => {
@@ -346,6 +405,16 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
       <ProdConfirmPage
         client={sentRecommendation.client} items={sentRecommendation.items} recId={sentRecommendation.recId} total={sentRecommendation.total}
         onViewRecommendation={finish} onGoOrders={finish}
+      />
+    );
+  }
+
+  if (compareIds) {
+    return (
+      <ProdCompareInline
+        clients={clients} cart={cart} compareIds={compareIds} productMap={productMap} positions={positions} strategies={strategies} now={now}
+        onAttachCartClient={onAttachCartClient} onUpdateCart={onUpdateCart}
+        onBack={() => setCompareIds(null)}
       />
     );
   }
@@ -408,30 +477,35 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
   const kAlerts = products.filter((p) => p.lowStock || !p.available).length;
 
   const openProduct = products.find((p) => p.id === openProductId) || null;
-  const productMap = {};
-  products.forEach((p) => (productMap[p.id] = p));
 
   const cartClient = cart ? clients.find((c) => c.id === cart.clientId) : null;
 
   function toggleCheck(id) { setChecked((prev) => (prev.indexOf(id) !== -1 ? prev.filter((x) => x !== id) : [...prev, id])); }
   function toggleAll(ids, next) { setChecked(next ? ids : []); }
   // Fase D — com um carrinho já EM CONSTRUÇÃO (cliente anexado + pelo menos 1
-  // item), seguir adicionando ou comparando não repete o seletor: vai direto pro
-  // mesmo cliente do carrinho. Um cliente anexado mas ainda sem itens (ex.: só
-  // abriu o Detalhe e voltou) não deve "sequestrar" a próxima seleção — o
-  // seletor continua livre pra escolher qualquer cliente nesse caso.
-  function openPicker(productIds, mode) {
+  // item), seguir adicionando não repete o seletor: vai direto pro mesmo
+  // cliente do carrinho. Um cliente anexado mas ainda sem itens (ex.: só abriu
+  // o Detalhe e voltou) não deve "sequestrar" a próxima seleção — o seletor
+  // continua livre pra escolher qualquer cliente nesse caso.
+  function openPicker(productIds) {
     setChecked([]);
     setOpenProductId(null);
-    if (cart && cart.clientId && cart.items.length > 0) { onEnterCatalogFlow(cart.clientId, productIds, mode); return; }
-    setPicker({ productIds, mode });
+    if (cart && cart.clientId && cart.items.length > 0) { onEnterCatalogFlow(cart.clientId, productIds, 'add'); return; }
+    setPicker({ productIds });
   }
   function confirmPicker(clientId) {
-    const { productIds, mode } = picker;
+    const { productIds } = picker;
     setPicker(null);
     setChecked([]);
     setOpenProductId(null);
-    onEnterCatalogFlow(clientId, productIds, mode);
+    onEnterCatalogFlow(clientId, productIds, 'add');
+  }
+  // Fase 10 — Comparar não abre mais o modal de cliente: entra direto na tela
+  // de comparação, que resolve o cliente inline (ProdCompareInline).
+  function openCompare(productIds) {
+    setChecked([]);
+    setOpenProductId(null);
+    setCompareIds(productIds);
   }
 
   const columns = [
@@ -496,8 +570,8 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
           <span className="text-sm font-medium text-brand-dark">{checked.length} {checked.length === 1 ? 'produto selecionado' : 'produtos selecionados'}</span>
           <div className="ml-auto flex items-center gap-2">
             <button onClick={() => setChecked([])} className="text-xs text-neutral-500 hover:text-neutral-800 px-2">Limpar</button>
-            <button onClick={() => openPicker(checked, 'comparar')} disabled={checked.length < 2} className={classNames('text-sm px-3 py-1.5 rounded-pill border', checked.length < 2 ? 'border-neutral-200 text-neutral-300 cursor-not-allowed' : 'border-neutral-200 text-neutral-700 hover:bg-white')}>Comparar</button>
-            <button onClick={() => openPicker(checked, 'add')} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Adicionar à carteira</button>
+            <button onClick={() => openCompare(checked)} disabled={checked.length < 2} className={classNames('text-sm px-3 py-1.5 rounded-pill border', checked.length < 2 ? 'border-neutral-200 text-neutral-300 cursor-not-allowed' : 'border-neutral-200 text-neutral-700 hover:bg-white')}>Comparar</button>
+            <button onClick={() => openPicker(checked)} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Adicionar à carteira</button>
           </div>
         </div>
       )}
@@ -535,7 +609,7 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
       {picker && (
         <ProdClientPickerModal
           clients={clients}
-          title={picker.mode === 'comparar' ? 'Comparar para qual cliente?' : 'Selecionar cliente'}
+          title="Selecionar cliente"
           onSelect={confirmPicker}
           onClose={() => setPicker(null)}
         />

@@ -444,14 +444,33 @@ function ProdImpactBar({ label, atual, depois, target, badge }) {
 }
 
 // ---------- Tela 03 — Comparar investimentos ----------
-function ProdCompareView({ compareProducts, client, targetAllocation, positions, items, productMap, now, onAdd, onBack }) {
-  const { formatCurrency, strategyClassLabel } = window.PortalLib;
+// Fase 10 — alinhado ao mockup de referência (Figma): checkbox por ativo
+// comparado (dá pra tirar um ativo da seleção sem sair da tela), subtítulo
+// classe·emissor no cabeçalho da coluna (substitui as linhas "Classe" e
+// "Emissor" da tabela, sem perder a informação), e uma única ação em lote no
+// rodapé ("X ativos selecionados" + "Adicionar à carteira") em vez de um
+// botão por coluna. `hideHeader` permite reaproveitar a tabela dentro de um
+// cabeçalho próprio (ex.: ProdCompareInline, que também mostra o seletor de
+// cliente inline). Mantém "Aderência à estratégia" com o badge (mais rico que
+// o "Suitability" em texto simples do mockup) em vez de rebaixar para texto.
+function ProdCompareView({ compareProducts, client, targetAllocation, positions, items, productMap, now, onAdd, onBack, hideHeader }) {
+  const { formatCurrency, strategyClassLabel, classNames } = window.PortalLib;
   const A = window.PortalAnalytics;
   const enriched = compareProducts.map((p) => {
     const ad = A.productAdherence(p, client, targetAllocation, positions, now);
     const imp = prodComputeImpact(p, p.minApplication, client, positions, targetAllocation, items, productMap);
     return { ...p, _ad: ad, _conc: imp.issuerApos };
   });
+  const [checkedIds, setCheckedIds] = React.useState(() => new Set(enriched.map((p) => p.id)));
+  function toggle(id) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  const checkedCount = enriched.filter((p) => checkedIds.has(p.id)).length;
+
   // destaques
   const AD_RANK = { alta: 3, adequado: 2, atencao: 1, nao_recomendado: 0 };
   const maxRate = Math.max(...enriched.filter((p) => p.negotiable).map((p) => p.rateValue || 0));
@@ -460,57 +479,68 @@ function ProdCompareView({ compareProducts, client, targetAllocation, positions,
   const bestAd = Math.max(...enriched.map((p) => AD_RANK[p._ad.level]));
 
   const rows = [
-    ['Classe', (p) => strategyClassLabel(p.class)],
-    ['Indexador', (p) => p.indexer],
     ['Taxa', (p) => <span className="font-medium text-neutral-900">{p.rateLabel}{p.negotiable && p.rateValue === maxRate ? <ProdTag>Maior taxa</ProdTag> : null}</span>],
-    ['Emissor', (p) => p.issuer],
-    ['Rating', (p) => p.rating],
-    ['FGC', (p) => (p.fgc ? 'Sim' : 'Não')],
+    ['Indexador', (p) => p.indexer],
     ['Vencimento', (p) => (p.term && p.term !== '—' ? p.term.replace('até ', '') : '—')],
     ['Liquidez', (p) => <span>{p.liquidity}{A.liquidityDays(p.liquidity) === bestLiq ? <ProdTag>Maior liquidez</ProdTag> : null}</span>],
+    ['Rating', (p) => p.rating],
+    ['Garantia FGC', (p) => (p.fgc ? 'Sim' : 'Não')],
     ['Aplicação mínima', (p) => formatCurrency(p.minApplication)],
     ['Disponibilidade', (p) => prodCompact(p.availableStock)],
-    ['Concentração após aplicação', (p) => <span>{p._conc.toFixed(0)}%{p._conc === minConc ? <ProdTag>Menor concentração</ProdTag> : null}</span>],
+    ['Concentração pós-aplicação', (p) => <span>{p._conc.toFixed(0)}%{p._conc === minConc ? <ProdTag>Menor concentração</ProdTag> : null}</span>],
     ['Aderência à estratégia', (p) => <span className="inline-flex items-center gap-1"><ProdAdherenceBadge level={p._ad.level} />{AD_RANK[p._ad.level] === bestAd ? <ProdTag>Maior aderência</ProdTag> : null}</span>],
   ];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Comparar investimentos</h1>
-          <p className="text-sm text-neutral-500 mt-1">Compare os produtos antes de decidir quais utilizar na carteira proposta.</p>
+      {!hideHeader && (
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-neutral-900">Comparar investimentos</h1>
+            <p className="text-sm text-neutral-500 mt-1">Compare as principais condições antes de adicionar ativos à recomendação.</p>
+          </div>
+          <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1 shrink-0"><Icon name="arrowLeft" size={15} /> Voltar</button>
         </div>
-        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-brand flex items-center gap-1 shrink-0"><Icon name="arrowLeft" size={15} /> Voltar</button>
-      </div>
+      )}
 
       <div className="overflow-x-auto border border-neutral-100 rounded-large bg-white">
         <table className="w-full text-sm min-w-[720px]">
           <thead className="bg-neutral-50">
             <tr>
-              <th className="text-left font-semibold text-neutral-500 px-4 py-3 border-b border-neutral-100 text-xs uppercase tracking-wide w-56">Critério</th>
+              <th className="text-left font-semibold text-neutral-500 px-4 py-3 border-b border-neutral-100 text-xs uppercase tracking-wide w-56">Característica</th>
               {enriched.map((p) => (
-                <th key={p.id} className="text-left font-semibold text-neutral-900 px-4 py-3 border-b border-neutral-100 align-top">{p.name}</th>
+                <th key={p.id} className="text-left px-4 py-3 border-b border-neutral-100 align-top">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" checked={checkedIds.has(p.id)} onChange={() => toggle(p.id)} className="accent-brand mt-1" />
+                    <span>
+                      <span className="block font-semibold text-neutral-900">{p.name}</span>
+                      <span className="block text-xs font-normal text-neutral-400">{strategyClassLabel(p.class)} · {p.issuer}</span>
+                    </span>
+                  </label>
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map(([label, render], i) => (
-              <tr key={i} className="border-b border-neutral-50 last:border-0">
+              <tr key={i} className={classNames('border-b border-neutral-50 last:border-0', i % 2 === 1 && 'bg-neutral-50/60')}>
                 <td className="px-4 py-3 text-neutral-500">{label}</td>
                 {enriched.map((p) => <td key={p.id} className="px-4 py-3 text-neutral-700 align-top">{render(p)}</td>)}
               </tr>
             ))}
-            <tr>
-              <td className="px-4 py-3" />
-              {enriched.map((p) => (
-                <td key={p.id} className="px-4 py-3">
-                  <button onClick={() => onAdd([p])} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Adicionar à carteira</button>
-                </td>
-              ))}
-            </tr>
           </tbody>
         </table>
+      </div>
+
+      <div className="flex items-center gap-3 bg-white border border-neutral-100 rounded-large px-4 py-3">
+        <span className="text-sm font-medium text-neutral-700">{checkedCount} {checkedCount === 1 ? 'ativo selecionado' : 'ativos selecionados'}</span>
+        <button
+          onClick={() => onAdd(enriched.filter((p) => checkedIds.has(p.id)))}
+          disabled={checkedCount === 0}
+          className={classNames('ml-auto text-sm px-5 py-2 rounded-pill text-white', checkedCount > 0 ? 'bg-brand hover:bg-brand-dark' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed')}
+        >
+          Adicionar à carteira
+        </button>
       </div>
     </div>
   );
