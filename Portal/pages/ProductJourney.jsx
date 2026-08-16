@@ -456,7 +456,13 @@ function ProdImpactBar({ label, atual, depois, target, badge }) {
 function ProdCompareView({ compareProducts, client, targetAllocation, positions, items, productMap, now, onAdd, onBack, hideHeader }) {
   const { formatCurrency, strategyClassLabel, classNames } = window.PortalLib;
   const A = window.PortalAnalytics;
+  // Sem cliente ainda (ProdCompareInline, antes de escolher): a tabela
+  // continua visível com as características do produto — só as 2 linhas que
+  // dependem do cliente (concentração pós-aplicação, aderência à estratégia)
+  // ficam com um placeholder, e o CTA de adicionar fica desabilitado (regra de
+  // negócio: comparar não exige cliente, só adicionar à carteira exige).
   const enriched = compareProducts.map((p) => {
+    if (!client) return { ...p, _ad: null, _conc: null };
     const ad = A.productAdherence(p, client, targetAllocation, positions, now);
     const imp = prodComputeImpact(p, p.minApplication, client, positions, targetAllocation, items, productMap);
     return { ...p, _ad: ad, _conc: imp.issuerApos };
@@ -475,8 +481,9 @@ function ProdCompareView({ compareProducts, client, targetAllocation, positions,
   const AD_RANK = { alta: 3, adequado: 2, atencao: 1, nao_recomendado: 0 };
   const maxRate = Math.max(...enriched.filter((p) => p.negotiable).map((p) => p.rateValue || 0));
   const bestLiq = Math.min(...enriched.map((p) => A.liquidityDays(p.liquidity)));
-  const minConc = Math.min(...enriched.map((p) => p._conc));
-  const bestAd = Math.max(...enriched.map((p) => AD_RANK[p._ad.level]));
+  const minConc = client ? Math.min(...enriched.map((p) => p._conc)) : null;
+  const bestAd = client ? Math.max(...enriched.map((p) => AD_RANK[p._ad.level])) : null;
+  const semCliente = <span className="text-neutral-300">Selecione um cliente</span>;
 
   const rows = [
     ['Taxa', (p) => <span className="font-medium text-neutral-900">{p.rateLabel}{p.negotiable && p.rateValue === maxRate ? <ProdTag>Maior taxa</ProdTag> : null}</span>],
@@ -487,8 +494,8 @@ function ProdCompareView({ compareProducts, client, targetAllocation, positions,
     ['Garantia FGC', (p) => (p.fgc ? 'Sim' : 'Não')],
     ['Aplicação mínima', (p) => formatCurrency(p.minApplication)],
     ['Disponibilidade', (p) => prodCompact(p.availableStock)],
-    ['Concentração pós-aplicação', (p) => <span>{p._conc.toFixed(0)}%{p._conc === minConc ? <ProdTag>Menor concentração</ProdTag> : null}</span>],
-    ['Aderência à estratégia', (p) => <span className="inline-flex items-center gap-1"><ProdAdherenceBadge level={p._ad.level} />{AD_RANK[p._ad.level] === bestAd ? <ProdTag>Maior aderência</ProdTag> : null}</span>],
+    ['Concentração pós-aplicação', (p) => (client ? <span>{p._conc.toFixed(0)}%{p._conc === minConc ? <ProdTag>Menor concentração</ProdTag> : null}</span> : semCliente)],
+    ['Aderência à estratégia', (p) => (client ? <span className="inline-flex items-center gap-1"><ProdAdherenceBadge level={p._ad.level} />{AD_RANK[p._ad.level] === bestAd ? <ProdTag>Maior aderência</ProdTag> : null}</span> : semCliente)],
   ];
 
   return (
@@ -534,10 +541,12 @@ function ProdCompareView({ compareProducts, client, targetAllocation, positions,
 
       <div className="flex items-center gap-3 bg-white border border-neutral-100 rounded-large px-4 py-3">
         <span className="text-sm font-medium text-neutral-700">{checkedCount} {checkedCount === 1 ? 'ativo selecionado' : 'ativos selecionados'}</span>
+        {!client && <span className="text-xs text-neutral-400">Selecione um cliente para continuar</span>}
         <button
           onClick={() => onAdd(enriched.filter((p) => checkedIds.has(p.id)))}
-          disabled={checkedCount === 0}
-          className={classNames('ml-auto text-sm px-5 py-2 rounded-pill text-white', checkedCount > 0 ? 'bg-brand hover:bg-brand-dark' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed')}
+          disabled={checkedCount === 0 || !client}
+          title={!client ? 'Selecione um cliente para continuar' : undefined}
+          className={classNames('ml-auto text-sm px-5 py-2 rounded-pill text-white', checkedCount > 0 && client ? 'bg-brand hover:bg-brand-dark' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed')}
         >
           Adicionar à carteira
         </button>

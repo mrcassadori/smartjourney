@@ -298,15 +298,11 @@ function ProdCompareInline({ clients, cart, compareIds, productMap, positions, s
         <ProdInlineClientPicker clients={clients} value={clientId} onSelect={selectClient} />
       </div>
 
-      {client ? (
-        <ProdCompareView
-          compareProducts={compareProducts} client={client} targetAllocation={targetAllocation} positions={clientPositions}
-          items={cartItems} productMap={productMap} now={now}
-          onAdd={handleAdd} onBack={onBack} hideHeader
-        />
-      ) : (
-        <div className="bg-white border border-neutral-100 rounded-large p-10 text-center text-sm text-neutral-400">Selecione um cliente para comparar as condições dos ativos escolhidos.</div>
-      )}
+      <ProdCompareView
+        compareProducts={compareProducts} client={client} targetAllocation={targetAllocation} positions={clientPositions}
+        items={cartItems} productMap={productMap} now={now}
+        onAdd={handleAdd} onBack={onBack} hideHeader
+      />
     </div>
   );
 }
