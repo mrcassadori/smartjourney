@@ -126,15 +126,13 @@ function ProdInlineClientPicker({ clients, value, onSelect }) {
 // escopo global compartilhado, mesmo padrão do resto do Portal). Até lá, só
 // as características (Nível 1) aparecem e "Adicionar à carteira" fica
 // desabilitado — regra de negócio do mockup de referência.
-function ProductDetailDrawer({ product, clients, cart, strategies, positions, productMap, now, onClose, onAttachCartClient, onUpdateCart, onSubmitRecommendation, onGoOrders }) {
-  const { PRODUCT_RISK_LABELS, formatCurrency, formatDate, PRODUCT_STATUS_META, productStatus } = window.PortalLib;
+function ProductDetailDrawer({ product, clients, cart, strategies, positions, productMap, now, onClose, onAttachCartClient, onUpdateCart, onSubmitRecommendation, onSent }) {
+  const { PRODUCT_RISK_LABELS, formatCurrency, formatDate, PRODUCT_STATUS_META, productStatus, segmentLabel } = window.PortalLib;
   const status = PRODUCT_STATUS_META[productStatus(product)];
 
   // Carrinho já EM CONSTRUÇÃO (com itens) pré-preenche o cliente; um carrinho
   // vazio não "sequestra" a escolha (mesma regra da Fase D/6).
   const [clientId, setClientId] = React.useState((cart && cart.items.length > 0) ? cart.clientId : '');
-  const [confirm, setConfirm] = React.useState(null); // null | 'ask' | 'sent'
-  const [sentRecId, setSentRecId] = React.useState(null);
 
   const client = clients.find((c) => c.id === clientId) || null;
   const cartItems = (cart && cart.clientId === clientId) ? cart.items : [];
@@ -155,29 +153,32 @@ function ProductDetailDrawer({ product, clients, cart, strategies, positions, pr
     onAttachCartClient(id);
   }
 
+  // Fase 9 — envia direto (sem "tem certeza?"): a Regra de negócio do mockup só
+  // pede cliente + condições preenchidas, não um passo extra de confirmação.
+  // Avisa o pai (onSent) pra trocar o conteúdo da página inteira pelo Confirmar
+  // Envio — fecha o drawer, já que a página toda muda de propósito.
+  function submitItems(nextItems) {
+    const recItems = nextItems.map((it) => {
+      const p = productMap[it.productId];
+      const rateLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(it.rate).replace('.', ',')}%` : `${it.rate}${p.rateUnit}`) : '—';
+      return { productId: it.productId, asset: p.name, class: p.class, value: it.value, rate: rateLabel, status: 'validado' };
+    });
+    const total = nextItems.reduce((s, it) => s + it.value, 0);
+    const recId = onSubmitRecommendation(clientId, recItems, total);
+    onClose();
+    onSent({ client, items: nextItems, recId: recId || 'REC-' + Math.floor(10000 + Math.random() * 900), total });
+  }
+
   function handleAdd(p, value, rate) {
     const have = new Set(cartItems.map((it) => it.productId));
     const next = have.has(p.id)
       ? cartItems.map((it) => (it.productId === p.id ? { ...it, value, rate } : it))
       : [...cartItems, { productId: p.id, value, rate }];
     onUpdateCart(clientId, next);
-    setConfirm('ask');
-  }
-
-  function submit() {
-    const recItems = cartItems.map((it) => {
-      const p = productMap[it.productId];
-      const rateLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(it.rate).replace('.', ',')}%` : `${it.rate}${p.rateUnit}`) : '—';
-      return { productId: it.productId, asset: p.name, class: p.class, value: it.value, rate: rateLabel, status: 'validado' };
-    });
-    const total = cartItems.reduce((s, it) => s + it.value, 0);
-    const recId = onSubmitRecommendation(clientId, recItems, total);
-    setSentRecId(recId || 'REC-' + Math.floor(10000 + Math.random() * 900));
-    setConfirm('sent');
+    submitItems(next);
   }
 
   return (
-    <React.Fragment>
       <Drawer title={product.name} subtitle={`${product.class} · ${product.subclass}`} onClose={onClose} width="w-full max-w-2xl">
         <div className="flex items-center gap-2 mb-4">
           <StatusPill label={status.label} className={status.className} size="sm" />
@@ -195,6 +196,15 @@ function ProductDetailDrawer({ product, clients, cart, strategies, positions, pr
           <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Para continuar selecione um cliente</div>
           <ProdInlineClientPicker clients={clients} value={clientId} onSelect={selectClient} />
         </div>
+
+        {client && (
+          <div className="border border-neutral-100 rounded-large divide-y divide-neutral-50 mb-4">
+            <div className="flex items-center justify-between px-4 py-2 text-sm"><span className="text-neutral-500">Conta Inter</span><span className="font-medium text-neutral-900">{client.account}</span></div>
+            <div className="flex items-center justify-between px-4 py-2 text-sm"><span className="text-neutral-500">Saldo</span><span className="font-medium text-neutral-900">{formatCurrency(client.availableBalance)}</span></div>
+            <div className="flex items-center justify-between px-4 py-2 text-sm"><span className="text-neutral-500">Perfil</span><span className="font-medium text-neutral-900">{client.riskProfile}</span></div>
+            <div className="flex items-center justify-between px-4 py-2 text-sm"><span className="text-neutral-500">Relacionamento</span><span className="font-medium text-neutral-900">{segmentLabel(client.segment)}</span></div>
+          </div>
+        )}
 
         {!client ? (
           <React.Fragment>
@@ -244,16 +254,6 @@ function ProductDetailDrawer({ product, clients, cart, strategies, positions, pr
           </div>
         )}
       </Drawer>
-
-      {confirm && (
-        <ProdConfirmModal
-          client={client} items={cartItems} sent={confirm === 'sent'} recId={sentRecId}
-          onConfirm={submit}
-          onClose={() => { if (confirm === 'sent') { onGoOrders && onGoOrders(); } setConfirm(null); onClose(); }}
-          onGoOrders={() => { setConfirm(null); onClose(); onGoOrders && onGoOrders(); }}
-        />
-      )}
-    </React.Fragment>
   );
 }
 
@@ -330,8 +330,25 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
   const [openProductId, setOpenProductId] = React.useState(null);
   const [checked, setChecked] = React.useState([]);
   const [picker, setPicker] = React.useState(null); // { productIds, mode: 'add' | 'comparar' }
+  // Fase 9 — Confirmar Envio é página cheia: quando o drawer de 1 ativo envia
+  // uma recomendação, a página inteira troca de conteúdo (não é mais modal).
+  const [sentRecommendation, setSentRecommendation] = React.useState(null); // { client, items, recId, total }
 
   const loading = window.useSimulatedLoading(`${profile.id}|${query}|${tab}`, 280);
+
+  if (sentRecommendation) {
+    const finish = () => {
+      setSentRecommendation(null);
+      onClearCart();
+      onGoOrders();
+    };
+    return (
+      <ProdConfirmPage
+        client={sentRecommendation.client} items={sentRecommendation.items} recId={sentRecommendation.recId} total={sentRecommendation.total}
+        onViewRecommendation={finish} onGoOrders={finish}
+      />
+    );
+  }
 
   if (!canAccess(profile, 'products')) {
     return <window.NoPermissionState title="Sem permissão para o hub de produtos" description="Este perfil não tem acesso ao catálogo de produtos neste cenário." />;
@@ -511,7 +528,7 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
           product={openProduct} clients={clients} cart={cart} strategies={strategies} positions={positions} productMap={productMap} now={now}
           onClose={() => setOpenProductId(null)}
           onAttachCartClient={onAttachCartClient} onUpdateCart={onUpdateCart}
-          onSubmitRecommendation={onSubmitRecommendation} onGoOrders={onGoOrders}
+          onSubmitRecommendation={onSubmitRecommendation} onSent={setSentRecommendation}
         />
       )}
 

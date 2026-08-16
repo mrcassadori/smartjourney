@@ -181,7 +181,7 @@ function Sidebar({ current, pageParams, onNavigate, permissions, profiles, profi
   );
 }
 
-function Shell({ profile, profiles, onChangeProfile, current, pageParams, onNavigate, alertsCount, search, onSearchChange, onSearchSubmit, breadcrumb, children }) {
+function Shell({ profile, profiles, onChangeProfile, current, pageParams, onNavigate, alertsCount, search, onSearchChange, onSearchSubmit, breadcrumb, activeCartClient, onResumeCart, children }) {
   return (
     <div className="min-h-screen flex bg-neutral-50 text-neutral-900">
       <Sidebar
@@ -196,6 +196,16 @@ function Shell({ profile, profiles, onChangeProfile, current, pageParams, onNavi
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="bg-white border-b border-neutral-100 px-4 lg:px-6 py-3 flex items-center gap-4 sticky top-0 z-30">
           <GlobalSearch value={search} onChange={onSearchChange} onSubmit={onSearchSubmit} />
+          {activeCartClient && (
+            <button
+              onClick={onResumeCart}
+              title="Retomar a recomendação em andamento para este cliente"
+              className="hidden md:flex items-center gap-1.5 text-xs font-medium text-brand border border-brand/30 rounded-pill px-3 py-1.5 hover:bg-brand-lightest whitespace-nowrap"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />
+              Cliente: {activeCartClient.name} ({activeCartClient.account})
+            </button>
+          )}
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <button onClick={() => onNavigate('ajuda')} className="hidden sm:flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800">
               <Icon name="helpCircle" size={16} /> Ajuda

@@ -383,35 +383,40 @@ function prodComputeImpact(product, value, client, positions, targetAllocation, 
 }
 
 // Input de taxa negociável (mín/ref/máx) — número editável + slider de apoio.
+// Fase 9 (item 2) — sem slider, igual ao mockup de referência: mín/máx como
+// rótulos de texto acima do campo, e a referência vira uma nota abaixo dele
+// (não mais um eixo de slider) — mesmos dados, forma mais simples.
 function ProdRateInput({ product, value, onChange }) {
   if (!product.negotiable) {
     return <div className="text-sm text-neutral-500">Taxa de mercado — {product.rateLabel} (não negociável).</div>;
   }
   const prefix = product.rateUnit === 'IPCA+' ? 'IPCA +' : '';
   const suffix = product.rateUnit === 'IPCA+' ? '%' : product.rateUnit;
+  const unitless = (v) => `${v}${product.rateUnit === 'IPCA+' ? '%' : ''}`;
   const clamp = (v) => Math.max(product.rateMin, Math.min(product.rateMax, v));
   return (
     <div>
-      <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Taxa proposta ao cliente</div>
+      <div className="flex items-center justify-between text-xs mb-3">
+        <div>
+          <div className="font-semibold text-neutral-500 uppercase tracking-wide">Taxa mínima</div>
+          <div className="text-sm font-medium text-neutral-800 mt-0.5">{unitless(product.rateMin)}</div>
+        </div>
+        <div className="text-right">
+          <div className="font-semibold text-neutral-500 uppercase tracking-wide">Taxa máxima</div>
+          <div className="text-sm font-medium text-neutral-800 mt-0.5">{unitless(product.rateMax)}</div>
+        </div>
+      </div>
+      <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Taxa para o cliente</div>
       <div className="flex items-center gap-2">
         {prefix && <span className="text-sm text-neutral-600">{prefix}</span>}
         <input
           type="number" step="0.1" value={value}
           onChange={(e) => onChange(clamp(parseFloat(e.target.value) || product.rateMin))}
-          className="w-24 text-sm border border-neutral-200 rounded-medium px-3 py-1.5 text-right font-medium"
+          className="flex-1 text-sm border border-neutral-200 rounded-medium px-3 py-1.5 text-right font-medium"
         />
         <span className="text-sm text-neutral-600">{suffix}</span>
       </div>
-      <input
-        type="range" min={product.rateMin} max={product.rateMax} step="0.1" value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full mt-3 accent-brand"
-      />
-      <div className="flex justify-between text-[11px] text-neutral-400 mt-1">
-        <span>mín {product.rateMin}{product.rateUnit === 'IPCA+' ? '%' : ''}</span>
-        <span>referência {product.rateRef}{product.rateUnit === 'IPCA+' ? '%' : ''} · 14:32</span>
-        <span>máx {product.rateMax}{product.rateUnit === 'IPCA+' ? '%' : ''}</span>
-      </div>
+      <div className="text-[11px] text-neutral-400 mt-1.5">Referência atual: {unitless(product.rateRef)} · Atualizado às 14:32</div>
     </div>
   );
 }
@@ -563,7 +568,7 @@ function ProdDetailBody({ product, client, targetAllocation, positions, items, p
         <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
           <h2 className="text-sm font-semibold text-neutral-800">Condições da operação</h2>
           <div>
-            <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Valor da aplicação</div>
+            <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Valor sugerido para aplicação</div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-neutral-500">R$</span>
               <input type="number" step="1000" value={value} onChange={(e) => setValue(Math.max(0, parseInt(e.target.value, 10) || 0))} className="w-40 text-sm border border-neutral-200 rounded-medium px-3 py-1.5 text-right font-medium" />
@@ -1064,43 +1069,46 @@ function ProdRevisarView({ client, items, productMap, now, adherencePct, onConfi
   );
 }
 
-// ---------- Tela 07 — Confirmar envio (modal) ----------
-function ProdConfirmModal({ client, items, sent, recId, onConfirm, onClose, onGoOrders }) {
+// ---------- Tela 07 — Confirmar Envio (Fase 9: página cheia, não modal) ----------
+// Mockup de referência: o envio acontece direto ao clicar "Adicionar à
+// carteira"/"Enviar recomendação" (sem um "tem certeza?" intermediário — a
+// própria Carteira/Revisar já cumpre esse papel) e o sucesso vira uma tela
+// própria dentro do conteúdo, não um modal por cima. Reaproveitada tanto pelo
+// singleFlow (ProductJourney) quanto pelo drawer de 1 ativo (ProductsPage.jsx).
+function ProdConfirmPage({ client, items, recId, total, onViewRecommendation, onGoOrders }) {
   const { formatCurrency } = window.PortalLib;
-  const total = items.reduce((s, it) => s + it.value, 0);
+  const n = items.length;
   return (
-    <Modal title={sent ? 'Recomendação enviada' : 'Enviar recomendação?'} onClose={onClose} width="max-w-md">
-      {sent ? (
-        <div className="text-center py-2">
-          <div className="w-12 h-12 rounded-full bg-success-light text-success-dark flex items-center justify-center mx-auto mb-3"><Icon name="check" size={24} /></div>
-          <div className="font-semibold text-neutral-900">Recomendação {recId} enviada</div>
-          <div className="text-sm text-neutral-500 mt-1">Aguardando aprovação do cliente. Cada investimento continuará sendo acompanhado individualmente.</div>
-          <div className="flex justify-center gap-2 mt-5">
-            <button onClick={onClose} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Fechar</button>
-            <button onClick={onGoOrders} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Ir para Ordens</button>
-          </div>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-semibold text-neutral-900">Confirmar Envio</h1>
+        <p className="text-sm text-neutral-500 mt-1">Sua recomendação de alocação de carteira foi estruturada com sucesso.</p>
+      </div>
+      <div className="bg-white border border-neutral-100 rounded-large p-8 max-w-xl mx-auto text-center">
+        <div className="w-14 h-14 rounded-full bg-success-light text-success-dark flex items-center justify-center mx-auto mb-4">
+          <Icon name="check" size={26} />
         </div>
-      ) : (
-        <div>
-          <div className="space-y-1 mb-3 text-sm">
-            <div className="flex justify-between"><span className="text-neutral-500">Cliente</span><span className="font-medium text-neutral-900">{client.name}</span></div>
-            <div className="flex justify-between"><span className="text-neutral-500">Valor</span><span className="font-medium text-neutral-900">{formatCurrency(total)}</span></div>
-            <div className="flex justify-between"><span className="text-neutral-500">Investimentos</span><span className="font-medium text-neutral-900">{items.length}</span></div>
-          </div>
-          <p className="text-sm text-neutral-600">O cliente receberá uma única recomendação para revisar e aprovar todos os investimentos selecionados.</p>
-          <p className="text-xs text-neutral-400 mt-1">Cada investimento continuará sendo acompanhado individualmente.</p>
-          <div className="flex justify-end gap-2 mt-5">
-            <button onClick={onClose} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Cancelar</button>
-            <button onClick={onConfirm} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Confirmar envio</button>
-          </div>
+        <div className="text-xl font-semibold text-neutral-900">Recomendação enviada!</div>
+        <p className="text-sm text-neutral-600 mt-2">
+          A proposta com {n} {n === 1 ? 'investimento' : 'investimentos'} ({formatCurrency(total)}) foi enviada com sucesso. Agora, está aguardando a aprovação do cliente {client.name} no Super App Inter.
+        </p>
+        <div className="mt-6 border border-neutral-100 rounded-large divide-y divide-neutral-50 text-left">
+          <div className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">Cliente</span><span className="font-medium text-neutral-900">{client.name}</span></div>
+          <div className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">Conta</span><span className="font-medium text-neutral-900">{client.account}</span></div>
+          <div className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">Valor Total</span><span className="font-semibold text-brand">{formatCurrency(total)}</span></div>
         </div>
-      )}
-    </Modal>
+        <div className="flex items-center justify-center gap-3 mt-6 text-sm">
+          <button onClick={onViewRecommendation} className="text-brand font-medium hover:underline">Ver recomendação enviada</button>
+          <span className="text-neutral-300">|</span>
+          <button onClick={onGoOrders} className="text-brand font-medium hover:underline">Ir para central de ordens</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 // ---------- Root ----------
-function ProductJourney({ client, simulation, positions, products, now, initialProductIds, initialMode, cartItems, onCartChange, onExit, onOpenClient, onOpenSimulation, onSubmitRecommendation, onGoOrders }) {
+function ProductJourney({ client, simulation, positions, products, now, initialProductIds, initialMode, cartItems, onCartChange, onExit, onOpenClient, onOpenSimulation, onSubmitRecommendation, onClearCart, onGoOrders }) {
   const A = window.PortalAnalytics;
   const targetAllocation = (simulation && simulation.targetAllocation) || {};
   const hasStrategy = Object.keys(targetAllocation).length > 0;
@@ -1143,7 +1151,6 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
   const [compareIds, setCompareIds] = React.useState(initial.compareIds);
   const [detailId, setDetailId] = React.useState(initial.detailId);
   const [returnView, setReturnView] = React.useState('explorar'); // para onde voltar do detalhe
-  const [confirm, setConfirm] = React.useState(null); // null | 'ask' | 'sent'
   const [sentRecId, setSentRecId] = React.useState(null);
 
   // Soma selecionada por classe, para o motor de necessidades descontar.
@@ -1176,10 +1183,14 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
   }
 
   // Adiciona/atualiza um item com valor e taxa específicos (vindo do Detalhe).
+  // Retorna o array atualizado — o singleFlow precisa dele NO MESMO tick pra
+  // enviar a recomendação junto (o estado `items` só reflete a mudança no
+  // próximo render).
   function upsertItem(product, value, rate) {
     const idx = items.findIndex((it) => it.productId === product.id);
     const next = idx === -1 ? [...items, { productId: product.id, value, rate }] : items.map((it, i) => (i === idx ? { ...it, value, rate } : it));
     setItems(syncCart(next));
+    return next;
   }
 
   function updateItem(productId, patch) {
@@ -1206,16 +1217,27 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
     return Math.round((covered / totalNeed) * 100);
   })();
 
-  function submitRecommendation() {
-    const recItems = items.map((it) => {
+  // Envia direto (sem "tem certeza?" — Carteira/Revisar já cumprem esse papel)
+  // e troca a view pra Confirmar Envio (Fase 9). `itemsOverride` é usado pelo
+  // singleFlow, que chama isso no mesmo clique que adiciona o item: o estado
+  // `items` ainda não foi re-renderizado, então precisa do array já computado.
+  function submitRecommendation(itemsOverride) {
+    const useItems = itemsOverride || items;
+    const recItems = useItems.map((it) => {
       const p = productMap[it.productId];
       const rateLabel = p.negotiable ? (p.rateUnit === 'IPCA+' ? `IPCA + ${String(it.rate).replace('.', ',')}%` : `${it.rate}${p.rateUnit}`) : '—';
       return { productId: it.productId, asset: p.name, class: p.class, value: it.value, rate: rateLabel, status: 'validado' };
     });
-    const total = items.reduce((s, it) => s + it.value, 0);
+    const total = useItems.reduce((s, it) => s + it.value, 0);
     const recId = onSubmitRecommendation ? onSubmitRecommendation(client.id, recItems, total) : null;
     setSentRecId(recId || 'REC-' + Math.floor(10000 + Math.random() * 900));
-    setConfirm('sent');
+    setView('confirmar');
+  }
+
+  // Encerra o carrinho e sai pra Ordens — chamado a partir da tela de sucesso.
+  function finishAndGoOrders() {
+    if (onClearCart) onClearCart();
+    if (onGoOrders) onGoOrders();
   }
 
   // Fase D — Comparar/Carteira "âncora catálogo" devolvem pro catálogo real
@@ -1255,10 +1277,18 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
     content = (
       <ProdRevisarView
         client={client} items={items} productMap={productMap} now={now} adherencePct={adherencePct}
-        onConfirm={() => setConfirm('ask')}
+        onConfirm={() => submitRecommendation()}
         onBack={() => setView('carteira')}
         onAcceptNewRate={(productId) => updateItem(productId, { rateAccepted: true, rate: productMap[productId].rateValue })}
         onSubstitute={(productId, cls) => { removeItem(productId); setNeedContext(cls); setView('explorar'); }}
+      />
+    );
+  } else if (view === 'confirmar') {
+    content = (
+      <ProdConfirmPage
+        client={client} items={items} recId={sentRecId} total={items.reduce((s, it) => s + it.value, 0)}
+        onViewRecommendation={finishAndGoOrders}
+        onGoOrders={finishAndGoOrders}
       />
     );
   } else if (view === 'carteira') {
@@ -1300,29 +1330,18 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
     );
   }
 
-  // Fase E — drawer do singleFlow, sobreposto ao `content` acima; escondido
-  // assim que a confirmação abre (evita empilhar dois overlays escurecidos).
-  const drawer = (view === 'detalhe' && singleFlow && productMap[detailId] && !confirm) ? (
+  // Fase E/9 — drawer do singleFlow, sobreposto ao `content` acima; some assim
+  // que a view muda pra 'confirmar' (envio direto, sem "tem certeza?").
+  const drawer = (view === 'detalhe' && singleFlow && productMap[detailId]) ? (
     <ProdConfigDrawer
       product={productMap[detailId]} client={client} targetAllocation={targetAllocation}
       positions={positions} items={items} productMap={productMap} needs={needs} now={now} hasStrategy={hasStrategy}
-      onAdd={(p, value, rate) => { upsertItem(p, value, rate); setConfirm('ask'); }}
+      onAdd={(p, value, rate) => submitRecommendation(upsertItem(p, value, rate))}
       onClose={onExit}
     />
   ) : null;
 
-  // Modal de confirmação — global, não só de Carteira/Revisar: o singleFlow
-  // (1 produto) pede confirmação direto a partir do drawer de Detalhe.
-  const modal = confirm ? (
-    <ProdConfirmModal
-      client={client} items={items} sent={confirm === 'sent'} recId={sentRecId}
-      onConfirm={submitRecommendation}
-      onClose={() => { if (confirm === 'sent') { onGoOrders && onGoOrders(); } setConfirm(null); }}
-      onGoOrders={() => { setConfirm(null); onGoOrders && onGoOrders(); }}
-    />
-  ) : null;
-
-  return <React.Fragment>{content}{drawer}{modal}</React.Fragment>;
+  return <React.Fragment>{content}{drawer}</React.Fragment>;
 }
 
 window.ProductJourney = ProductJourney;

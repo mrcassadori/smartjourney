@@ -210,13 +210,15 @@ function App() {
   }
 
   // EP-02 — envio da recomendação (Tela 07): cria o registro #REC que passa a ser
-  // acompanhado na Central de Ordens. Retorna o id gerado para o modal de sucesso.
+  // acompanhado na Central de Ordens. Retorna o id gerado para a tela de sucesso.
+  // Fase 9 — não encerra mais o carrinho aqui: a tela "Confirmar Envio" (página
+  // cheia) ainda precisa do cliente/chip no topbar enquanto está visível; quem
+  // encerra é o clique em "Ver recomendação enviada"/"Ir para central de ordens".
   const recSeedCount = DATA.recommendations.length;
   function submitRecommendation(clientId, items, total) {
     const recId = 'REC-' + (10452 + (recommendations.length - recSeedCount));
     const rec = { id: recId, clientId, consultor: profile.name, createdAt: DATA.now, value: total, status: 'aguardando_cliente', pendencias: 0, items };
     setRecommendations((prev) => [rec, ...prev]);
-    setCart(null); // carrinho encerrado — a recomendação enviada passa a viver em Ordens.
     return recId;
   }
 
@@ -561,6 +563,7 @@ function App() {
         onOpenClient={openClient}
         onOpenSimulation={openSimulation}
         onSubmitRecommendation={submitRecommendation}
+        onClearCart={clearCart}
         onGoOrders={() => navigate('orders', {})}
       />
     ) : <ComingSoonPage pageKey="proposta" />;
@@ -641,6 +644,9 @@ function App() {
 
   const orderForClientDrawer = page === 'client' && openOrderId ? orders.find((o) => o.id === openOrderId) : null;
   const requestForClientDrawer = page === 'client' && openRequestId ? serviceRequests.find((r) => r.id === openRequestId) : null;
+  // Fase 9 — chip "Cliente: X" na topbar enquanto há uma recomendação em
+  // andamento (carrinho com cliente anexado), como no mockup de referência.
+  const activeCartClient = cart && cart.clientId ? DATA.clients.find((c) => c.id === cart.clientId) : null;
 
   return (
     <Shell
@@ -655,6 +661,8 @@ function App() {
       onSearchChange={setSearch}
       onSearchSubmit={() => navigate('clients', {})}
       breadcrumb={breadcrumbFor()}
+      activeCartClient={activeCartClient}
+      onResumeCart={() => enterCatalogFlow(activeCartClient.id, [], null)}
     >
       {content}
 
