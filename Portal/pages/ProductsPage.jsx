@@ -307,24 +307,58 @@ function ProdCompareInline({ clients, cart, compareIds, productMap, positions, s
   );
 }
 
-// Fase D — carrinho em construção: aparece no catálogo real quando já existe um
-// cliente anexado com itens, permitindo continuar comprando sem repetir o
-// seletor de cliente (mockup "caso de uso de múltiplos ativos").
-function ProdCartBar({ cart, client, onOpenCart, onClear }) {
+// Fase 11 — painel lateral "Carrinho de ativos", alinhado ao mockup de
+// referência (Figma, frame "carrinho-de-ativos"): substitui a barra
+// horizontal (Fase D) por um painel fixo à direita do catálogo, visível
+// enquanto o consultor segue navegando/filtrando/adicionando — mesmo caso de
+// uso ("caso de uso de múltiplos ativos": ao voltar pra Produtos com um
+// cliente anexado, o carrinho continua ali, sem repetir o seletor). O
+// nome do cliente já aparece no chip da topbar (Shell.jsx, Fase 9), por isso
+// não se repete aqui — mesmo conteúdo do mockup. "Encerrar carrinho" não
+// existe no mockup (não há como abandonar a seleção), mas é mantido como
+// link discreto: sem ele, o consultor ficaria preso a um carrinho errado até
+// enviar ou trocar de cliente.
+function ProdCartPanel({ cart, client, productMap, onOpenCart, onClear }) {
   if (!client) return null;
-  const { formatCurrency } = window.PortalLib;
-  const count = cart.items.length;
-  const total = cart.items.reduce((s, it) => s + (it.value || 0), 0);
+  const { formatCurrency, strategyClassLabel } = window.PortalLib;
+  const items = cart.items;
+  const total = items.reduce((s, it) => s + (it.value || 0), 0);
   return (
-    <div className="flex items-center gap-3 bg-brand-lightest border border-brand/20 rounded-large px-4 py-2.5">
-      <Icon name="briefcase" size={16} className="text-brand shrink-0" />
-      <div className="min-w-0">
-        <div className="text-sm font-medium text-brand-dark truncate">Carteira em construção — {client.name}</div>
-        <div className="text-xs text-neutral-500">{count} {count === 1 ? 'produto selecionado' : 'produtos selecionados'} · {formatCurrency(total)}</div>
+    <div className="w-80 shrink-0 bg-white border border-neutral-100 rounded-large p-5 sticky top-4">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-9 h-9 rounded-medium bg-brand-lightest text-brand flex items-center justify-center shrink-0">
+          <Icon name="briefcase" size={18} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-neutral-900">Carteira</div>
+          <div className="text-xs text-neutral-500">{items.length} {items.length === 1 ? 'produto selecionado' : 'produtos selecionados'}</div>
+        </div>
+        <button onClick={onClear} className="ml-auto text-xs text-neutral-400 hover:text-alert shrink-0 mt-1">Encerrar</button>
       </div>
-      <div className="ml-auto flex items-center gap-2 shrink-0">
-        <button onClick={onClear} className="text-xs text-neutral-500 hover:text-neutral-800 px-2">Encerrar carrinho</button>
-        <button onClick={onOpenCart} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Ver carteira proposta</button>
+      <div className="divide-y divide-neutral-50 border-t border-neutral-50">
+        {items.map((it) => {
+          const p = productMap[it.productId];
+          if (!p) return null;
+          return (
+            <div key={it.productId} className="py-2.5">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="font-medium text-neutral-900 truncate">{p.name}</span>
+                <span className="text-xs text-neutral-400 shrink-0">{strategyClassLabel(p.class)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-xs text-neutral-500 mt-0.5">
+                <span>{p.rateLabel}</span>
+                <span>Mín. {formatCurrency(p.minApplication)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="border-t border-neutral-100 mt-1 pt-3 space-y-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-neutral-500">Total estimado</span>
+          <span className="font-semibold text-neutral-900">{formatCurrency(total)}</span>
+        </div>
+        <button onClick={onOpenCart} className="w-full text-sm px-4 py-2.5 rounded-pill bg-brand text-white hover:bg-brand-dark font-medium">Visualizar Carteira</button>
       </div>
     </div>
   );
@@ -518,80 +552,82 @@ function ProductsPage({ profile, clients, products, now, initialFilters, strateg
   ];
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-neutral-900">Produtos</h1>
-        <p className="text-sm text-neutral-500 mt-1">Encontre oportunidades e construa recomendações de investimento para seus clientes.</p>
-      </div>
+    <div className="flex items-start gap-4">
+      <div className="flex-1 min-w-0 space-y-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">Produtos</h1>
+          <p className="text-sm text-neutral-500 mt-1">Encontre oportunidades e construa recomendações de investimento para seus clientes.</p>
+        </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <ProdKpiCard value={kAvailable} label="Produtos disponíveis" />
-        <ProdKpiCard value={kOpportunities} label="Oportunidades" accent="brand" />
-        <ProdKpiCard value={formatCurrency(kBalance)} label="Saldo de clientes" />
-        <ProdKpiCard value={kMaturitySoon} label="Vencimentos próximos" accent="brand" />
-        <ProdKpiCard value={kAlerts} label="Produtos com alerta" accent="alert" />
-      </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <ProdKpiCard value={kAvailable} label="Produtos disponíveis" />
+          <ProdKpiCard value={kOpportunities} label="Oportunidades" accent="brand" />
+          <ProdKpiCard value={formatCurrency(kBalance)} label="Saldo de clientes" />
+          <ProdKpiCard value={kMaturitySoon} label="Vencimentos próximos" accent="brand" />
+          <ProdKpiCard value={kAlerts} label="Produtos com alerta" accent="alert" />
+        </div>
 
-      {/* Busca + filtros */}
-      <div className="bg-white border border-neutral-100 rounded-large px-4 py-3 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[260px]">
-            <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Busque por ativo, emissor, fundo, indexador ou taxa" className="w-full text-sm border border-neutral-200 rounded-pill pl-9 pr-3 py-1.5" />
+        {/* Busca + filtros */}
+        <div className="bg-white border border-neutral-100 rounded-large px-4 py-3 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[260px]">
+              <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Busque por ativo, emissor, fundo, indexador ou taxa" className="w-full text-sm border border-neutral-200 rounded-pill pl-9 pr-3 py-1.5" />
+            </div>
+            <ProdSelect value={subclass} onChange={setSubclass} label="Produto" options={subclasses} />
+            <ProdSelect value={indexer} onChange={setIndexer} label="Indexador" options={indexers} />
+            <ProdSelect value={issuer} onChange={setIssuer} label="Emissor" options={issuers} className="max-w-[160px]" />
+            <ProdSelect value={maturityBucket} onChange={setMaturityBucket} label="Vencimento" raw options={[['<=2027', 'Até 2027'], ['2028-2030', '2028–2030'], ['2031+', '2031+'], ['none', 'Sem vencimento']]} />
+            <ProdSelect value={liquidity} onChange={setLiquidity} label="Liquidez" options={liquidities} className="max-w-[150px]" />
+            <ProdSelect value={risk} onChange={setRisk} label="Risco" raw options={[['1', 'Muito baixo'], ['2', 'Baixo'], ['3', 'Moderado'], ['4', 'Alto'], ['5', 'Muito alto']]} />
+            <ProdSelect value={rating} onChange={setRating} label="Rating" options={ratings} />
+            <ProdSelect value={fgc} onChange={setFgc} label="FGC" raw options={[['sim', 'Sim'], ['nao', 'Não']]} />
+            <ProdSelect value={minBucket} onChange={setMinBucket} label="Aplicação mínima" raw options={[['<=1000', 'Até R$ 1 mil'], ['1000-10000', 'R$ 1 mil – 10 mil'], ['10000+', 'Acima de R$ 10 mil']]} />
+            <button className="ml-auto text-sm text-brand flex items-center gap-1.5 hover:underline whitespace-nowrap"><Icon name="star" size={14} /> Salvar filtro</button>
           </div>
-          <ProdSelect value={subclass} onChange={setSubclass} label="Produto" options={subclasses} />
-          <ProdSelect value={indexer} onChange={setIndexer} label="Indexador" options={indexers} />
-          <ProdSelect value={issuer} onChange={setIssuer} label="Emissor" options={issuers} className="max-w-[160px]" />
-          <ProdSelect value={maturityBucket} onChange={setMaturityBucket} label="Vencimento" raw options={[['<=2027', 'Até 2027'], ['2028-2030', '2028–2030'], ['2031+', '2031+'], ['none', 'Sem vencimento']]} />
-          <ProdSelect value={liquidity} onChange={setLiquidity} label="Liquidez" options={liquidities} className="max-w-[150px]" />
-          <ProdSelect value={risk} onChange={setRisk} label="Risco" raw options={[['1', 'Muito baixo'], ['2', 'Baixo'], ['3', 'Moderado'], ['4', 'Alto'], ['5', 'Muito alto']]} />
-          <ProdSelect value={rating} onChange={setRating} label="Rating" options={ratings} />
-          <ProdSelect value={fgc} onChange={setFgc} label="FGC" raw options={[['sim', 'Sim'], ['nao', 'Não']]} />
-          <ProdSelect value={minBucket} onChange={setMinBucket} label="Aplicação mínima" raw options={[['<=1000', 'Até R$ 1 mil'], ['1000-10000', 'R$ 1 mil – 10 mil'], ['10000+', 'Acima de R$ 10 mil']]} />
-          <button className="ml-auto text-sm text-brand flex items-center gap-1.5 hover:underline whitespace-nowrap"><Icon name="star" size={14} /> Salvar filtro</button>
+          <div className="flex flex-wrap gap-1.5 border-t border-neutral-100 pt-2.5">
+            {PROD_CLASS_TABS.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)} className={classNames('text-sm px-3 py-1 rounded-pill', tab === t.key ? 'bg-brand text-white' : 'text-neutral-500 hover:bg-neutral-100')}>{t.label}</button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-1.5 border-t border-neutral-100 pt-2.5">
-          {PROD_CLASS_TABS.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)} className={classNames('text-sm px-3 py-1 rounded-pill', tab === t.key ? 'bg-brand text-white' : 'text-neutral-500 hover:bg-neutral-100')}>{t.label}</button>
-          ))}
-        </div>
+
+        {checked.length > 0 && (
+          <div className="flex items-center gap-3 bg-brand-lightest border border-brand/20 rounded-large px-4 py-2.5">
+            <span className="text-sm font-medium text-brand-dark">{checked.length} {checked.length === 1 ? 'produto selecionado' : 'produtos selecionados'}</span>
+            <div className="ml-auto flex items-center gap-2">
+              <button onClick={() => setChecked([])} className="text-xs text-neutral-500 hover:text-neutral-800 px-2">Limpar</button>
+              <button onClick={() => openCompare(checked)} disabled={checked.length < 2} className={classNames('text-sm px-3 py-1.5 rounded-pill border', checked.length < 2 ? 'border-neutral-200 text-neutral-300 cursor-not-allowed' : 'border-neutral-200 text-neutral-700 hover:bg-white')}>Comparar</button>
+              <button onClick={() => openPicker(checked)} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Adicionar à carteira</button>
+            </div>
+          </div>
+        )}
+
+        <div className="text-xs text-neutral-400">{filtered.length} de {products.length} produtos no catálogo</div>
+
+        {loading ? (
+          <window.SkeletonRows count={6} />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            keyField="id"
+            emptyLabel="Nenhum produto para esses filtros."
+            selectable
+            selectedKeys={checked}
+            onToggleSelect={toggleCheck}
+            onToggleAll={toggleAll}
+            onRowClick={(p) => setOpenProductId(p.id)}
+            rowClassName={(p) => PRODUCT_STATUS_META[productStatus(p)].rowClassName}
+          />
+        )}
+
+        {onStartRecommendation && <ProdStrategyInbox strategies={strategies} clients={clients} onStartRecommendation={onStartRecommendation} />}
       </div>
 
       {cart && cart.items.length > 0 && cartClient && (
-        <ProdCartBar cart={cart} client={cartClient} onOpenCart={() => onEnterCatalogFlow(cart.clientId, [], null)} onClear={onClearCart} />
+        <ProdCartPanel cart={cart} client={cartClient} productMap={productMap} onOpenCart={() => onEnterCatalogFlow(cart.clientId, [], null)} onClear={onClearCart} />
       )}
-
-      {checked.length > 0 && (
-        <div className="flex items-center gap-3 bg-brand-lightest border border-brand/20 rounded-large px-4 py-2.5">
-          <span className="text-sm font-medium text-brand-dark">{checked.length} {checked.length === 1 ? 'produto selecionado' : 'produtos selecionados'}</span>
-          <div className="ml-auto flex items-center gap-2">
-            <button onClick={() => setChecked([])} className="text-xs text-neutral-500 hover:text-neutral-800 px-2">Limpar</button>
-            <button onClick={() => openCompare(checked)} disabled={checked.length < 2} className={classNames('text-sm px-3 py-1.5 rounded-pill border', checked.length < 2 ? 'border-neutral-200 text-neutral-300 cursor-not-allowed' : 'border-neutral-200 text-neutral-700 hover:bg-white')}>Comparar</button>
-            <button onClick={() => openPicker(checked)} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark">Adicionar à carteira</button>
-          </div>
-        </div>
-      )}
-
-      <div className="text-xs text-neutral-400">{filtered.length} de {products.length} produtos no catálogo</div>
-
-      {loading ? (
-        <window.SkeletonRows count={6} />
-      ) : (
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          keyField="id"
-          emptyLabel="Nenhum produto para esses filtros."
-          selectable
-          selectedKeys={checked}
-          onToggleSelect={toggleCheck}
-          onToggleAll={toggleAll}
-          onRowClick={(p) => setOpenProductId(p.id)}
-          rowClassName={(p) => PRODUCT_STATUS_META[productStatus(p)].rowClassName}
-        />
-      )}
-
-      {onStartRecommendation && <ProdStrategyInbox strategies={strategies} clients={clients} onStartRecommendation={onStartRecommendation} />}
 
       {openProduct && (
         <ProductDetailDrawer

@@ -920,7 +920,7 @@ function ProdCarteiraView({ client, targetAllocation, positions, needs, items, p
         <table className="w-full text-sm min-w-[820px]">
           <thead className="bg-neutral-50">
             <tr>
-              {['Produto', 'Classe', 'Valor', '% do caixa', 'Taxa', 'Vencimento', 'Liquidez', ''].map((h) => (
+              {['Produto', 'Classe', 'Valor', '% carteira', 'Taxa', 'Vencimento', 'Liquidez', ''].map((h) => (
                 <th key={h} className="text-left font-semibold text-neutral-500 px-3 py-2.5 border-b border-neutral-100 text-xs uppercase tracking-wide">{h}</th>
               ))}
             </tr>
@@ -1209,6 +1209,19 @@ function ProductJourney({ client, simulation, positions, products, now, initialP
     if (onCartChange) onCartChange(client.id, next);
     return next;
   }
+
+  // Bug real (achado ao validar a Fase 11, não introduzido por ela): quando
+  // `initialProductIds` chega com produtos novos (ex.: "Adicionar à carteira"
+  // do multi-select do catálogo), `initialViewAndState` já os mescla no
+  // estado LOCAL (`initial.items`) — mas nunca avisava o carrinho do app.jsx
+  // dessa mesclagem. Se o usuário saísse sem tocar em mais nada (ex.:
+  // "Continuar buscando" direto na Carteira Proposta), o item mesclado
+  // sumia silenciosamente do carrinho persistido na próxima vez que a
+  // jornada fosse reaberta. Sincroniza assim que monta, só quando a
+  // mesclagem de fato adicionou algo novo (evita chamadas redundantes).
+  React.useEffect(() => {
+    if (initial.items.length !== (cartItems || []).length) syncCart(initial.items);
+  }, []); // eslint-disable-line
 
   function addProducts(list) {
     const have = new Set(items.map((it) => it.productId));
