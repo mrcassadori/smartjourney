@@ -119,9 +119,19 @@ function ProposalSidePanel({ ctx, simulation, onRemove }) {
   const { formatCurrency } = window.PortalLib;
   const value = simulation.simulationValue || 0;
   const disponivel = value - ctx.totalAllocated;
+  const pct = value ? Math.min(100, (ctx.totalAllocated / value) * 100) : 0;
   return (
     <div className="bg-white border border-neutral-100 rounded-large p-4 sticky top-4">
-      <h2 className="text-sm font-semibold text-neutral-800 mb-1">Carteira proposta</h2>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-sm font-semibold text-neutral-800">Carteira proposta</h2>
+        <span className="text-xs text-neutral-400">Ativos Adicionados ({ctx.itemEntries.length})</span>
+      </div>
+      <div className="text-xs text-neutral-400 mb-1.5">
+        Meta da simulação: {formatCurrency(value)}
+      </div>
+      <div className="h-1.5 rounded-pill bg-neutral-100 overflow-hidden mb-1.5">
+        <div className={window.PortalLib.classNames('h-full', disponivel < 0 ? 'bg-alert' : 'bg-brand')} style={{ width: `${pct}%` }} />
+      </div>
       <div className="text-xs text-neutral-400 mb-3">
         {value ? `${formatCurrency(ctx.totalAllocated)} de ${formatCurrency(value)}` : formatCurrency(ctx.totalAllocated)}
         {value > 0 && <span className={window.PortalLib.classNames('ml-1', disponivel < 0 ? 'text-alert-dark' : 'text-neutral-400')}>· {formatCurrency(Math.abs(disponivel))} {disponivel < 0 ? 'acima' : 'disponível'}</span>}
@@ -151,7 +161,7 @@ function ProposalSidePanel({ ctx, simulation, onRemove }) {
 
 // ---------- Tela 05 — Buscar e selecionar investimentos ----------
 function Produtos({ simulation, client, products, ctx, now, onPatch, onContinue, onBack, onSaveDraft }) {
-  const { formatCurrency, PRODUCT_RISK_LABELS, isEligible } = window.PortalLib;
+  const { formatCurrency, formatDate, PRODUCT_RISK_LABELS, isEligible } = window.PortalLib;
   const [query, setQuery] = React.useState('');
   const [quick, setQuick] = React.useState('');
   const [riskFilter, setRiskFilter] = React.useState('');
@@ -308,6 +318,7 @@ function Produtos({ simulation, client, products, ctx, now, onPatch, onContinue,
                       <div className="font-medium text-neutral-900">{p.name}</div>
                       <div className="text-xs text-neutral-400 mt-0.5">
                         {p.class} · {p.subclass} · {p.indexer !== '—' ? p.indexer : 'sem indexador'} · liquidez {p.liquidity} · risco {PRODUCT_RISK_LABELS[p.riskLevel]} · mín. {formatCurrency(p.minApplication)}
+                        {p.maturityDate && <span> · Vencimento: {formatDate(p.maturityDate)}</span>}
                       </div>
                       {tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">

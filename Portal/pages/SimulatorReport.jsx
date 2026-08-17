@@ -10,15 +10,15 @@ const REPORT_FORMATS = [
 
 const REPORT_SECTIONS = [
   { key: 'resumo', label: 'Resumo da recomendação' },
-  { key: 'atualProposta', label: 'Atual × Proposta' },
-  { key: 'alocacao', label: 'Alocação' },
-  { key: 'produtos', label: 'Produtos recomendados' },
-  { key: 'performance', label: 'Performance' },
-  { key: 'liquidez', label: 'Liquidez' },
-  { key: 'risco', label: 'Risco' },
-  { key: 'riscoRetorno', label: 'Risco × Retorno' },
-  { key: 'drawdown', label: 'Drawdown' },
-  { key: 'correlacao', label: 'Correlação' },
+  { key: 'atualProposta', label: 'Comparativo: Carteira Atual x Proposta' },
+  { key: 'alocacao', label: 'Alocação por classes de ativos' },
+  { key: 'produtos', label: 'Produtos recomendados em detalhe' },
+  { key: 'performance', label: 'Análise de performance simulada' },
+  { key: 'liquidez', label: 'Métricas de liquidez e prazos' },
+  { key: 'risco', label: 'Riscos e cenários de stress' },
+  { key: 'riscoRetorno', label: 'Risco x Retorno avançado (Markowitz)' },
+  { key: 'drawdown', label: 'Gráfico histórico de Drawdown' },
+  { key: 'correlacao', label: 'Matriz de Correlação entre ativos' },
 ];
 
 // Presets de seções por formato.
@@ -84,7 +84,7 @@ function ReportConfig({ simulation, client, profile, onPatch, onContinue, onBack
         {/* Conteúdo */}
         <div className="bg-white border border-neutral-100 rounded-large p-5">
           <h2 className="text-sm font-semibold text-neutral-800 mb-3">Conteúdo do relatório</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          <div className="space-y-1">
             {REPORT_SECTIONS.map((s) => (
               <label key={s.key} className="flex items-center gap-2 text-sm text-neutral-700 py-1 cursor-pointer">
                 <input type="checkbox" checked={!!cfg.sections[s.key]} onChange={() => toggleSection(s.key)} />
@@ -94,23 +94,25 @@ function ReportConfig({ simulation, client, profile, onPatch, onContinue, onBack
           </div>
         </div>
 
-        {/* Identidade */}
+        {/* Identidade — mostra sempre o consultor responsável; o toggle só liga
+            a marca visual do escritório na capa do documento (Tela 14), não
+            troca a identidade central exibida aqui. */}
         <div className="bg-white border border-neutral-100 rounded-large p-5">
-          <h2 className="text-sm font-semibold text-neutral-800 mb-3">Identidade</h2>
-          <label className="flex items-center gap-2 text-sm text-neutral-700 mb-3 cursor-pointer">
-            <input type="checkbox" checked={cfg.useBranding} onChange={(e) => patchCfg({ useBranding: e.target.checked })} />
-            Utilizar identidade do escritório ({client.escritorio})
-          </label>
-          <div className="flex items-center gap-3">
+          <h2 className="text-sm font-semibold text-neutral-800 mb-3">Identidade visual e contato</h2>
+          <div className="flex items-center gap-3 mb-4">
             <div className="w-11 h-11 rounded-large bg-neutral-100 flex items-center justify-center text-neutral-400 shrink-0">
               <Icon name="briefcase" size={18} />
             </div>
             <div className="text-sm">
-              <div className="font-medium text-neutral-900">{cfg.useBranding ? client.escritorio : 'Inter — Portal do Consultor'}</div>
-              <div className="text-xs text-neutral-500">{profile.name} · Consultor de investimentos</div>
-              <div className="text-[11px] text-neutral-400">{client.escritorio.toLowerCase().replace(/\s+/g, '')}@exemplo.com · (11) 90000-0000</div>
+              <div className="font-medium text-neutral-900">{profile.name}</div>
+              <div className="text-xs text-neutral-500">Consultor de investimentos</div>
+              <div className="text-[11px] text-neutral-400">(11) 90000-0000 · {client.escritorio.toLowerCase().replace(/\s+/g, '')}@exemplo.com</div>
             </div>
           </div>
+          <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+            <input type="checkbox" checked={cfg.useBranding} onChange={(e) => patchCfg({ useBranding: e.target.checked })} />
+            Utilizar identidade do escritório ({client.escritorio})
+          </label>
         </div>
       </div>
 
@@ -247,7 +249,11 @@ function ReportPreview({ simulation, client, profile, ctx }) {
 function SharePreview({ simulation, client, profile, ctx, onBack, onRegisterShared, onExit, onNewSimulation, onOpenClient }) {
   const { formatCurrency, download } = window.PortalLib;
   const [method, setMethod] = React.useState('link');
-  const [email, setEmail] = React.useState({ to: client.email || '', subject: `Proposta de investimentos — ${client.name}`, body: getConfig(simulation).message || '' });
+  const [email, setEmail] = React.useState({
+    to: client.email || '',
+    subject: `Proposta de investimentos — ${client.name}`,
+    body: getConfig(simulation).message || `Olá ${client.name.split(' ')[0]}, segue anexa a proposta de investimentos que preparei para você. Fico à disposição para qualquer dúvida.`,
+  });
   const [register, setRegister] = React.useState(true);
   const [copied, setCopied] = React.useState(false);
   const [sent, setSent] = React.useState(false);
@@ -320,7 +326,7 @@ function SharePreview({ simulation, client, profile, ctx, onBack, onRegisterShar
             <h2 className="text-sm font-semibold text-neutral-800 mb-3">Compartilhar proposta</h2>
             <div className="text-sm space-y-1.5 mb-4">
               <div className="flex justify-between"><span className="text-neutral-500">Cliente</span><span className="text-neutral-900 font-medium">{client.name}</span></div>
-              <div className="flex justify-between"><span className="text-neutral-500">Relatório</span><span className="text-neutral-900">{getConfig(simulation).format === 'executiva' ? 'Executiva' : getConfig(simulation).format === 'completa' ? 'Completa' : 'Técnica'}</span></div>
+              <div className="flex justify-between"><span className="text-neutral-500">Relatório</span><span className="text-neutral-900">Proposta de investimentos — {REPORT_FORMATS.find((f) => f.key === getConfig(simulation).format).label}</span></div>
               <div className="flex justify-between"><span className="text-neutral-500">Versão</span><span className="text-neutral-900">{version}</span></div>
             </div>
 

@@ -20,17 +20,24 @@ function StepCliente({ clients, now, onSelect, onExit }) {
   });
   const recentes = clients.slice().sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)).slice(0, 4);
 
+  const initials = (name) => name.split(' ').slice(0, 2).map((n) => n[0]).join('');
+
+  // Card completo — resultados de busca (Nível de decisão: pode ser qualquer
+  // cliente da base, precisa de mais contexto pra escolher com segurança).
   const card = (c) => {
     const m = RISK_PROFILE_META[c.riskProfile] || { label: c.riskProfile, className: 'bg-neutral-100 text-neutral-600' };
     return (
       <div key={c.id} className="flex items-center justify-between gap-3 border border-neutral-100 rounded-large px-4 py-3 bg-white hover:border-brand/40">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-neutral-900 truncate">{c.name}</span>
-            <StatusPill label={m.label} className={m.className} size="sm" />
-          </div>
-          <div className="text-xs text-neutral-400 mt-0.5">
-            {c.type} · {maskDocument(c.cpfCnpj)} · patrimônio {formatCurrency(c.totalWealth)} · carteira atualizada {formatDate(c.updatedAt)}
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-brand-lightest text-brand-dark text-xs font-semibold flex items-center justify-center shrink-0">{initials(c.name)}</div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-neutral-900 truncate">{c.name}</span>
+              <StatusPill label={m.label} className={m.className} size="sm" />
+            </div>
+            <div className="text-xs text-neutral-400 mt-0.5">
+              {c.type} · {maskDocument(c.cpfCnpj)} · patrimônio {formatCurrency(c.totalWealth)} · carteira atualizada {formatDate(c.updatedAt)}
+            </div>
           </div>
         </div>
         <button onClick={() => onSelect(c.id)} className="text-sm px-4 py-1.5 rounded-pill bg-brand text-white hover:bg-brand-dark shrink-0">
@@ -39,6 +46,18 @@ function StepCliente({ clients, now, onSelect, onExit }) {
       </div>
     );
   };
+
+  // Linha compacta — clientes recentes (já são um atalho, não precisam do
+  // mesmo peso visual do card completo de busca).
+  const RISK_DOT = { Conservador: 'bg-info', Moderado: 'bg-success', Agressivo: 'bg-warning', Sofisticado: 'bg-brand' };
+  const compactRow = (c) => (
+    <button key={c.id} onClick={() => onSelect(c.id)} className="w-full flex items-center gap-3 px-3 py-2 rounded-large hover:bg-neutral-50 text-left">
+      <span className={window.PortalLib.classNames('w-2 h-2 rounded-full shrink-0', RISK_DOT[c.riskProfile] || 'bg-neutral-300')} />
+      <span className="text-sm text-neutral-800 truncate flex-1 min-w-0">{c.name}</span>
+      <span className="text-xs text-neutral-400 shrink-0">{c.riskProfile}</span>
+      <Icon name="chevronRight" size={14} className="text-neutral-300 shrink-0" />
+    </button>
+  );
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -70,9 +89,11 @@ function StepCliente({ clients, now, onSelect, onExit }) {
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          <div className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Clientes recentes</div>
-          {recentes.map(card)}
+        <div>
+          <div className="text-xs font-medium text-neutral-500 uppercase tracking-wide px-1 mb-1">Clientes recentes</div>
+          <div className="border border-neutral-100 rounded-large divide-y divide-neutral-50 bg-white overflow-hidden">
+            {recentes.map(compactRow)}
+          </div>
         </div>
       )}
 

@@ -287,10 +287,18 @@ function RiscoLiquidezTab({ ctx, client, analysis }) {
   );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold text-neutral-900">Análise de Risco e Liquidez</h1>
+        <p className="text-sm text-neutral-500 mt-0.5">Avalie os prazos de resgate e a aderência ao perfil de risco recomendado para o cliente.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Liquidez */}
       <div className="bg-white border border-neutral-100 rounded-large p-5">
-        <h2 className="text-sm font-semibold text-neutral-800 mb-4">Liquidez</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-sm font-semibold text-neutral-800">Liquidez da carteira proposta</h2>
+          <StatusPill label={pm.liquidUpTo5 >= 60 ? 'Alta liquidez' : pm.liquidUpTo5 >= 30 ? 'Moderada liquidez' : 'Baixa liquidez'} className="bg-info-light text-info-dark" size="sm" />
+        </div>
         <div className="space-y-4">
           {ladder('Proposta', pm.liquidityBuckets)}
           {ladder('Atual', cm.liquidityBuckets)}
@@ -302,6 +310,24 @@ function RiscoLiquidezTab({ ctx, client, analysis }) {
             </span>
           ))}
         </div>
+        <table className="w-full text-xs mt-4 border-t border-neutral-100 pt-3">
+          <thead>
+            <tr className="text-[10px] text-neutral-400 uppercase tracking-wide">
+              <th className="text-left font-medium py-1">Período</th>
+              <th className="text-right font-medium py-1">Atual</th>
+              <th className="text-right font-medium py-1">Proposta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pm.liquidityBuckets.map((b, i) => (
+              <tr key={b.key} className="border-b border-neutral-50 last:border-0">
+                <td className="py-1.5 text-neutral-600">{b.label}</td>
+                <td className="py-1.5 text-right tabular-nums text-neutral-700">{cm.liquidityBuckets[i].pct.toFixed(0)}%</td>
+                <td className="py-1.5 text-right tabular-nums text-neutral-900 font-medium">{b.pct.toFixed(0)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         <div className="mt-4 text-sm bg-info-light text-info-dark rounded-medium px-3 py-2 flex items-start gap-2">
           <Icon name="wallet" size={15} className="mt-0.5 shrink-0" />
           {pm.liquidUpTo5.toFixed(0)}% da carteira pode ser convertida em caixa em até 5 dias úteis.
@@ -325,8 +351,9 @@ function RiscoLiquidezTab({ ctx, client, analysis }) {
         <div className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-neutral-100">
           <div><div className="text-[11px] text-neutral-400">Volatilidade</div><div className="text-sm font-semibold text-neutral-900">{(pm.volatility * 100).toFixed(1)}%</div></div>
           <div><div className="text-[11px] text-neutral-400">Maior drawdown</div><div className="text-sm font-semibold text-neutral-900">{analysis.ddProposed.maxDrawdown.toFixed(1)}%</div></div>
-          <div><div className="text-[11px] text-neutral-400">Maior emissor</div><div className="text-sm font-semibold text-neutral-900">{pm.topIssuer ? `${pm.topIssuer.pct.toFixed(0)}%` : '—'}</div></div>
+          <div><div className="text-[11px] text-neutral-400">Maior emissor</div><div className="text-sm font-semibold text-neutral-900">{pm.topIssuer ? `${pm.topIssuer.pct.toFixed(0)}% (${pm.topIssuer.issuer})` : '—'}</div></div>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -406,6 +433,10 @@ function AnaliseTecnicaTab({ ctx, analysis }) {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold text-neutral-900">Análise Técnica e Estatística</h1>
+        <p className="text-sm text-neutral-500 mt-0.5">Métricas quantitativas avançadas de risco, retorno e comportamento histórico das carteiras.</p>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Risco x Retorno */}
         <div className="bg-white border border-neutral-100 rounded-large p-5">
@@ -494,7 +525,12 @@ function ComparacaoTab({ ctx, client, analysis, onGenerateProposal, simulationId
   const liqD = ppDelta(cm.liquidUpTo1, pm.liquidUpTo1, true);
   const concD = ppDelta(cm.topIssuer ? cm.topIssuer.pct : 0, pm.topIssuer ? pm.topIssuer.pct : 0, false);
   const volD = numDelta(cm.volatility * 100, pm.volatility * 100, false, '%');
-  const retD = numDelta(cm.expectedReturn * 100, pm.expectedReturn * 100, true, '%');
+  // Mesma métrica de "Retorno Histórico (12M)" usada na aba Performance —
+  // antes esta linha usava expectedReturn (retorno esperado anualizado, uma
+  // premissa), uma métrica diferente da simulação histórica, o que fazia os
+  // números da Comparação e da Performance divergirem para o mesmo conceito.
+  const ret12 = analysis.hist.periodReturns.find((p) => p.months === 12);
+  const retD = numDelta(ret12.current * 100, ret12.proposed * 100, true, '%');
   const ddD = numDelta(analysis.ddCurrent.maxDrawdown, analysis.ddProposed.maxDrawdown, true, '%');
   const issD = { text: `${(pm.issuerCount || 0) - (cm.issuerCount || 0) >= 0 ? '+' : ''}${(pm.issuerCount || 0) - (cm.issuerCount || 0)}`, tone: 'flat' };
   const prodD = { text: '—', tone: 'flat' };
@@ -508,6 +544,10 @@ function ComparacaoTab({ ctx, client, analysis, onGenerateProposal, simulationId
 
   return (
     <div className="space-y-4">
+      <div>
+        <h1 className="text-lg font-semibold text-neutral-900">Compare as carteiras</h1>
+        <p className="text-sm text-neutral-500 mt-0.5">Análise direta entre a alocação atual e a nova estratégia proposta.</p>
+      </div>
       <div className="flex items-center gap-2">
         <div className="flex gap-1 bg-neutral-100 rounded-pill p-1">
           <button className="text-xs px-3 py-1.5 rounded-pill bg-white text-neutral-900 font-medium shadow-sm">Atual × Proposta</button>
@@ -532,7 +572,7 @@ function ComparacaoTab({ ctx, client, analysis, onGenerateProposal, simulationId
             <CompRow label="Liquidez até D+1" atual={`${cm.liquidUpTo1.toFixed(0)}%`} proposta={`${pm.liquidUpTo1.toFixed(0)}%`} delta={liqD.text} tone={liqD.tone} />
             <CompRow label="Maior concentração" atual={cm.topIssuer ? `${cm.topIssuer.pct.toFixed(0)}%` : '—'} proposta={pm.topIssuer ? `${pm.topIssuer.pct.toFixed(0)}%` : '—'} delta={concD.text} tone={concD.tone} />
             <CompRow label="Volatilidade" atual={`${(cm.volatility * 100).toFixed(1)}%`} proposta={`${(pm.volatility * 100).toFixed(1)}%`} delta={volD.text} tone={volD.tone} />
-            <CompRow label="Retorno esperado" atual={`${(cm.expectedReturn * 100).toFixed(1)}%`} proposta={`${(pm.expectedReturn * 100).toFixed(1)}%`} delta={retD.text} tone={retD.tone} />
+            <CompRow label="Retorno histórico (12M)" atual={`${(ret12.current * 100).toFixed(1)}%`} proposta={`${(ret12.proposed * 100).toFixed(1)}%`} delta={retD.text} tone={retD.tone} />
             <CompRow label="Maior drawdown" atual={`${analysis.ddCurrent.maxDrawdown.toFixed(1)}%`} proposta={`${analysis.ddProposed.maxDrawdown.toFixed(1)}%`} delta={ddD.text} tone={ddD.tone} />
             <CompRow label="Número de emissores" atual={cm.issuerCount || '—'} proposta={pm.issuerCount || '—'} delta={issD.text} tone={issD.tone} />
             <CompRow label="Número de produtos" atual={ctx.currentEntries.length} proposta={ctx.currentEntries.length + ctx.itemEntries.length} delta={`+${ctx.itemEntries.length}`} tone="flat" />
