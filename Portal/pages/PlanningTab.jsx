@@ -35,11 +35,11 @@ function PlanHighlightCards({ cards }) {
   );
 }
 
-function PlanAttention({ items }) {
+function PlanAttention({ items, title }) {
   if (!items.length) return null;
   return (
     <div>
-      <h3 className="text-sm font-semibold text-neutral-800 mb-2">Requer atenção</h3>
+      <h3 className="text-sm font-semibold text-neutral-800 mb-2">{title || 'Requer atenção'}</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {items.map((it, i) => (
           <div key={i} className="bg-white border border-brand/40 rounded-large p-4">
@@ -110,7 +110,7 @@ function PlanChartLegend({ lines }) {
 // ---------------- Tela 01 — Visão geral do planejamento ----------------
 function PlanOverview({ client, plan, onEdit, onOpenResult, onSimulate }) {
   const { formatCurrency } = window.PortalLib;
-  const scenarioAtual = plan.scenarios.find((s) => s.id === plan.selectedScenarioId) || plan.scenarios[0];
+  const scenarioAtual = plan.scenarios.find((s) => s.id === plan.selectedScenarioId) || plan.scenarios[0] || {};
   const financialTotal = plan.wealth.financialInter + plan.wealth.financialExternal;
   const foraPct = financialTotal ? Math.round((plan.wealth.financialExternal / financialTotal) * 100) : 0;
 
@@ -234,7 +234,7 @@ function PlanResult({ client, plan, onBack, onSaveDraft, onContinue, onExport })
     'Há margem para ajuste fino via aumento marginal dos aportes, dilação de prazo ou realocação estratégica.',
   ];
   const attention = [
-    { title: 'Aporte atual abaixo do necessário', desc: `O cliente aporta ${formatCurrency(plan.scenarios[0].monthlyContribution)}/mês, ante os ${formatCurrency(plan.result.requiredContribution)} necessários.` },
+    { title: 'Aporte atual abaixo do necessário', desc: `O cliente aporta ${formatCurrency((plan.scenarios[0] || {}).monthlyContribution)}/mês, ante os ${formatCurrency(plan.result.requiredContribution)} necessários.` },
     { title: 'Dependência de premissas de retorno', desc: `O retorno real precisa se manter em ${plan.assumptions.realReturn}% a.a. para atingir a meta.` },
     { title: 'Concentração fora do Inter', desc: 'Parte relevante dos ativos está fora da instituição, limitando o rebalanceamento automático.' },
   ];
@@ -378,6 +378,7 @@ function PlanReport({ client, plan, onBack, onSend, onSimulate, onNewPlan }) {
 // ================= Wizard de construção (Fase 2) =================
 const WIZARD_STEPS = [
   { key: 'contexto', label: 'Contexto' },
+  { key: 'perfil', label: 'Perfil familiar' },
   { key: 'objetivos', label: 'Objetivos' },
   { key: 'renda', label: 'Renda e despesas' },
   { key: 'patrimonio', label: 'Patrimônio' },
@@ -433,10 +434,15 @@ function PlanStepper({ current }) {
   );
 }
 
-// Tabela editável genérica (linhas add/remove com inputs).
+// Tabela editável genérica (linhas add/remove com inputs). Colunas `type:
+// 'currency'` mostram o valor formatado (R$) fora de foco e o número cru
+// editável em foco; `type: 'number'` fica cru sempre (ex.: Idade).
+const PLAN_TABLE_COL_MIN_WIDTH = { currency: 120, number: 64 };
 function PlanEditableTable({ columns, rows, onChange, addLabel }) {
+  const { formatCurrency } = window.PortalLib;
+  const [focusedCell, setFocusedCell] = React.useState(null);
   function setCell(i, key, value) { onChange(rows.map((r, ri) => (ri === i ? { ...r, [key]: value } : r))); }
-  function addRow() { const blank = {}; columns.forEach((c) => (blank[c.key] = c.type === 'number' ? 0 : '')); onChange([...rows, blank]); }
+  function addRow() { const blank = {}; columns.forEach((c) => (blank[c.key] = (c.type === 'number' || c.type === 'currency') ? 0 : '')); onChange([...rows, blank]); }
   function removeRow(i) { onChange(rows.filter((_, ri) => ri !== i)); }
   return (
     <div>
@@ -444,7 +450,7 @@ function PlanEditableTable({ columns, rows, onChange, addLabel }) {
         <table className="w-full text-sm">
           <thead className="bg-neutral-50">
             <tr>
-              {columns.map((c) => <th key={c.key} className="text-left text-[10px] font-semibold uppercase tracking-wide text-neutral-500 px-3 py-2">{c.label}</th>)}
+              {columns.map((c) => <th key={c.key} style={{ minWidth: PLAN_TABLE_COL_MIN_WIDTH[c.type] || 130 }} className="text-left text-[10px] font-semibold uppercase tracking-wide text-neutral-500 px-3 py-2">{c.label}</th>)}
               <th className="w-8" />
             </tr>
           </thead>
@@ -453,11 +459,25 @@ function PlanEditableTable({ columns, rows, onChange, addLabel }) {
               <tr><td colSpan={columns.length + 1} className="px-3 py-3 text-xs text-neutral-400">Nenhum registro. Use “{addLabel}”.</td></tr>
             ) : rows.map((r, i) => (
               <tr key={i} className="border-b border-neutral-50 last:border-0">
-                {columns.map((c) => (
-                  <td key={c.key} className="px-2 py-1.5">
-                    <input value={r[c.key]} onChange={(e) => setCell(i, c.key, c.type === 'number' ? Number(e.target.value) : e.target.value)} type={c.type === 'number' ? 'number' : 'text'} className="w-full text-sm border border-transparent hover:border-neutral-200 focus:border-brand rounded-medium px-2 py-1 focus:outline-none" />
-                  </td>
-                ))}
+                {columns.map((c) => {
+                  const cellKey = i + ':' + c.key;
+                  const isCurrency = c.type === 'currency';
+                  const isNumeric = isCurrency || c.type === 'number';
+                  const showFormatted = isCurrency && focusedCell !== cellKey;
+                  return (
+                    <td key={c.key} className="px-2 py-1.5">
+                      <input
+                        value={showFormatted ? formatCurrency(r[c.key]) : r[c.key]}
+                        onFocus={() => isCurrency && setFocusedCell(cellKey)}
+                        onBlur={() => isCurrency && setFocusedCell((k) => (k === cellKey ? null : k))}
+                        onChange={(e) => setCell(i, c.key, isNumeric ? Number(e.target.value) : e.target.value)}
+                        type={isNumeric && !showFormatted ? 'number' : 'text'}
+                        title={!isNumeric ? String(r[c.key]) : undefined}
+                        className="w-full text-sm border border-transparent hover:border-neutral-200 focus:border-brand rounded-medium px-2 py-1 focus:outline-none"
+                      />
+                    </td>
+                  );
+                })}
                 <td className="px-1"><button onClick={() => removeRow(i)} aria-label="Remover" className="text-neutral-300 hover:text-alert-dark p-1"><Icon name="x" size={13} /></button></td>
               </tr>
             ))}
@@ -501,12 +521,73 @@ function PlanField({ label, children }) {
 }
 const inputCls = 'w-full text-sm border border-neutral-200 rounded-medium px-3 py-2 focus:outline-none focus:border-brand';
 
-function PlanStepContexto({ draft, set }) {
+// Combobox compacto "Associar a um cliente" — só usado na entrada tool-first
+// (sem cliente fixo, GOVERNANCA.md "Planejamento → Cliente"). Busca por nome/
+// CPF reaproveita o padrão de StepCliente (SimulatorJourney.jsx), num campo
+// embutido em vez de tela própria, como o Figma desenha.
+function PlanClientPicker({ clients, selectedClientId, onSelectClient }) {
+  const { maskDocument, onlyDigits } = window.PortalLib;
+  const [q, setQ] = React.useState('');
+  const [open, setOpen] = React.useState(false);
+  const selected = clients.find((c) => c.id === selectedClientId);
+  const query = q.trim().toLowerCase();
+  const queryDigits = onlyDigits(query);
+  const matches = (query
+    ? clients.filter((c) => c.name.toLowerCase().indexOf(query) !== -1 || (queryDigits && onlyDigits(c.cpfCnpj).indexOf(queryDigits) !== -1))
+    : clients
+  ).slice(0, 6);
+
+  if (selected && !open) {
+    return (
+      <PlanField label="Associar a um cliente">
+        <div className="flex items-center justify-between border border-neutral-200 rounded-medium px-3 py-2">
+          <span className="text-sm text-neutral-900">{selected.name}</span>
+          <button onClick={() => { setOpen(true); setQ(''); }} className="text-xs text-brand-dark hover:underline">Trocar</button>
+        </div>
+      </PlanField>
+    );
+  }
+  return (
+    <PlanField label="Associar a um cliente">
+      <div className="relative">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onFocus={() => setOpen(true)}
+          placeholder="Buscar cliente por nome ou CPF"
+          className={inputCls}
+        />
+        {open && (
+          <div className="absolute z-10 mt-1 w-full bg-white border border-neutral-200 rounded-medium shadow-lg max-h-56 overflow-y-auto">
+            {matches.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-neutral-400">Nenhum cliente encontrado.</div>
+            ) : matches.map((c) => (
+              c.hasPlan ? (
+                <div key={c.id} title="Este cliente já tem um planejamento — edite pela ficha dele." className="w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 cursor-not-allowed">
+                  <span className="text-neutral-400 truncate">{c.name}</span>
+                  <span className="text-xs text-neutral-300 shrink-0">Já possui plano</span>
+                </div>
+              ) : (
+                <button key={c.id} onClick={() => { onSelectClient(c.id); setOpen(false); setQ(''); }} className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 flex items-center justify-between gap-2">
+                  <span className="text-neutral-800 truncate">{c.name}</span>
+                  <span className="text-xs text-neutral-400 shrink-0">{maskDocument(c.cpfCnpj)}</span>
+                </button>
+              )
+            ))}
+          </div>
+        )}
+      </div>
+    </PlanField>
+  );
+}
+
+function PlanStepNovo({ draft, set, clients, selectedClientId, onSelectClient }) {
   const built = ['Definição do objetivo financeiro de longo prazo', 'Projeção de fluxo de renda e despesas futuras', 'Geração e testes de múltiplos cenários', 'Mapeamento do patrimônio e distribuição de ativos', 'Configuração de premissas macroeconômicas', 'Construção de recomendação final personalizada'];
   return (
     <div className="space-y-4">
       <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
         <h2 className="text-base font-semibold text-neutral-900">Iniciar planejamento financeiro</h2>
+        {clients && <PlanClientPicker clients={clients} selectedClientId={selectedClientId} onSelectClient={onSelectClient} />}
         <PlanField label="Nome do planejamento"><input value={draft.name} onChange={(e) => set({ name: e.target.value })} className={inputCls} placeholder="Ex.: Planejamento Mariana 2026 — Versão Base" /></PlanField>
         <div>
           <label className="text-xs text-neutral-500">Tipo de plano</label>
@@ -526,6 +607,25 @@ function PlanStepContexto({ draft, set }) {
         <PlanField label="Observações iniciais"><textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} rows={2} className={inputCls} /></PlanField>
       </div>
 
+      <div className="bg-white border border-neutral-100 rounded-large p-5">
+        <h3 className="text-sm font-semibold text-neutral-800 mb-3">O que será construído neste planejamento</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6">
+          {built.map((t) => <div key={t} className="flex items-center gap-2 text-sm text-neutral-600"><Icon name="check" size={14} className="text-success-dark shrink-0" /> {t}</div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlanStepPerfilFamiliar({ draft, set }) {
+  const deps = draft.context.dependents;
+  const familyImpact = deps.length ? [
+    { title: `${deps.length} dependente${deps.length > 1 ? 's' : ''} financeiro${deps.length > 1 ? 's' : ''}`, desc: 'Isso acarreta custos constantes nos próximos anos.' },
+    { title: `Maior pressão de caixa pelos próximos ${Math.max(...deps.map((d) => Math.max(0, 24 - (Number(d.age) || 24))))} anos`, desc: 'Necessidade de concentrar aportes relevantes no período corrente.' },
+    { title: 'Necessidade de proteger renda futura', desc: 'Recomenda-se prever seguros de vida e previdência privada robustos.' },
+  ] : [];
+  return (
+    <div className="space-y-4">
       <div className="bg-white border border-neutral-100 rounded-large p-5 space-y-4">
         <h2 className="text-base font-semibold text-neutral-900">Contexto pessoal e familiar</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -546,12 +646,7 @@ function PlanStepContexto({ draft, set }) {
         <PlanField label="Contexto adicional (observações do consultor)"><textarea value={draft.context.notes} onChange={(e) => set({ context: { ...draft.context, notes: e.target.value } })} rows={2} className={inputCls} /></PlanField>
       </div>
 
-      <div className="bg-white border border-neutral-100 rounded-large p-5">
-        <h3 className="text-sm font-semibold text-neutral-800 mb-3">O que será construído neste planejamento</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6">
-          {built.map((t) => <div key={t} className="flex items-center gap-2 text-sm text-neutral-600"><Icon name="check" size={14} className="text-success-dark shrink-0" /> {t}</div>)}
-        </div>
-      </div>
+      <PlanAttention items={familyImpact} title="Impacto familiar no plano" />
     </div>
   );
 }
@@ -601,7 +696,7 @@ function PlanStepRenda({ draft, set }) {
   const income = draft.cashflow.incomes.reduce((s, r) => s + (Number(r.value) || 0), 0);
   const expense = draft.cashflow.expenses.reduce((s, r) => s + (Number(r.value) || 0), 0);
   const capacity = income - expense;
-  const cols = [{ key: 'desc', label: 'Descrição' }, { key: 'value', label: 'Valor', type: 'number' }, { key: 'start', label: 'Início' }, { key: 'end', label: 'Término' }, { key: 'recurrence', label: 'Recorrência' }];
+  const cols = [{ key: 'desc', label: 'Descrição' }, { key: 'value', label: 'Valor', type: 'currency' }, { key: 'start', label: 'Início' }, { key: 'end', label: 'Término' }, { key: 'recurrence', label: 'Recorrência' }];
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -650,11 +745,11 @@ function PlanStepPatrimonio({ draft, set }) {
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white border border-neutral-100 rounded-large p-4">
             <h3 className="text-sm font-semibold text-neutral-800 mb-2">Investimentos financeiros</h3>
-            <PlanEditableTable columns={[{ key: 'inst', label: 'Instituição' }, { key: 'category', label: 'Categoria' }, { key: 'value', label: 'Valor', type: 'number' }, { key: 'liquidity', label: 'Liquidez' }, { key: 'notes', label: 'Observações' }]} rows={inv} onChange={(rows) => set({ wealth: { ...draft.wealth, investments: rows } })} addLabel="Adicionar investimento" />
+            <PlanEditableTable columns={[{ key: 'inst', label: 'Instituição' }, { key: 'category', label: 'Categoria' }, { key: 'value', label: 'Valor', type: 'currency' }, { key: 'liquidity', label: 'Liquidez' }, { key: 'notes', label: 'Observações' }]} rows={inv} onChange={(rows) => set({ wealth: { ...draft.wealth, investments: rows } })} addLabel="Adicionar investimento" />
           </div>
           <div className="bg-white border border-neutral-100 rounded-large p-4">
             <h3 className="text-sm font-semibold text-neutral-800 mb-2">Outros bens</h3>
-            <PlanEditableTable columns={[{ key: 'type', label: 'Tipo' }, { key: 'desc', label: 'Descrição' }, { key: 'value', label: 'Valor estimado', type: 'number' }]} rows={draft.wealth.otherAssets} onChange={(rows) => set({ wealth: { ...draft.wealth, otherAssets: rows } })} addLabel="Adicionar bem" />
+            <PlanEditableTable columns={[{ key: 'type', label: 'Tipo' }, { key: 'desc', label: 'Descrição' }, { key: 'value', label: 'Valor estimado', type: 'currency' }]} rows={draft.wealth.otherAssets} onChange={(rows) => set({ wealth: { ...draft.wealth, otherAssets: rows } })} addLabel="Adicionar bem" />
           </div>
         </div>
         <PlanSideCard title="Leitura patrimonial">
@@ -674,6 +769,13 @@ function PlanStepPremissas({ draft, set }) {
   const A = draft.assumptions;
   const fields = [['inflation', 'Inflação esperada'], ['nominalReturn', 'Retorno nominal esperado'], ['realReturn', 'Retorno real esperado'], ['cdi', 'CDI de referência'], ['expenseGrowth', 'Crescimento das despesas'], ['incomeGrowth', 'Crescimento da renda']];
   const validations = [['taxa', 'Taxa real de juros alinhada ao cenário macroeconômico atual.'], ['inflacao', 'Curva de inflação de longo prazo estimada com base nas projeções Focus.'], ['despesas', 'Crescimento de despesas indexado ao perfil de consumo do cliente.'], ['risco', 'Diferencial de prêmio de risco parametrizado para o perfil.']];
+  // Edição com vírgula decimal (padrão BR) — texto cru enquanto em foco,
+  // formatado com vírgula fora de foco; commit só ocorre com número válido.
+  const [rawEdits, setRawEdits] = React.useState({});
+  const commitPct = (k, raw) => {
+    const n = Number(raw.replace(',', '.'));
+    if (Number.isFinite(n)) set({ assumptions: { ...A, [k]: n } });
+  };
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="lg:col-span-2 space-y-4">
@@ -684,7 +786,18 @@ function PlanStepPremissas({ draft, set }) {
             {fields.map(([k, label]) => (
               <PlanField key={k} label={label}>
                 <div className="flex items-center border border-neutral-200 rounded-medium px-3 focus-within:border-brand">
-                  <input type="number" step="0.1" value={A[k]} onChange={(e) => set({ assumptions: { ...A, [k]: Number(e.target.value) } })} className="w-full text-sm py-2 focus:outline-none" />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={rawEdits[k] !== undefined ? rawEdits[k] : String(A[k]).replace('.', ',')}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9,]/g, '');
+                      setRawEdits((r) => ({ ...r, [k]: raw }));
+                      commitPct(k, raw);
+                    }}
+                    onBlur={() => setRawEdits((r) => { const next = { ...r }; delete next[k]; return next; })}
+                    className="w-full text-sm py-2 focus:outline-none"
+                  />
                   <span className="text-xs text-neutral-400 pl-1">% a.a.</span>
                 </div>
               </PlanField>
@@ -714,18 +827,26 @@ function PlanStepPremissas({ draft, set }) {
   );
 }
 
-function PlanningWizard({ client, plan, onCancel, onSaveDraft, onCalculate }) {
+// `client` fixo (fluxo normal, de dentro da ficha do cliente) ou `null` +
+// `clients` (entrada tool-first "Planejamento → Cliente", GOVERNANCA.md) —
+// nesse modo, a Etapa 1 embute o seletor de cliente e os botões de commit
+// ficam bloqueados até haver um cliente associado.
+function PlanningWizard({ client, plan, clients, onCancel, onSaveDraft, onCalculate }) {
   const [step, setStep] = React.useState(0);
   const [draft, setDraft] = React.useState(() => draftFromPlan(plan));
+  const [pickedClientId, setPickedClientId] = React.useState(client ? client.id : null);
   const set = (patch) => setDraft((d) => Object.assign({}, d, patch));
-  const last = step === 4; // Premissas é a última etapa do wizard (Cenários = pós-cálculo)
+  const last = step === 5; // Premissas é a última etapa do wizard (Cenários = pós-cálculo)
+  const needsClientPicker = !client;
+  const canCommit = !needsClientPicker || !!pickedClientId;
 
   const commit = (finalize) => {
+    if (!canCommit) return;
     const inv = draft.wealth.investments;
     const inter = inv.filter((x) => (x.inst || '').toLowerCase() === 'inter').reduce((s, x) => s + (Number(x.value) || 0), 0);
     const fora = inv.reduce((s, x) => s + (Number(x.value) || 0), 0) - inter;
     const payload = Object.assign({}, draft, { wealth: Object.assign({}, draft.wealth, { financialInter: inter, financialExternal: fora }) });
-    if (finalize) onCalculate(payload); else onSaveDraft(payload);
+    if (finalize) onCalculate(payload, pickedClientId); else onSaveDraft(payload, pickedClientId);
   };
 
   return (
@@ -734,18 +855,20 @@ function PlanningWizard({ client, plan, onCancel, onSaveDraft, onCalculate }) {
         <PlanStepper current={step} />
       </div>
 
-      {step === 0 && <PlanStepContexto draft={draft} set={set} />}
-      {step === 1 && <PlanStepObjetivos draft={draft} set={set} />}
-      {step === 2 && <PlanStepRenda draft={draft} set={set} />}
-      {step === 3 && <PlanStepPatrimonio draft={draft} set={set} />}
-      {step === 4 && <PlanStepPremissas draft={draft} set={set} />}
+      {step === 0 && <PlanStepNovo draft={draft} set={set} clients={needsClientPicker ? clients : null} selectedClientId={pickedClientId} onSelectClient={setPickedClientId} />}
+      {step === 1 && <PlanStepPerfilFamiliar draft={draft} set={set} />}
+      {step === 2 && <PlanStepObjetivos draft={draft} set={set} />}
+      {step === 3 && <PlanStepRenda draft={draft} set={set} />}
+      {step === 4 && <PlanStepPatrimonio draft={draft} set={set} />}
+      {step === 5 && <PlanStepPremissas draft={draft} set={set} />}
 
       <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
         <button onClick={() => (step === 0 ? onCancel() : setStep(step - 1))} className="text-sm text-neutral-500 hover:text-neutral-800 flex items-center gap-1.5"><Icon name="arrowLeft" size={14} /> Voltar</button>
         <div className="flex items-center gap-2">
-          <button onClick={() => commit(false)} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 hover:bg-neutral-50">Salvar rascunho</button>
+          {needsClientPicker && !pickedClientId && <span className="text-xs text-neutral-400">Associe um cliente na Etapa 1 para salvar</span>}
+          <button onClick={() => commit(false)} disabled={!canCommit} className={window.PortalLib.classNames('text-sm px-4 py-2 rounded-pill border', canCommit ? 'border-neutral-200 hover:bg-neutral-50' : 'border-neutral-200 text-neutral-300 cursor-not-allowed')}>Salvar rascunho</button>
           {last ? (
-            <button onClick={() => commit(true)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5"><Icon name="target" size={14} /> Calcular plano</button>
+            <button onClick={() => commit(true)} disabled={!canCommit} className={window.PortalLib.classNames('text-sm px-5 py-2 rounded-pill text-white flex items-center gap-1.5', canCommit ? 'bg-brand hover:bg-brand-dark' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed')}><Icon name="target" size={14} /> Calcular plano</button>
           ) : (
             <button onClick={() => setStep(step + 1)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Continuar</button>
           )}
@@ -764,7 +887,7 @@ function viableIncome(s) { return Math.round(s.desiredIncome * (s.goalPct / 100)
 // ---------------- Tela 09 — Cenários ----------------
 function PlanScenarios({ plan, onBack, onCompare }) {
   const { formatCurrency } = window.PortalLib;
-  const atual = plan.scenarios[0];
+  const atual = plan.scenarios[0] || {};
   const params = [
     { label: 'Idade de aposentadoria', value: `${atual.retireAge} anos` },
     { label: 'Aporte mensal', value: formatCurrency(atual.monthlyContribution) },
@@ -846,7 +969,7 @@ function PlanScenarios({ plan, onBack, onCompare }) {
 // ---------------- Tela 10 — Comparação de cenários ----------------
 function PlanComparison({ plan, onBack, onContinue }) {
   const { formatCurrency } = window.PortalLib;
-  const [atual, a, b] = plan.scenarios;
+  const [atual = {}, a = {}, b = {}] = plan.scenarios;
   const rows = [
     ['Idade de aposentadoria', `${atual.retireAge} anos`, `${a.retireAge} anos`, `${b.retireAge} anos`],
     ['Aporte mensal', formatCurrency(atual.monthlyContribution), formatCurrency(a.monthlyContribution), formatCurrency(b.monthlyContribution)],
@@ -922,7 +1045,7 @@ function PlanComparison({ plan, onBack, onContinue }) {
 // ---------------- Tela 11 — Recomendações e próximos passos ----------------
 function PlanRecommendations({ plan, now, onBack, onReport, onSimulate }) {
   const { formatCurrency, formatDateTime } = window.PortalLib;
-  const a = plan.scenarios[1] || plan.scenarios[0];
+  const a = plan.scenarios[1] || plan.scenarios[0] || {};
   const head = [
     ['Objetivo principal', plan.objectives.primary],
     ['Idade alvo', `${a.retireAge} anos`],
@@ -1003,7 +1126,7 @@ function PlanRecommendations({ plan, now, onBack, onReport, onSimulate }) {
 // ---------------- Estado — Transição para o simulador ----------------
 function PlanTransition({ plan, onBack, onSimulate }) {
   const { formatCurrency } = window.PortalLib;
-  const a = plan.scenarios[1] || plan.scenarios[0];
+  const a = plan.scenarios[1] || plan.scenarios[0] || {};
   const rows = [
     ['Objetivo financeiro', plan.objectives.primary],
     ['Patrimônio alvo', formatCurrency(a.projectedWealth)],
@@ -1013,6 +1136,23 @@ function PlanTransition({ plan, onBack, onSimulate }) {
   ];
   return (
     <div className="bg-white border border-neutral-100 rounded-large p-8 max-w-2xl mx-auto text-center">
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-success-light text-success-dark flex items-center justify-center text-xs font-semibold"><Icon name="check" size={13} /></span>
+          <div className="text-left">
+            <div className="text-xs font-semibold text-neutral-800">1. Planejamento</div>
+            <div className="text-[11px] text-neutral-400">Definição de Metas &amp; Gap</div>
+          </div>
+        </div>
+        <Icon name="chevronRight" size={14} className="text-neutral-300 shrink-0" />
+        <div className="flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-brand text-white flex items-center justify-center text-xs font-semibold">2</span>
+          <div className="text-left">
+            <div className="text-xs font-semibold text-neutral-800">2. Simulador</div>
+            <div className="text-[11px] text-neutral-400">Estruturação da Carteira</div>
+          </div>
+        </div>
+      </div>
       <span className="w-16 h-16 rounded-full bg-brand-lightest text-brand-dark flex items-center justify-center mb-4 mx-auto"><Icon name="target" size={28} /></span>
       <h2 className="text-lg font-semibold text-neutral-900">Transforme o plano em estratégia de investimento</h2>
       <p className="text-sm text-neutral-500 mt-1.5">Leve os parâmetros do plano para o simulador e monte a carteira aderente.</p>
@@ -1105,4 +1245,5 @@ function PlanningTab({ client, plan, now, onCreatePlan, onGenerateReport, onSimu
 }
 
 window.PlanningTab = PlanningTab;
+window.PlanningWizard = PlanningWizard;
 window.PLAN_STATUS_META = PLAN_STATUS_META;

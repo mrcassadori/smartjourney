@@ -17,7 +17,7 @@
       role: 'Consultor',
       escritorio: 'Åpen Capital',
       scopeType: 'own',
-      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'recommendations', 'operations', 'support'], canRetryOrders: true, canApprove: false, canViewConsolidated: false, canCreateBasket: false, canOperateDirectly: false },
+      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'planning', 'recommendations', 'operations', 'support'], canRetryOrders: true, canApprove: false, canViewConsolidated: false, canCreateBasket: false, canOperateDirectly: false },
     },
     {
       id: 'alocador',
@@ -25,7 +25,7 @@
       role: 'Alocador',
       escritorio: 'Åpen Capital',
       scopeType: 'office',
-      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'recommendations', 'operations', 'support'], canRetryOrders: true, canApprove: true, canViewConsolidated: false, canCreateBasket: true, canOperateDirectly: false },
+      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'planning', 'recommendations', 'operations', 'support'], canRetryOrders: true, canApprove: true, canViewConsolidated: false, canCreateBasket: true, canOperateDirectly: false },
     },
     {
       id: 'daily_banker',
@@ -41,7 +41,7 @@
       role: 'Gestor do escritório',
       escritorio: 'Ticker Investimentos',
       scopeType: 'office',
-      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'recommendations', 'operations', 'support'], canRetryOrders: false, canApprove: true, canViewConsolidated: true, canCreateBasket: false, canOperateDirectly: false },
+      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'planning', 'recommendations', 'operations', 'support'], canRetryOrders: false, canApprove: true, canViewConsolidated: true, canCreateBasket: false, canOperateDirectly: false },
     },
     {
       id: 'admin',
@@ -49,7 +49,7 @@
       role: 'Administrador',
       escritorio: 'Inter — Consultorias',
       scopeType: 'all',
-      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'recommendations', 'operations', 'support'], canRetryOrders: true, canApprove: true, canViewConsolidated: true, canCreateBasket: true, canOperateDirectly: true },
+      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'planning', 'recommendations', 'operations', 'support'], canRetryOrders: true, canApprove: true, canViewConsolidated: true, canCreateBasket: true, canOperateDirectly: true },
     },
     {
       id: 'sem_vinculo',
@@ -724,7 +724,7 @@
       },
       assumptions: {
         inflation: 4.5, nominalReturn: 9.5, realReturn: 4.8, cdi: 11.2, expenseGrowth: 4.5, incomeGrowth: 5.0,
-        validated: { inflation: false, realReturn: false, nominalReturn: true },
+        validated: { taxa: true, inflacao: true, despesas: true, risco: true },
       },
       scenarios: [
         { id: 'SC0', name: 'Cenário atual', retireAge: 60, monthlyContribution: 8000, realReturn: 4.8, desiredIncome: 20000, projectedWealth: 3580000, goalPct: 82, status: 'gap' },

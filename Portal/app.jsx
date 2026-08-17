@@ -56,6 +56,12 @@ function App() {
   const scopedServiceRequests = React.useMemo(() => serviceRequests.filter((r) => scopedClientIds.has(r.clientId)), [serviceRequests, scopedClientIds]);
   const scopedTickets = React.useMemo(() => tickets.filter((t) => scopedClientIds.has(t.clientId)), [tickets, scopedClientIds]);
   const unresolvedAlertsCount = scopedAlerts.filter((a) => a.status === 'novo' || a.status === 'em_tratamento').length;
+  // Planejamento é 1:1 por cliente (commitPlanDraft upserta por clientId) — a
+  // entrada tool-first precisa saber quem já tem plano pra não sobrescrever.
+  const clientsWithPlanFlag = React.useMemo(() => {
+    const withPlan = new Set(financialPlans.map((p) => p.clientId));
+    return scopedClients.map((c) => (withPlan.has(c.id) ? Object.assign({}, c, { hasPlan: true }) : c));
+  }, [scopedClients, financialPlans]);
 
   function navigate(key, params) {
     setPage(key);
@@ -63,9 +69,10 @@ function App() {
     if (key !== 'client') setSelectedClientId(null);
   }
 
-  function openClient(id) {
+  function openClient(id, params) {
     setSelectedClientId(id);
     setPage('client');
+    setPageParams(params || {});
   }
 
   function changeProfile(id) {
@@ -425,6 +432,7 @@ function App() {
     if (page === 'operations') return [{ label: 'Operações' }];
     if (page === 'support') return [{ label: 'Central de suporte' }];
     if (page === 'simulacoes') return [{ label: 'Investimentos' }, { label: 'Simulador' }];
+    if (page === 'planejamento') return [{ label: 'Planejamento' }];
     if (page === 'simulator') {
       return [
         { label: 'Simulador', onClick: () => navigate('simulacoes', {}) },
@@ -488,6 +496,7 @@ function App() {
         tickets={tickets.filter((t) => t.clientId === selectedClient.id)}
         plan={financialPlans.find((p) => p.clientId === selectedClient.id) || null}
         now={DATA.now}
+        initialTab={pageParams.tab}
         onBack={() => navigate('clients', {})}
         onOpenOrder={(id) => setOpenOrderId(id)}
         onOpenClient={openClient}
@@ -610,6 +619,24 @@ function App() {
         onNewSimulation={newBlankSimulation}
         onOpenClient={openClient}
         onImplementProducts={startRecommendation}
+      />
+    );
+  } else if (page === 'planejamento') {
+    // Entrada tool-first "Planejamento → Cliente" (GOVERNANCA.md) — mirror do
+    // "Nova simulação": sem cliente fixo, sem header/tabs do cliente ao redor
+    // (só sidebar + topbar do Shell), igual ao frame Figma
+    // "planejamento-novo-sem-cliente". A Etapa 1 do wizard embute o seletor
+    // de cliente; ao salvar/calcular, upserta via commitPlanDraft (mesmo
+    // handler do fluxo client-first) e aterrissa na aba Planejamento do
+    // cliente escolhido.
+    content = (
+      <window.PlanningWizard
+        client={null}
+        plan={null}
+        clients={clientsWithPlanFlag}
+        onCancel={() => navigate('home', {})}
+        onSaveDraft={(draft, clientId) => { commitPlanDraft(clientId, draft, 'em_construcao'); openClient(clientId, { tab: 'planning' }); }}
+        onCalculate={(draft, clientId) => { commitPlanDraft(clientId, draft, 'em_construcao'); openClient(clientId, { tab: 'planning' }); }}
       />
     );
   } else if (page === 'operations') {

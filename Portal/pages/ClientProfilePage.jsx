@@ -1448,10 +1448,10 @@ function ReportModal({ client, positions, now, onClose, onSend }) {
 
 function ClientProfilePage({
   client, profile, positions, cashEvents, alerts, orders, onboardingEntry, simulations, serviceRequests, holdingRelations,
-  allClients, documents, accessLog, bankingProfile, tickets, plan, now, onBack, onOpenOrder, onOpenSimulation, onNewSimulation, onOpenServiceRequest, onCreateServiceRequest, onOpenTicket, onOpenClient, onCreatePlan, onGeneratePlanReport, onCommitPlan, onExploreProducts,
+  allClients, documents, accessLog, bankingProfile, tickets, plan, now, initialTab, onBack, onOpenOrder, onOpenSimulation, onNewSimulation, onOpenServiceRequest, onCreateServiceRequest, onOpenTicket, onOpenClient, onCreatePlan, onGeneratePlanReport, onCommitPlan, onExploreProducts,
 }) {
   const { formatCurrency, formatDate, maskDocument, CLIENT_STATUS_META, OWNER_NAME_MAP, RISK_PROFILE_META } = window.PortalLib;
-  const [tab, setTab] = React.useState('overview');
+  const [tab, setTab] = React.useState(initialTab || 'overview');
   const [selectedPosition, setSelectedPosition] = React.useState(null);
   const [showBridge, setShowBridge] = React.useState(false);
   const [showSupport, setShowSupport] = React.useState(false);
