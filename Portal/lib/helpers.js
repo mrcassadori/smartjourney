@@ -201,6 +201,7 @@
   const SIMULATION_STATUS_META = {
     rascunho: { label: 'Rascunho', className: 'bg-neutral-100 text-neutral-600' },
     em_analise: { label: 'Em análise', className: 'bg-info-light text-info-dark' },
+    aprovada: { label: 'Aprovada', className: 'bg-success-light text-success-dark' },
     compartilhada: { label: 'Compartilhada', className: 'bg-brand-lightest text-brand-dark' },
     aguardando_cliente: { label: 'Aguardando cliente', className: 'bg-warning-light text-warning-dark' },
     concluida: { label: 'Concluída', className: 'bg-success-light text-success-dark' },

@@ -55,7 +55,7 @@ function IndicatorCompareRow({ label, atual, proposta, betterWhenHigher, atualNu
 
 function ResumoTab({ ctx, client, simulation, analysis }) {
   const { formatCurrency } = window.PortalLib;
-  const { AllocationDonut, SimKpi } = window.SimulatorChrome;
+  const { AllocationCompareBars, SimKpi } = window.SimulatorChrome;
   const A = window.PortalAnalytics;
   const cm = ctx.currentMetrics;
   const pm = ctx.proposedMetrics;
@@ -65,6 +65,7 @@ function ResumoTab({ ctx, client, simulation, analysis }) {
   if (pctOf(ctx.proposedAlloc.byClass, 'Pós-fixado') < pctOf(ctx.currentAlloc.byClass, 'Pós-fixado') - 0.5) changes.push({ dir: 'down', text: 'Menor concentração em pós-fixados.' });
   if (pctOf(ctx.proposedAlloc.byClass, 'Inflação') > pctOf(ctx.currentAlloc.byClass, 'Inflação') + 0.5) changes.push({ dir: 'up', text: 'Maior proteção contra inflação.' });
   if (pm.liquidUpTo1 > cm.liquidUpTo1 + 0.5) changes.push({ dir: 'up', text: 'Mais liquidez de curto prazo (D+1).' });
+  else if (pm.liquidUpTo1 < cm.liquidUpTo1 - 0.5) changes.push({ dir: 'down', text: `Menor liquidez imediata (${cm.liquidUpTo1.toFixed(0)}% para ${pm.liquidUpTo1.toFixed(0)}%).` });
   if (pm.classCount > cm.classCount || pm.diversification === 'Boa') changes.push({ dir: 'up', text: 'Maior diversificação entre classes.' });
   changes.push({ dir: 'flat', text: `Risco permanece ${A.riskLabel(pm.riskScore).toLowerCase()}, compatível com o perfil ${client.riskProfile}.` });
 
@@ -78,17 +79,8 @@ function ResumoTab({ ctx, client, simulation, analysis }) {
       </div>
 
       <div className="bg-white border border-neutral-100 rounded-large p-5">
-        <h2 className="text-sm font-semibold text-neutral-800 mb-4">Carteira atual × carteira proposta</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <div className="text-xs text-neutral-400 mb-2">Atual · {formatCurrency(ctx.currentAlloc.total)}</div>
-            <AllocationDonut byClass={ctx.currentAlloc.byClass} size={150} />
-          </div>
-          <div>
-            <div className="text-xs text-neutral-400 mb-2">Proposta · {formatCurrency(ctx.proposedAlloc.total)}</div>
-            <AllocationDonut byClass={ctx.proposedAlloc.byClass} size={150} />
-          </div>
-        </div>
+        <h2 className="text-sm font-semibold text-neutral-800 mb-4">Comparativo de alocação por classe</h2>
+        <AllocationCompareBars currentByClass={ctx.currentAlloc.byClass} proposedByClass={ctx.proposedAlloc.byClass} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -110,7 +102,7 @@ function ResumoTab({ ctx, client, simulation, analysis }) {
             <tbody>
               <IndicatorCompareRow label="Liquidez até D+1" atual={`${cm.liquidUpTo1.toFixed(0)}%`} proposta={`${pm.liquidUpTo1.toFixed(0)}%`} betterWhenHigher atualNum={cm.liquidUpTo1} propNum={pm.liquidUpTo1} />
               <IndicatorCompareRow label="Maior concentração" atual={cm.topIssuer ? `${cm.topIssuer.pct.toFixed(0)}%` : '—'} proposta={pm.topIssuer ? `${pm.topIssuer.pct.toFixed(0)}%` : '—'} betterWhenHigher={false} atualNum={cm.topIssuer ? cm.topIssuer.pct : null} propNum={pm.topIssuer ? pm.topIssuer.pct : null} />
-              <IndicatorCompareRow label="Diversificação" atual={cm.diversification} proposta={pm.diversification} betterWhenHigher atualNum={cm.classCount} propNum={pm.classCount} />
+              <IndicatorCompareRow label="Diversificação (ativos)" atual={`${ctx.currentEntries.length} ativos`} proposta={`${ctx.proposedEntries.length} ativos`} betterWhenHigher atualNum={ctx.currentEntries.length} propNum={ctx.proposedEntries.length} />
               <IndicatorCompareRow label="Volatilidade (a.a.)" atual={`${(cm.volatility * 100).toFixed(1)}%`} proposta={`${(pm.volatility * 100).toFixed(1)}%`} betterWhenHigher={false} atualNum={cm.volatility} propNum={pm.volatility} />
               <IndicatorCompareRow label="Retorno esperado (a.a.)" atual={`${(cm.expectedReturn * 100).toFixed(1)}%`} proposta={`${(pm.expectedReturn * 100).toFixed(1)}%`} betterWhenHigher atualNum={cm.expectedReturn} propNum={pm.expectedReturn} />
             </tbody>
@@ -232,6 +224,31 @@ function PerformanceTab({ analysis }) {
           </div>
           <button className="text-xs text-brand-dark hover:underline mt-3 flex items-center gap-1"><Icon name="fileText" size={12} /> Ver metodologia</button>
         </div>
+      </div>
+
+      <div className="bg-white border border-neutral-100 rounded-large p-5">
+        <h2 className="text-sm font-semibold text-neutral-800 mb-3">Retorno histórico por classe de ativo</h2>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[11px] text-neutral-400 uppercase tracking-wide border-b border-neutral-100">
+              <th className="text-left font-medium py-2">Classe</th>
+              <th className="text-right font-medium py-2">12M</th>
+              <th className="text-right font-medium py-2">24M</th>
+              <th className="text-right font-medium py-2">36M</th>
+            </tr>
+          </thead>
+          <tbody>
+            {analysis.histByClass.map((c) => (
+              <tr key={c.class} className="border-b border-neutral-50 last:border-0">
+                <td className="py-2 text-neutral-700">{window.PortalLib.strategyClassLabel(c.class)}</td>
+                {[12, 24, 36].map((k) => (
+                  <td key={k} className="py-2 text-right tabular-nums text-neutral-800">{c.returns[k] != null ? `${(c.returns[k] * 100).toFixed(1)}%` : '—'}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-[11px] text-neutral-400 mt-3">Estimativas por classe a partir das premissas da proposta. Não representam garantia de rentabilidade futura.</p>
       </div>
     </div>
   );
@@ -560,6 +577,7 @@ function SimulatorDashboard({ simulation, client, products, ctx, onBack, onGener
     const hist = A.historicalComparison(cm, pm, seed, 60);
     return {
       hist,
+      histByClass: A.historicalByClass(ctx.proposedAlloc.byClass, seed, 36),
       ddCurrent: A.drawdownSeries(hist.current),
       ddProposed: A.drawdownSeries(hist.proposed),
       corr: A.correlationMatrix(ctx.proposedAlloc.byClass.map((c) => c.class)),
@@ -575,16 +593,11 @@ function SimulatorDashboard({ simulation, client, products, ctx, onBack, onGener
           <h1 className="text-lg font-semibold text-neutral-900">Análise da proposta</h1>
           <p className="text-sm text-neutral-500 mt-0.5">Use esta visão durante a reunião com o cliente.</p>
         </div>
-        <div className="flex items-center gap-2">
-          {onImplementProducts && simulation.targetAllocation && (
-            <button onClick={() => onImplementProducts(simulation.id)} title="Selecionar os ativos reais que implementam esta estratégia" className="text-sm px-4 py-2 rounded-pill border border-brand/40 text-brand-dark hover:bg-brand-lightest flex items-center gap-1.5">
-              <Icon name="layers" size={15} /> Implementar em Produtos
-            </button>
-          )}
-          <button onClick={() => onGenerateProposal(simulation.id)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5">
-            <Icon name="fileText" size={15} /> Gerar proposta
+        {onImplementProducts && simulation.targetAllocation && (
+          <button onClick={() => onImplementProducts(simulation.id)} title="Selecionar os ativos reais que implementam esta estratégia" className="text-sm px-4 py-2 rounded-pill border border-brand/40 text-brand-dark hover:bg-brand-lightest flex items-center gap-1.5">
+            <Icon name="layers" size={15} /> Implementar em Produtos
           </button>
-        </div>
+        )}
       </div>
 
       <div className="border-b border-neutral-100 flex gap-1 overflow-x-auto">
@@ -605,9 +618,12 @@ function SimulatorDashboard({ simulation, client, products, ctx, onBack, onGener
       {tab === 'tecnica' && <AnaliseTecnicaTab ctx={ctx} analysis={analysis} />}
       {tab === 'comparacao' && <ComparacaoTab ctx={ctx} client={client} analysis={analysis} onGenerateProposal={onGenerateProposal} simulationId={simulation.id} />}
 
-      <div>
-        <button onClick={onBack} className="text-sm text-neutral-500 hover:text-neutral-800 flex items-center gap-1.5">
-          <Icon name="arrowLeft" size={14} /> Voltar para revisão
+      <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-white/95 backdrop-blur border-t border-neutral-100 flex items-center justify-between gap-3">
+        <button onClick={onBack} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 flex items-center gap-1.5 hover:bg-neutral-50">
+          <Icon name="arrowLeft" size={14} /> Voltar e editar
+        </button>
+        <button onClick={() => onGenerateProposal(simulation.id)} className="text-sm px-5 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark flex items-center gap-1.5">
+          <Icon name="fileText" size={15} /> Gerar proposta
         </button>
       </div>
     </div>

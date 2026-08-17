@@ -20,6 +20,7 @@ const SIM_STEP_TO_STAGE = {
   alocacao: 3,
   revisao: 3,
   analise: 4,
+  aprovada: 4,
   relatorio: 4,
   compartilhar: 4,
 };
@@ -172,6 +173,28 @@ function AllocationDonut({ title, byClass, size, stack, showValue }) {
   );
 }
 
+// Comparativo de alocação por classe — barras pareadas atual×proposta lado a
+// lado, uma por classe (inclui classes com 0% de um dos lados), alinhado ao
+// mockup de referência ("Comparativo de Alocação por Classe" da Tela 08).
+// Substitui o par de donuts que a mesma tela usava antes: mais fácil de
+// comparar classe a classe do que dois gráficos de rosca lado a lado.
+function AllocationCompareBars({ currentByClass, proposedByClass }) {
+  const order = window.PortalLib.ASSET_CLASS_ORDER;
+  const curMap = {};
+  (currentByClass || []).forEach((c) => (curMap[c.class] = c.pct));
+  const propMap = {};
+  (proposedByClass || []).forEach((c) => (propMap[c.class] = c.pct));
+  const classes = order.filter((c) => curMap[c] != null || propMap[c] != null);
+  if (classes.length === 0) return <div className="text-xs text-neutral-400">Nenhuma alocação ainda.</div>;
+  return (
+    <div>
+      {classes.map((c) => (
+        <AllocationCompareBar key={c} label={c} beforePct={curMap[c] || 0} afterPct={propMap[c] || 0} />
+      ))}
+    </div>
+  );
+}
+
 // Barra comparativa atual (cinza) × proposta (laranja) de um mesmo indicador de %.
 function AllocationCompareBar({ label, beforePct, afterPct }) {
   const delta = afterPct - beforePct;
@@ -237,7 +260,7 @@ function SimKpi({ label, value, sub, accent }) {
   );
 }
 
-window.SimulatorChrome = { SimulatorStepper, SimulationContextBar, AllocationDonut, AllocationCompareBar, StepFooter, SimKpi, classHex };
+window.SimulatorChrome = { SimulatorStepper, SimulationContextBar, AllocationDonut, AllocationCompareBar, AllocationCompareBars, StepFooter, SimKpi, classHex };
 window.SimulatorStepper = SimulatorStepper;
 window.SimulationContextBar = SimulationContextBar;
 window.AllocationDonut = AllocationDonut;

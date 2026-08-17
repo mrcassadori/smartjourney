@@ -241,6 +241,28 @@
     return { months: m, current, proposed, cdi, periodReturns };
   }
 
+  // Retorno histórico por classe de ativo (Tela 09 — "Retorno Histórico por
+  // Classe de Ativo" da referência): usa as mesmas premissas por classe
+  // (ASSET_CLASS_ASSUMPTIONS) e o mesmo ruído gaussiano compartilhado do
+  // historicalComparison, mas gera uma série por classe presente na proposta
+  // em vez de uma série agregada da carteira inteira.
+  function historicalByClass(byClass, seedStr, months) {
+    const m = months || 36;
+    const rng = mulberry32(hashString((seedStr || 'sim') + '-classe'));
+    const noise = [];
+    for (let i = 0; i < m; i++) noise.push(gaussian(rng));
+    const windows = [12, 24, 36].filter((w) => w <= m);
+    return byClass.map((c) => {
+      const a = ASSET_CLASS_ASSUMPTIONS[c.class] || ASSET_CLASS_ASSUMPTIONS.Fundos;
+      const series = buildIndex(m, a.expReturn, a.vol, noise);
+      const returns = {};
+      windows.forEach((k) => {
+        returns[k] = series.length <= k ? series[series.length - 1] / series[0] - 1 : series[series.length - 1] / series[series.length - 1 - k] - 1;
+      });
+      return { class: c.class, pct: c.pct, returns };
+    });
+  }
+
   // Série de drawdown (%) a partir de um índice acumulado.
   function drawdownSeries(index) {
     let peak = index[0];
@@ -440,6 +462,7 @@
     riskLabel,
     proposalContext,
     historicalComparison,
+    historicalByClass,
     drawdownSeries,
     correlationMatrix,
     classCorrelation,

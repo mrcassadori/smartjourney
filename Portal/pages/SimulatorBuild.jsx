@@ -253,17 +253,49 @@ function Produtos({ simulation, client, products, ctx, now, onPatch, onContinue,
 
           {/* Resultados */}
           {filtered.length === 0 ? (
-            <EmptyState
-              icon="search"
-              title="Nenhum investimento encontrado"
-              description="Revise o nome, ticker, CNPJ ou os filtros utilizados."
-              action={
-                <div className="flex items-center gap-2">
-                  <button onClick={clearFilters} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Limpar filtros</button>
-                  <button className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700" title="Disponível em breve">Cadastrar ativo manualmente</button>
-                </div>
-              }
-            />
+            <div className="space-y-5">
+              <EmptyState
+                icon="search"
+                title="Nenhum investimento encontrado"
+                description="Revise o nome, ticker, CNPJ ou remova os filtros utilizados para expandir sua busca."
+                action={
+                  <div className="flex items-center gap-2">
+                    <button onClick={clearFilters} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Limpar filtros</button>
+                    <button className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700" title="Disponível em breve">Cadastrar ativo manualmente</button>
+                  </div>
+                }
+              />
+              {/* Caminho de recuperação proativo: sugere produtos fora dos filtros
+                  atuais em vez de deixar o consultor preso a uma busca sem resultado. */}
+              {(() => {
+                const suggestions = products
+                  .filter((p) => addedIds.indexOf(p.id) === -1)
+                  .slice()
+                  .sort((a, b) => {
+                    const eA = client ? (isEligible(client, a, now).eligible ? 0 : 1) : 0;
+                    const eB = client ? (isEligible(client, b, now).eligible ? 0 : 1) : 0;
+                    return eA - eB || a.riskLevel - b.riskLevel;
+                  })
+                  .slice(0, 3);
+                if (suggestions.length === 0) return null;
+                return (
+                  <div>
+                    <div className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Ativos populares sugeridos</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {suggestions.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between gap-2 border border-neutral-100 rounded-large px-3 py-2.5 bg-white">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <Icon name="trendingUp" size={15} className="text-brand shrink-0" />
+                            <span className="text-sm text-neutral-800 truncate">{p.name}</span>
+                          </div>
+                          <button onClick={() => onAddClick(p)} className="text-xs text-brand-dark hover:underline shrink-0">Adicionar</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           ) : (
             <div className="space-y-2">
               {filtered.map((p) => {
@@ -327,15 +359,18 @@ function Produtos({ simulation, client, products, ctx, now, onPatch, onContinue,
   );
 }
 
-// Alerta contextual (não bloqueia) para produto acima do perfil do cliente.
-function IncompatibleProductModal({ data, client, onSeeAlternatives, onAddAnyway, onClose }) {
+// Alerta bloqueante para produto acima do perfil do cliente — sem atalho de
+// bypass (alinhado à referência: só "Cancelar"/"Ver alternativas". A área é
+// regulada por suitability; "Adicionar mesmo assim" permitia contornar o
+// alerta sem nenhuma fricção adicional, o que o mockup não desenha aqui).
+function IncompatibleProductModal({ data, client, onSeeAlternatives, onClose }) {
   const { PRODUCT_RISK_LABELS } = window.PortalLib;
   const p = data.product;
   return (
     <Modal title="Produto acima do perfil do cliente" onClose={onClose} width="max-w-md">
       <div className="flex items-start gap-2.5 text-sm bg-warning-light text-warning-dark rounded-medium px-3 py-2.5 mb-4">
         <Icon name="alertTriangle" size={16} className="mt-0.5 shrink-0" />
-        <span>Este produto tem características acima do perfil <strong>{client.riskProfile}</strong> de {client.name.split(' ')[0]}. Você ainda pode incluí-lo, com ciência do desalinhamento.</span>
+        <span>Este produto tem características acima do perfil <strong>{client.riskProfile}</strong> de {client.name.split(' ')[0]}.</span>
       </div>
       <div className="space-y-2 text-sm mb-2">
         <div className="flex justify-between"><span className="text-neutral-500">Produto</span><span className="text-neutral-900 font-medium">{p.name}</span></div>
@@ -348,8 +383,8 @@ function IncompatibleProductModal({ data, client, onSeeAlternatives, onAddAnyway
         ))}
       </ul>
       <div className="flex items-center justify-end gap-2 mt-5">
-        <button onClick={onSeeAlternatives} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Ver alternativas</button>
-        <button onClick={onAddAnyway} className="text-sm px-4 py-2 rounded-pill border border-warning text-warning-dark hover:bg-warning-light">Adicionar mesmo assim</button>
+        <button onClick={onClose} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Cancelar</button>
+        <button onClick={onSeeAlternatives} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Ver alternativas</button>
       </div>
     </Modal>
   );
@@ -389,6 +424,16 @@ function Alocacao({ simulation, client, products, ctx, onPatch, onContinue, onBa
         <h1 className="text-lg font-semibold text-neutral-900">Distribuir investimentos</h1>
         <p className="text-sm text-neutral-500 mt-0.5">Defina quanto será destinado para cada produto.</p>
       </div>
+
+      {/* Banner de largura total — promovido do card lateral estreito (onde a
+          mensagem de estouro disputava espaço com outros alertas) pra ficar
+          tão visível quanto na referência. */}
+      {overBudget && (
+        <div className="flex items-center gap-2.5 bg-alert-light text-alert-dark rounded-large px-4 py-3 text-sm font-medium">
+          <Icon name="alertTriangle" size={18} className="shrink-0" />
+          {formatCurrency(Math.abs(disponivel))} acima do valor da simulação ({pctAllocated.toFixed(0)}% total). Ajuste os valores abaixo.
+        </div>
+      )}
 
       {/* Barra de valores */}
       <div className="bg-white border border-neutral-100 rounded-large p-5">
@@ -468,9 +513,6 @@ function Alocacao({ simulation, client, products, ctx, onPatch, onContinue, onBa
             {disponivel > 0.5 && (
               <Alert icon="wallet" tone="info" text={`Sua carteira ainda possui ${formatCurrency(disponivel)} disponíveis.`} />
             )}
-            {overBudget && (
-              <Alert icon="alertTriangle" tone="alert" text={`${formatCurrency(Math.abs(disponivel))} acima do valor da simulação.`} />
-            )}
             {propMetrics.topIssuer && propMetrics.topIssuer.pct > 25 && (
               <Alert icon="alertTriangle" tone="warning" text={`${propMetrics.topIssuer.pct.toFixed(0)}% da proposta está concentrada em ${propMetrics.topIssuer.issuer}.`} />
             )}
@@ -484,7 +526,7 @@ function Alocacao({ simulation, client, products, ctx, onPatch, onContinue, onBa
         </div>
       </div>
 
-      <window.SimStepFooter onBack={onBack} onSaveDraft={onSaveDraft} onContinue={onContinue} continueDisabled={!canContinue} continueLabel="Revisar proposta" />
+      <window.SimStepFooter onBack={onBack} backLabel={overBudget ? 'Voltar e buscar ativos' : undefined} onSaveDraft={onSaveDraft} onContinue={onContinue} continueDisabled={!canContinue} continueLabel="Revisar proposta" />
     </div>
   );
 }

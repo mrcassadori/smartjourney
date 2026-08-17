@@ -138,18 +138,42 @@ function ReportConfig({ simulation, client, profile, onPatch, onContinue, onBack
   );
 }
 
+// Numeração de página — alinhado à referência ("Visualização das páginas",
+// Pág. 1/2/3): o preview do protótipo é um scroll único, não um documento
+// paginado de verdade, mas o selo no canto de cada bloco já dá a noção de
+// "isto é um documento com N páginas" sem construir paginação real.
+function PageBadge({ n, total, light }) {
+  return <span className={window.PortalLib.classNames('absolute top-4 right-5 text-[10px] tabular-nums', light ? 'text-white/70' : 'text-neutral-400')}>Pág. {n}/{total}</span>;
+}
+
 // ---------- Tela 14 — Preview e compartilhamento ----------
 function ReportPreview({ simulation, client, profile, ctx }) {
-  const { formatCurrency, formatDate } = window.PortalLib;
+  const { formatCurrency, classNames } = window.PortalLib;
   const { AllocationDonut } = window.SimulatorChrome;
   const cfg = getConfig(simulation);
   const brand = cfg.useBranding ? client.escritorio : 'Inter · Portal do Consultor';
   const sec = cfg.sections;
 
+  // Resumo executivo (Pág. 2 da referência): total investido + retorno
+  // proposto/atual/diferencial na janela de 12 meses — mesma métrica que a
+  // Tela 08 do dashboard usa como "Retorno Histórico (12M)".
+  const hist12 = window.PortalAnalytics.historicalComparison(ctx.currentMetrics, ctx.proposedMetrics, `${simulation.id}-preview`, 12);
+  const ret12 = hist12.periodReturns.find((p) => p.months === 12);
+  const retAtualPct = ret12.current * 100;
+  const retPropostaPct = ret12.proposed * 100;
+  const diffPp = retPropostaPct - retAtualPct;
+
+  const pageSections = ['capa', sec.resumo && 'resumo', sec.atualProposta && 'atualProposta', sec.produtos && 'produtos', (sec.liquidez || sec.risco) && 'riscoLiquidez'].filter(Boolean);
+  const totalPages = pageSections.length;
+  const pageOf = (key) => pageSections.indexOf(key) + 1;
+
   return (
     <div className="bg-neutral-100 rounded-large p-4 sm:p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+      <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide px-2">Visualização das páginas ({REPORT_FORMATS.find((f) => f.key === cfg.format).label})</div>
+
       {/* Capa */}
-      <div className="bg-white rounded-large shadow-sm overflow-hidden">
+      <div className="bg-white rounded-large shadow-sm overflow-hidden relative">
+        <PageBadge n={1} total={totalPages} light />
         <div className="bg-brand text-white px-6 py-8">
           <div className="text-xs opacity-80">{brand}</div>
           <div className="text-xl font-semibold mt-2">Proposta de investimentos</div>
@@ -163,16 +187,24 @@ function ReportPreview({ simulation, client, profile, ctx }) {
       </div>
 
       {sec.resumo && (
-        <div className="bg-white rounded-large shadow-sm px-6 py-5">
-          <div className="text-[11px] font-semibold text-brand-dark uppercase tracking-wide mb-2">Resumo da recomendação</div>
+        <div className="bg-white rounded-large shadow-sm px-6 py-5 relative">
+          <PageBadge n={pageOf('resumo')} total={totalPages} />
+          <div className="text-[11px] font-semibold text-brand-dark uppercase tracking-wide mb-3">Resumo executivo</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            <div><div className="text-lg font-semibold text-neutral-900">{formatCurrency(simulation.simulationValue)}</div><div className="text-[11px] text-neutral-400">Total investido</div></div>
+            <div><div className="text-lg font-semibold text-brand-dark">{retPropostaPct >= 0 ? '+' : ''}{retPropostaPct.toFixed(1)}%</div><div className="text-[11px] text-neutral-400">Retorno proposto (12M)</div></div>
+            <div><div className="text-lg font-semibold text-neutral-900">{retAtualPct >= 0 ? '+' : ''}{retAtualPct.toFixed(1)}%</div><div className="text-[11px] text-neutral-400">Retorno atual (12M)</div></div>
+            <div><div className={classNames('text-lg font-semibold', diffPp >= 0 ? 'text-success-dark' : 'text-alert-dark')}>{diffPp >= 0 ? '+' : ''}{diffPp.toFixed(1)} p.p.</div><div className="text-[11px] text-neutral-400">Diferencial</div></div>
+          </div>
           <p className="text-sm text-neutral-700">{simulation.rationale || 'Proposta construída a partir dos objetivos definidos com o cliente, equilibrando risco, liquidez e diversificação.'}</p>
           {cfg.message && <p className="text-sm text-neutral-500 italic mt-3">“{cfg.message}”</p>}
         </div>
       )}
 
       {sec.atualProposta && (
-        <div className="bg-white rounded-large shadow-sm px-6 py-5">
-          <div className="text-[11px] font-semibold text-brand-dark uppercase tracking-wide mb-3">Atual × Proposta</div>
+        <div className="bg-white rounded-large shadow-sm px-6 py-5 relative">
+          <PageBadge n={pageOf('atualProposta')} total={totalPages} />
+          <div className="text-[11px] font-semibold text-brand-dark uppercase tracking-wide mb-3">Comparativo de classes</div>
           <div className="grid grid-cols-2 gap-4">
             <div><div className="text-xs text-neutral-400 mb-2">Atual</div><AllocationDonut byClass={ctx.currentAlloc.byClass} size={110} stack /></div>
             <div><div className="text-xs text-neutral-400 mb-2">Proposta</div><AllocationDonut byClass={ctx.proposedAlloc.byClass} size={110} stack /></div>
@@ -181,8 +213,9 @@ function ReportPreview({ simulation, client, profile, ctx }) {
       )}
 
       {sec.produtos && (
-        <div className="bg-white rounded-large shadow-sm px-6 py-5">
-          <div className="text-[11px] font-semibold text-brand-dark uppercase tracking-wide mb-2">Produtos recomendados</div>
+        <div className="bg-white rounded-large shadow-sm px-6 py-5 relative">
+          <PageBadge n={pageOf('produtos')} total={totalPages} />
+          <div className="text-[11px] font-semibold text-brand-dark uppercase tracking-wide mb-2">Ativos recomendados</div>
           <ul className="text-sm text-neutral-700 space-y-1">
             {ctx.itemEntries.map((e) => (
               <li key={e.product.id} className="flex justify-between"><span>{e.product.name}</span><span className="tabular-nums text-neutral-900">{formatCurrency(e.allocatedValue)}</span></li>
@@ -193,7 +226,8 @@ function ReportPreview({ simulation, client, profile, ctx }) {
       )}
 
       {(sec.liquidez || sec.risco) && (
-        <div className="bg-white rounded-large shadow-sm px-6 py-5">
+        <div className="bg-white rounded-large shadow-sm px-6 py-5 relative">
+          <PageBadge n={pageOf('riscoLiquidez')} total={totalPages} />
           <div className="text-[11px] font-semibold text-brand-dark uppercase tracking-wide mb-2">Risco e liquidez</div>
           <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
             {sec.liquidez && <div><span className="text-neutral-400 text-xs block">Liquidez até D+1</span>{ctx.proposedMetrics.liquidUpTo1.toFixed(0)}%</div>}

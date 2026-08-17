@@ -3,7 +3,7 @@
 // Os passos pesados de montagem vêm de window.SimulatorBuild e o dashboard
 // de window.SimulatorDashboard.
 
-const SIM_STEPS = ['cliente', 'contexto', 'carteira', 'produtos', 'alocacao', 'revisao', 'analise', 'relatorio', 'compartilhar'];
+const SIM_STEPS = ['cliente', 'contexto', 'carteira', 'produtos', 'alocacao', 'revisao', 'analise', 'aprovada', 'relatorio', 'compartilhar'];
 
 // ---------- Tela 02 — Selecionar cliente ----------
 function StepCliente({ clients, now, onSelect, onExit }) {
@@ -298,6 +298,41 @@ function StepRevisao({ simulation, client, ctx, onPatch, onContinue, onBack, onS
   );
 }
 
+// ---------- Estágio de aprovação — "Proposta revisada com sucesso!" ----------
+// Confirmação entre a Análise (Tela 08-12) e a geração do relatório (Tela
+// 13): no mockup de referência, o stepper chega com os 5 estágios concluídos
+// e o cliente "será notificado sobre a atualização" antes de o consultor
+// seguir para configurar/enviar o relatório. `status` passa a 'aprovada'
+// (novo valor em SIMULATION_STATUS_META) ao entrar aqui — sem isso, a barra
+// de contexto (que já mostra o status em toda tela do wizard) continuaria
+// dizendo "Em análise" bem ao lado do badge "Aprovada" desta própria tela.
+function StepAprovada({ simulation, client, ctx, onContinue, onExit }) {
+  const { formatCurrency } = window.PortalLib;
+  const total = ctx.totalAllocated;
+  const n = ctx.itemEntries.length;
+  return (
+    <div className="max-w-lg mx-auto text-center py-10">
+      <div className="w-14 h-14 rounded-full bg-success-light text-success-dark flex items-center justify-center mx-auto mb-4">
+        <Icon name="check" size={26} />
+      </div>
+      <h1 className="text-lg font-semibold text-neutral-900">Proposta revisada com sucesso!</h1>
+      <p className="text-sm text-neutral-500 mt-1">A proposta de investimento para {client.name} foi revisada e aprovada. O cliente será notificado sobre a atualização.</p>
+      <div className="border border-neutral-100 rounded-large divide-y divide-neutral-50 mt-6 text-left">
+        <h2 className="px-4 pt-3 pb-2 text-sm font-semibold text-neutral-800">Resumo da Proposta</h2>
+        <div className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">Cliente</span><span className="font-medium text-neutral-900">{client.name}</span></div>
+        <div className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">Perfil</span><span className="font-medium text-neutral-900">{client.riskProfile}</span></div>
+        <div className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">Valor Total</span><span className="font-medium text-neutral-900">{formatCurrency(total)}</span></div>
+        <div className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">Produtos</span><span className="font-medium text-neutral-900">{n} {n === 1 ? 'ativo selecionado' : 'ativos selecionados'}</span></div>
+        <div className="flex items-center justify-between px-4 py-2.5 text-sm"><span className="text-neutral-500">Status</span><StatusPill label="Aprovada" className="bg-success-light text-success-dark" size="sm" /></div>
+      </div>
+      <div className="flex items-center justify-center gap-2 mt-6">
+        <button onClick={onExit} className="text-sm px-4 py-2 rounded-pill border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Voltar ao perfil do cliente</button>
+        <button onClick={onContinue} className="text-sm px-4 py-2 rounded-pill bg-brand text-white hover:bg-brand-dark">Ver proposta completa</button>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Shell ----------
 function SimulatorJourney({ simulation, client, clients, products, positions, now, profile, onPatch, onSelectClient, onSaveDraft, onExit, onGenerateProposal, onRegisterShared, onNewSimulation, onOpenClient, onImplementProducts }) {
   const { SimulatorStepper, SimulationContextBar } = window.SimulatorChrome;
@@ -377,8 +412,18 @@ function SimulatorJourney({ simulation, client, clients, products, positions, no
         products={products}
         ctx={ctx}
         onBack={() => goTo('revisao')}
-        onGenerateProposal={() => onPatch({ reportGeneratedAt: simulation.reportGeneratedAt || new Date().toISOString(), currentStep: 'relatorio' })}
+        onGenerateProposal={() => onPatch({ status: 'aprovada', reportGeneratedAt: simulation.reportGeneratedAt || new Date().toISOString(), currentStep: 'aprovada' })}
         onImplementProducts={onImplementProducts}
+      />
+    );
+  } else if (step === 'aprovada') {
+    body = (
+      <StepAprovada
+        simulation={simulation}
+        client={client}
+        ctx={ctx}
+        onContinue={() => goTo('relatorio')}
+        onExit={() => onOpenClient(client.id)}
       />
     );
   } else if (step === 'relatorio') {
