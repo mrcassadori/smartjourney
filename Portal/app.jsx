@@ -31,6 +31,8 @@ function App() {
   const [onboarding] = React.useState(DATA.onboarding);
   const [simulations, setSimulations] = React.useState(DATA.simulations);
   const [serviceRequests, setServiceRequests] = React.useState(DATA.serviceRequests);
+  const [operations, setOperations] = React.useState(DATA.operations);
+  const [openOperationId, setOpenOperationId] = React.useState(null);
   const [tickets, setTickets] = React.useState(DATA.tickets);
   const [financialPlans, setFinancialPlans] = React.useState(DATA.financialPlans);
   const [recommendations, setRecommendations] = React.useState(DATA.recommendations);
@@ -54,6 +56,7 @@ function App() {
   const scopedOrders = React.useMemo(() => orders.filter((o) => scopedClientIds.has(o.clientId)), [orders, scopedClientIds]);
   const scopedSimulations = React.useMemo(() => simulations.filter((s) => scopedClientIds.has(s.clientId)), [simulations, scopedClientIds]);
   const scopedServiceRequests = React.useMemo(() => serviceRequests.filter((r) => scopedClientIds.has(r.clientId)), [serviceRequests, scopedClientIds]);
+  const scopedOperations = React.useMemo(() => operations.filter((o) => scopedClientIds.has(o.clientId)), [operations, scopedClientIds]);
   const scopedTickets = React.useMemo(() => tickets.filter((t) => scopedClientIds.has(t.clientId)), [tickets, scopedClientIds]);
   const unresolvedAlertsCount = scopedAlerts.filter((a) => a.status === 'novo' || a.status === 'em_tratamento').length;
   // Planejamento é 1:1 por cliente (commitPlanDraft upserta por clientId) — a
@@ -372,6 +375,17 @@ function App() {
     );
   }
 
+  function advanceOperation(id, status, detail) {
+    const resolved = status === 'concluida' || status === 'concluida_parcial';
+    setOperations((prev) =>
+      prev.map((o) =>
+        o.id === id
+          ? { ...o, status, nextAction: resolved ? null : o.nextAction, resolvedAt: resolved ? DATA.now : o.resolvedAt, timeline: [...o.timeline, { date: DATA.now, detail }] }
+          : o
+      )
+    );
+  }
+
   function openTicketModal(client, contextType, contextId, contextLabel, suggestedTheme) {
     setNewTicketContext({ client, contextType, contextId, contextLabel, suggestedTheme });
   }
@@ -644,12 +658,14 @@ function App() {
       <OperationsPage
         profile={profile}
         clients={scopedClients}
-        serviceRequests={scopedServiceRequests}
-        openRequestId={openRequestId}
-        onOpenRequest={setOpenRequestId}
-        onCloseRequest={() => setOpenRequestId(null)}
-        onAdvanceRequest={advanceServiceRequest}
+        operations={scopedOperations}
+        now={DATA.now}
+        openOperationId={openOperationId}
+        onOpenOperation={setOpenOperationId}
+        onCloseOperation={() => setOpenOperationId(null)}
+        onAdvanceOperation={advanceOperation}
         onOpenTicketFor={openTicketModal}
+        onOpenClient={openClient}
       />
     );
   } else if (page === 'support') {

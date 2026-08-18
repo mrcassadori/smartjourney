@@ -298,6 +298,82 @@
     concluida: { label: 'Concluída', className: 'bg-success-light text-success-dark' },
   };
 
+  // ---------------------------------------------------------------------
+  // Jornada de Operações — fila interna com prioridade/SLA/aging (própria,
+  // independente de SERVICE_TYPE_META/SERVICE_REQUEST_STATUS_META acima).
+  // ---------------------------------------------------------------------
+  const OPERATION_TYPE_META = {
+    bloqueio_preventivo: { label: 'Bloqueio preventivo' },
+    alteracao_cadastral: { label: 'Alteração cadastral' },
+    atualizacao_representante: { label: 'Atualização de representante' },
+    aumento_limite_pix: { label: 'Aumento de limite PIX' },
+    cartao_adicional: { label: 'Cartão adicional' },
+    resgate_investimento: { label: 'Resgate de investimento' },
+    segunda_via_informe: { label: 'Segunda via de informe' },
+    atualizacao_suitability: { label: 'Atualização de suitability' },
+    regularizacao_societaria: { label: 'Regularização societária' },
+  };
+
+  const OPERATION_PRIORITY_META = {
+    critica: { label: 'Crítica', className: 'bg-neutral-900 text-white' },
+    alta: { label: 'Alta', className: 'bg-alert-light text-alert-dark' },
+    media: { label: 'Média', className: 'bg-warning-light text-warning-dark' },
+    baixa: { label: 'Baixa', className: 'bg-info-light text-info-dark' },
+  };
+
+  const OPERATION_STATUS_META = {
+    novo: { label: 'Novo', className: 'bg-info-light text-info-dark' },
+    em_analise: { label: 'Em análise', className: 'bg-info-light text-info-dark' },
+    aguardando_documento: { label: 'Aguardando documento', className: 'bg-warning-light text-warning-dark' },
+    pendencia_interna: { label: 'Pendência interna', className: 'bg-alert-light text-alert-dark' },
+    aguardando_consultor: { label: 'Aguardando consultor', className: 'bg-neutral-100 text-neutral-600' },
+    em_processamento: { label: 'Em processamento', className: 'bg-brand-lightest text-brand-dark' },
+    aguardando_backoffice: { label: 'Aguardando backoffice', className: 'bg-alert-light text-alert-dark' },
+    concluida: { label: 'Concluído', className: 'bg-success-light text-success-dark' },
+    concluida_parcial: { label: 'Concluída parcialmente', className: 'bg-warning-light text-warning-dark' },
+  };
+
+  // Sequência usada pela ação "Avançar status" do drawer — só para o fluxo
+  // acontecer de forma plausível na simulação, sem motor de workflow real.
+  const OPERATION_STATUS_FLOW = ['novo', 'em_analise', 'aguardando_documento', 'pendencia_interna', 'aguardando_consultor', 'em_processamento', 'aguardando_backoffice', 'concluida'];
+
+  const OPERATION_RESULT_META = {
+    concluida: { label: 'Concluída com sucesso', className: 'text-success-dark' },
+    concluida_parcial: { label: 'Concluída parcialmente', className: 'text-warning-dark' },
+  };
+
+  // Formata uma duração em ms no vocabulário curto usado nas colunas
+  // Aging/SLA/Tempo total ("42 min", "5h", "2d 4h", "7h24").
+  function durationLabel(ms, compact) {
+    if (ms == null) return '—';
+    const totalMin = Math.round(Math.abs(ms) / 60000);
+    const days = Math.floor(totalMin / (60 * 24));
+    const hours = Math.floor((totalMin % (60 * 24)) / 60);
+    const minutes = totalMin % 60;
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return compact ? `${hours}h${String(minutes).padStart(2, '0')}` : minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    return `${minutes} min`;
+  }
+
+  // Estado do SLA de uma operação aberta frente a "agora" — usado na coluna
+  // SLA da fila e para popular a aba "Em risco"/KPIs do Dashboard.
+  // Limiar de risco: <= 3h restantes.
+  function operationSlaState(op, nowStr) {
+    const now = new Date(nowStr);
+    const due = new Date(op.dueAt);
+    const diffMs = due - now;
+    if (diffMs <= 0) return { state: 'vencido', label: `Vencido há ${durationLabel(diffMs)}` };
+    if (diffMs <= 3 * 60 * 60 * 1000) return { state: 'risco', label: `${durationLabel(diffMs)} restantes` };
+    return { state: 'ok', label: `${durationLabel(diffMs)} restantes` };
+  }
+
+  // Para operações já concluídas: SLA cumprido comparando a resolução com o prazo.
+  function operationSlaResult(op) {
+    if (!op.resolvedAt) return null;
+    const within = new Date(op.resolvedAt) <= new Date(op.dueAt);
+    return within ? { state: 'dentro', label: 'Dentro do SLA' } : { state: 'fora', label: 'Fora do SLA' };
+  }
+
   const TICKET_STATUS_META = {
     aberto: { label: 'Aberto', className: 'bg-warning-light text-warning-dark' },
     em_andamento: { label: 'Em andamento', className: 'bg-info-light text-info-dark' },
@@ -392,6 +468,14 @@
     REC_STATUS_META,
     SERVICE_TYPE_META,
     SERVICE_REQUEST_STATUS_META,
+    OPERATION_TYPE_META,
+    OPERATION_PRIORITY_META,
+    OPERATION_STATUS_META,
+    OPERATION_STATUS_FLOW,
+    OPERATION_RESULT_META,
+    durationLabel,
+    operationSlaState,
+    operationSlaResult,
     TICKET_STATUS_META,
     TICKET_URGENCY_META,
     TICKET_IMPACT_META,
