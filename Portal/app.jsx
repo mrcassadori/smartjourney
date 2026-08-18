@@ -32,7 +32,6 @@ function App() {
   const [simulations, setSimulations] = React.useState(DATA.simulations);
   const [serviceRequests, setServiceRequests] = React.useState(DATA.serviceRequests);
   const [operations, setOperations] = React.useState(DATA.operations);
-  const [openOperationId, setOpenOperationId] = React.useState(null);
   const [tickets, setTickets] = React.useState(DATA.tickets);
   const [financialPlans, setFinancialPlans] = React.useState(DATA.financialPlans);
   const [recommendations, setRecommendations] = React.useState(DATA.recommendations);
@@ -76,6 +75,10 @@ function App() {
     setSelectedClientId(id);
     setPage('client');
     setPageParams(params || {});
+  }
+
+  function openOperationDetail(id) {
+    navigate('operationDetail', { operationId: id });
   }
 
   function changeProfile(id) {
@@ -375,15 +378,11 @@ function App() {
     );
   }
 
-  function advanceOperation(id, status, detail) {
-    const resolved = status === 'concluida' || status === 'concluida_parcial';
-    setOperations((prev) =>
-      prev.map((o) =>
-        o.id === id
-          ? { ...o, status, nextAction: resolved ? null : o.nextAction, resolvedAt: resolved ? DATA.now : o.resolvedAt, timeline: [...o.timeline, { date: DATA.now, detail }] }
-          : o
-      )
-    );
+  // Mutador genérico da jornada de Operações — a lógica de cada ação (o que
+  // muda de status, o que entra na timeline) vive em OperationDetailPage,
+  // igual ao padrão de patchSimulation/patchPlan já usado no app.
+  function patchOperation(id, patch) {
+    setOperations((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
   }
 
   function openTicketModal(client, contextType, contextId, contextLabel, suggestedTheme) {
@@ -431,6 +430,7 @@ function App() {
 
   const selectedClient = selectedClientId ? DATA.clients.find((c) => c.id === selectedClientId) : null;
   const openSimulationObj = pageParams && pageParams.simulationId ? simulations.find((s) => s.id === pageParams.simulationId) : null;
+  const selectedOperation = pageParams && pageParams.operationId ? scopedOperations.find((o) => o.id === pageParams.operationId) : null;
 
   const breadcrumbFor = () => {
     const navLabel = (key) => (window.PORTAL_NAV_ITEMS.find((n) => n.key === key) || {}).label || key;
@@ -444,6 +444,7 @@ function App() {
     if (page === 'proposta') return [{ label: 'Produtos', onClick: () => navigate('products', {}) }, { label: 'Carteira proposta' }];
     if (page === 'recommendations') return [{ label: 'Recomendações' }];
     if (page === 'operations') return [{ label: 'Operações' }];
+    if (page === 'operationDetail') return [{ label: 'Operações', onClick: () => navigate('operations', {}) }, { label: selectedOperation ? `#${selectedOperation.protocol}` : 'Operação' }];
     if (page === 'support') return [{ label: 'Central de suporte' }];
     if (page === 'simulacoes') return [{ label: 'Investimentos' }, { label: 'Simulador' }];
     if (page === 'planejamento') return [{ label: 'Planejamento' }];
@@ -660,10 +661,18 @@ function App() {
         clients={scopedClients}
         operations={scopedOperations}
         now={DATA.now}
-        openOperationId={openOperationId}
-        onOpenOperation={setOpenOperationId}
-        onCloseOperation={() => setOpenOperationId(null)}
-        onAdvanceOperation={advanceOperation}
+        onOpenOperation={openOperationDetail}
+      />
+    );
+  } else if (page === 'operationDetail' && selectedOperation) {
+    content = (
+      <OperationDetailPage
+        operation={selectedOperation}
+        client={DATA.clients.find((c) => c.id === selectedOperation.clientId)}
+        profile={profile}
+        now={DATA.now}
+        onBack={() => navigate('operations', {})}
+        onPatch={patchOperation}
         onOpenTicketFor={openTicketModal}
         onOpenClient={openClient}
       />

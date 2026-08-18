@@ -329,9 +329,62 @@
     aguardando_consultor: { label: 'Aguardando consultor', className: 'bg-neutral-100 text-neutral-600' },
     em_processamento: { label: 'Em processamento', className: 'bg-brand-lightest text-brand-dark' },
     aguardando_backoffice: { label: 'Aguardando backoffice', className: 'bg-alert-light text-alert-dark' },
+    executada: { label: 'Executada', className: 'bg-info-light text-info-dark' },
     concluida: { label: 'Concluído', className: 'bg-success-light text-success-dark' },
     concluida_parcial: { label: 'Concluída parcialmente', className: 'bg-warning-light text-warning-dark' },
+    nao_executada: { label: 'Não executada', className: 'bg-neutral-100 text-neutral-600' },
+    cancelada: { label: 'Cancelada', className: 'bg-neutral-100 text-neutral-500' },
   };
+
+  const OPERATION_CLOSED_STATUSES = ['concluida', 'concluida_parcial', 'nao_executada', 'cancelada'];
+
+  // Passo a passo genérico (Tela de detalhe da operação) — 6 estágios que
+  // qualquer um dos 9 tipos de operação percorre. Derivado do `status`
+  // (não é um campo próprio) para não ter 2 fontes de verdade divergentes.
+  const OPERATION_STAGES = [
+    { key: 'criada', label: 'Criada' },
+    { key: 'triagem', label: 'Triagem' },
+    { key: 'validacao', label: 'Validação' },
+    { key: 'documentos', label: 'Documentos' },
+    { key: 'execucao', label: 'Execução' },
+    { key: 'concluido', label: 'Concluído' },
+  ];
+  const OPERATION_STAGE_BY_STATUS = {
+    novo: 'criada',
+    em_analise: 'triagem',
+    pendencia_interna: 'validacao',
+    aguardando_documento: 'documentos',
+    aguardando_consultor: 'documentos',
+    em_processamento: 'execucao',
+    aguardando_backoffice: 'execucao',
+    executada: 'execucao',
+    concluida: 'concluido',
+    concluida_parcial: 'concluido',
+    nao_executada: 'concluido',
+    cancelada: 'concluido',
+  };
+  function operationStageIndex(status) {
+    const key = OPERATION_STAGE_BY_STATUS[status] || 'criada';
+    return OPERATION_STAGES.findIndex((s) => s.key === key);
+  }
+
+  // Equipe responsável por tipo — só para exibição (Card "Dados da Operação"),
+  // não afeta escopo/permissão.
+  const OPERATION_TEAM_BY_TYPE = {
+    bloqueio_preventivo: 'Segurança e prevenção',
+    alteracao_cadastral: 'Backoffice cadastral',
+    atualizacao_representante: 'Backoffice cadastral',
+    regularizacao_societaria: 'Backoffice cadastral',
+    aumento_limite_pix: 'Banking',
+    cartao_adicional: 'Banking',
+    resgate_investimento: 'Operações de custódia',
+    segunda_via_informe: 'Atendimento',
+    atualizacao_suitability: 'Compliance',
+  };
+
+  // Pool de operadores internos (backoffice) usados como "Responsável" —
+  // mesmos nomes de OWNER_NAME_MAP (colegas fictícios já usados em orders/operations).
+  const OPERATION_TEAM_MEMBERS = ['Marina Ferraz', 'Bruno Castilho', 'Rafael Nunes', 'Camila Duarte', 'Diego Antunes'];
 
   // Sequência usada pela ação "Avançar status" do drawer — só para o fluxo
   // acontecer de forma plausível na simulação, sem motor de workflow real.
@@ -340,6 +393,8 @@
   const OPERATION_RESULT_META = {
     concluida: { label: 'Concluída com sucesso', className: 'text-success-dark' },
     concluida_parcial: { label: 'Concluída parcialmente', className: 'text-warning-dark' },
+    nao_executada: { label: 'Não executada', className: 'text-neutral-500' },
+    cancelada: { label: 'Cancelada', className: 'text-neutral-500' },
   };
 
   // Formata uma duração em ms no vocabulário curto usado nas colunas
@@ -472,7 +527,13 @@
     OPERATION_PRIORITY_META,
     OPERATION_STATUS_META,
     OPERATION_STATUS_FLOW,
+    OPERATION_CLOSED_STATUSES,
     OPERATION_RESULT_META,
+    OPERATION_STAGES,
+    OPERATION_STAGE_BY_STATUS,
+    operationStageIndex,
+    OPERATION_TEAM_BY_TYPE,
+    OPERATION_TEAM_MEMBERS,
     durationLabel,
     operationSlaState,
     operationSlaResult,

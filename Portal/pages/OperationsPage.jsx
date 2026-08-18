@@ -138,100 +138,6 @@ function SlaLabel({ op, now }) {
   return <span className={cls}>{s.label}</span>;
 }
 
-function OperationDrawer({ operation, client, now, onClose, onAdvance, onOpenTicket, onOpenClient }) {
-  const { OPERATION_TYPE_META, OPERATION_PRIORITY_META, OPERATION_STATUS_META, OPERATION_STATUS_FLOW, formatDateTime, durationLabel } = window.PortalLib;
-  const [confirmAdvance, setConfirmAdvance] = React.useState(false);
-  const typeMeta = OPERATION_TYPE_META[operation.type];
-  const statusMeta = OPERATION_STATUS_META[operation.status];
-  const priorityMeta = OPERATION_PRIORITY_META[operation.priority];
-  const isOpen = operation.status !== 'concluida' && operation.status !== 'concluida_parcial';
-  const flowIdx = OPERATION_STATUS_FLOW.indexOf(operation.status);
-  const nextStatus = isOpen && flowIdx !== -1 && flowIdx < OPERATION_STATUS_FLOW.length - 1 ? OPERATION_STATUS_FLOW[flowIdx + 1] : null;
-
-  return (
-    <React.Fragment>
-      <Drawer title={typeMeta.label} subtitle={`${client ? client.name : operation.clientId} · protocolo ${operation.protocol}`} onClose={onClose}>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <StatusPill label={priorityMeta.label} className={priorityMeta.className} size="sm" />
-          <StatusPill label={statusMeta.label} className={statusMeta.className} />
-          {!operation.resolvedAt && <span className="text-xs text-neutral-400">aberta há {durationLabel(new Date(now) - new Date(operation.openedAt))}</span>}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-          <div className="rounded-large border border-neutral-100 p-3">
-            <div className="text-[11px] text-neutral-400">Responsável</div>
-            <div className="font-medium text-neutral-900">{operation.responsavel}</div>
-          </div>
-          <div className="rounded-large border border-neutral-100 p-3">
-            <div className="text-[11px] text-neutral-400">SLA</div>
-            <div className="font-medium"><SlaLabel op={operation} now={now} /></div>
-          </div>
-          <div className="rounded-large border border-neutral-100 p-3">
-            <div className="text-[11px] text-neutral-400">Aberta em</div>
-            <div className="font-medium text-neutral-900">{formatDateTime(operation.openedAt)}</div>
-          </div>
-          <div className="rounded-large border border-neutral-100 p-3">
-            <div className="text-[11px] text-neutral-400">{operation.resolvedAt ? 'Concluída em' : 'Prazo (SLA)'}</div>
-            <div className="font-medium text-neutral-900">{formatDateTime(operation.resolvedAt || operation.dueAt)}</div>
-          </div>
-        </div>
-
-        {operation.motivoPrincipal && (
-          <div className="bg-neutral-50 border border-neutral-100 rounded-medium px-3 py-2.5 mb-4 text-sm">
-            <span className="text-neutral-400">Motivo principal: </span>
-            <span className="text-neutral-800 font-medium">{operation.motivoPrincipal}</span>
-          </div>
-        )}
-
-        {isOpen && operation.nextAction && (
-          <div className="bg-brand-lightest text-brand-dark rounded-medium px-3 py-2.5 mb-4 text-sm flex items-center gap-2">
-            <Icon name="flag" size={14} className="shrink-0" /> Próxima ação: {operation.nextAction}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-2 mb-5">
-          {nextStatus && (
-            <button onClick={() => setConfirmAdvance(true)} className="text-sm px-3 py-1.5 rounded-pill bg-brand text-white flex items-center gap-1.5">
-              <Icon name="refresh" size={14} /> Avançar status
-            </button>
-          )}
-          {onOpenClient && client && (
-            <button onClick={() => onOpenClient(client.id)} className="text-sm px-3 py-1.5 rounded-pill border border-neutral-200 hover:bg-neutral-50 flex items-center gap-1.5">
-              <Icon name="externalLink" size={14} /> Ver cliente
-            </button>
-          )}
-          {onOpenTicket && (
-            <button onClick={onOpenTicket} className="text-sm px-3 py-1.5 rounded-pill border border-neutral-200 hover:bg-neutral-50 flex items-center gap-1.5">
-              <Icon name="lifeBuoy" size={14} /> Abrir chamado
-            </button>
-          )}
-        </div>
-
-        <h3 className="text-sm font-semibold text-neutral-800 mb-3">Linha do tempo</h3>
-        <ol className="relative border-l border-neutral-100 ml-2 space-y-5">
-          {operation.timeline.map((t, i) => (
-            <li key={i} className="ml-4">
-              <span className="absolute -ml-[25px] mt-1 w-2.5 h-2.5 rounded-full bg-brand" />
-              <div className="text-xs text-neutral-400">{formatDateTime(t.date)}</div>
-              <div className="text-sm text-neutral-800">{t.detail}</div>
-            </li>
-          ))}
-        </ol>
-      </Drawer>
-
-      {confirmAdvance && nextStatus && (
-        <ConfirmAction
-          title="Avançar status"
-          description={`A operação passa para "${OPERATION_STATUS_META[nextStatus].label}". Ação simulada, registrada na linha do tempo.`}
-          confirmLabel="Avançar"
-          onConfirm={() => { onAdvance(operation.id, nextStatus, `Status avançado para "${OPERATION_STATUS_META[nextStatus].label}" (ação simulada).`); setConfirmAdvance(false); }}
-          onClose={() => setConfirmAdvance(false)}
-        />
-      )}
-    </React.Fragment>
-  );
-}
-
 const OPS_PAGE_SIZE = 8;
 
 function OpsQueueTable({ scope, operations, clientMap, now, onOpenOperation }) {
@@ -435,8 +341,11 @@ const STATUS_BAR_COLOR = {
   aguardando_consultor: '#9E9E9E',
   em_processamento: '#FF7A00',
   aguardando_backoffice: '#B42318',
+  executada: '#1E7FE6',
   concluida: '#00A868',
   concluida_parcial: '#8A5A00',
+  nao_executada: '#9E9E9E',
+  cancelada: '#9E9E9E',
 };
 
 function OpsSegmentedBar({ operations }) {
@@ -790,7 +699,7 @@ function OperationsDashboardTab({ operations, clientMap, now, onOpenOperation })
   );
 }
 
-function OperationsPage({ profile, clients, operations, now, openOperationId, onOpenOperation, onCloseOperation, onAdvanceOperation, onOpenTicketFor, onOpenClient }) {
+function OperationsPage({ profile, clients, operations, now, onOpenOperation }) {
   const { operationSlaState } = window.PortalLib;
   const [tab, setTab] = React.useState('fila');
   const loading = window.useSimulatedLoading(`${profile.id}|${tab}`, 280);
@@ -810,7 +719,6 @@ function OperationsPage({ profile, clients, operations, now, openOperationId, on
   const today = (now || '').slice(0, 10);
   const concluidasHoje = scoped.filter((o) => o.resolvedAt && o.resolvedAt.slice(0, 10) === today);
 
-  const openOperation = scoped.find((o) => o.id === openOperationId) || null;
   const copy = OPS_TAB_COPY[tab];
   const headerCount = tab === 'fila' ? openOps.length : tab === 'risco' ? emRisco.length + vencido.length : tab === 'concluidas' ? scoped.length - openOps.length : scoped.length;
 
@@ -868,21 +776,10 @@ function OperationsPage({ profile, clients, operations, now, openOperationId, on
           {tab === 'dashboard' && <OperationsDashboardTab operations={scoped} clientMap={clientMap} now={now} onOpenOperation={onOpenOperation} />}
         </React.Fragment>
       )}
-
-      {openOperation && (
-        <OperationDrawer
-          operation={openOperation}
-          client={clientMap[openOperation.clientId]}
-          now={now}
-          onClose={onCloseOperation}
-          onAdvance={onAdvanceOperation}
-          onOpenTicket={() => onOpenTicketFor(clientMap[openOperation.clientId], 'service', openOperation.id, `Operação ${openOperation.protocol}`)}
-          onOpenClient={onOpenClient}
-        />
-      )}
     </div>
   );
 }
 
 window.OperationsPage = OperationsPage;
 window.ServiceRequestDrawer = ServiceRequestDrawer;
+window.OperationsShared = { SlaLabel, OpsKpiCard };
