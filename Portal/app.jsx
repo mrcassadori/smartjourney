@@ -26,6 +26,7 @@ function App() {
   const [search, setSearch] = React.useState('');
   const [openOrderId, setOpenOrderId] = React.useState(null);
   const [showLinkRequest, setShowLinkRequest] = React.useState(false);
+  const [clients, setClients] = React.useState(DATA.clients);
   const [alerts, setAlerts] = React.useState(DATA.alerts);
   const [orders, setOrders] = React.useState(DATA.orders);
   const [onboarding] = React.useState(DATA.onboarding);
@@ -35,6 +36,8 @@ function App() {
   const [tickets, setTickets] = React.useState(DATA.tickets);
   const [financialPlans, setFinancialPlans] = React.useState(DATA.financialPlans);
   const [recommendations, setRecommendations] = React.useState(DATA.recommendations);
+  const [portalUsers, setPortalUsers] = React.useState(DATA.portalUsers);
+  const [adminAuditLog, setAdminAuditLog] = React.useState(DATA.adminAuditLog);
   const [openRequestId, setOpenRequestId] = React.useState(null);
   const [openTicketId, setOpenTicketId] = React.useState(null);
   const [newTicketContext, setNewTicketContext] = React.useState(null);
@@ -49,7 +52,7 @@ function App() {
   const [cart, setCart] = React.useState(null); // { clientId, simulationId, items: [{productId,value,rate,rateAccepted}] }
 
   const profile = DATA.profiles.find((p) => p.id === profileId);
-  const scopedClients = React.useMemo(() => clientsInScope(profile, DATA.clients), [profile, DATA.clients]);
+  const scopedClients = React.useMemo(() => clientsInScope(profile, clients), [profile, clients]);
   const scopedClientIds = React.useMemo(() => new Set(scopedClients.map((c) => c.id)), [scopedClients]);
   const scopedAlerts = React.useMemo(() => alerts.filter((a) => scopedClientIds.has(a.clientId)), [alerts, scopedClientIds]);
   const scopedOrders = React.useMemo(() => orders.filter((o) => scopedClientIds.has(o.clientId)), [orders, scopedClientIds]);
@@ -385,6 +388,62 @@ function App() {
     setOperations((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
   }
 
+  // ---------------------------------------------------------------------
+  // Jornada Admin (Portal/pages/AdminPage.jsx, AdminDetailPages.jsx).
+  // ---------------------------------------------------------------------
+  function addAuditEntry(action, target, detail) {
+    setAdminAuditLog((prev) => [{ id: uid(), date: DATA.now, action, target, detail, actor: profile.name }, ...prev]);
+  }
+
+  // Transferência de 1 cliente: reatribui `ownerId` (o mesmo campo que
+  // alimenta clientsInScope em todo o app — a mudança se reflete de verdade
+  // em Clientes/Ordens/Operações/Simulador/Planejamento para o novo dono).
+  function transferClient(clientId, newOwnerId, opsHandling) {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return;
+    const fromName = window.PortalLib.OWNER_NAME_MAP[client.ownerId] || client.ownerId;
+    const toName = window.PortalLib.OWNER_NAME_MAP[newOwnerId] || newOwnerId;
+    setClients((prev) => prev.map((c) => (c.id === clientId ? { ...c, ownerId: newOwnerId, updatedAt: DATA.now } : c)));
+    if (opsHandling === 'transferir') {
+      setOperations((prev) => prev.map((o) => (o.clientId === clientId && !o.resolvedAt ? { ...o, responsavel: toName } : o)));
+    }
+    addAuditEntry('cliente_transferido', client.name, `${fromName} → ${toName}`);
+  }
+
+  function transferClientsBulk(clientIds, newOwnerId, opsHandling) {
+    const toName = window.PortalLib.OWNER_NAME_MAP[newOwnerId] || newOwnerId;
+    setClients((prev) => prev.map((c) => (clientIds.indexOf(c.id) !== -1 ? { ...c, ownerId: newOwnerId, updatedAt: DATA.now } : c)));
+    if (opsHandling === 'transferir') {
+      setOperations((prev) => prev.map((o) => (clientIds.indexOf(o.clientId) !== -1 && !o.resolvedAt ? { ...o, responsavel: toName } : o)));
+    }
+    addAuditEntry('cliente_transferido', `${clientIds.length} clientes`, `Transferidos em massa para ${toName}`);
+  }
+
+  function setUserStatus(userId, status) {
+    const user = portalUsers.find((u) => u.id === userId);
+    if (!user) return;
+    setPortalUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status } : u)));
+    addAuditEntry(status === 'ativo' ? 'acesso_desbloqueado' : 'acesso_bloqueado', user.name, status === 'ativo' ? 'Acesso desbloqueado' : 'Bloqueio administrativo');
+  }
+
+  function createPortalUser(draft) {
+    const newUser = {
+      id: uid(),
+      name: draft.name,
+      email: draft.email,
+      role: draft.role,
+      equipe: draft.equipe,
+      gestorId: draft.gestorId || null,
+      ownerId: null,
+      status: 'ativo',
+      createdAt: DATA.now,
+      lastAccessAt: null,
+    };
+    setPortalUsers((prev) => [newUser, ...prev]);
+    addAuditEntry('usuario_criado', newUser.name, `Perfil ${newUser.role}`);
+    return newUser;
+  }
+
   function openTicketModal(client, contextType, contextId, contextLabel, suggestedTheme) {
     setNewTicketContext({ client, contextType, contextId, contextLabel, suggestedTheme });
   }
@@ -428,9 +487,12 @@ function App() {
     );
   }
 
-  const selectedClient = selectedClientId ? DATA.clients.find((c) => c.id === selectedClientId) : null;
+  const selectedClient = selectedClientId ? clients.find((c) => c.id === selectedClientId) : null;
   const openSimulationObj = pageParams && pageParams.simulationId ? simulations.find((s) => s.id === pageParams.simulationId) : null;
   const selectedOperation = pageParams && pageParams.operationId ? scopedOperations.find((o) => o.id === pageParams.operationId) : null;
+  const selectedAdminUser = pageParams && pageParams.userId ? portalUsers.find((u) => u.id === pageParams.userId) : null;
+  const selectedAdminRole = pageParams && pageParams.role ? pageParams.role : null;
+  const selectedAdminBookOwnerId = pageParams && pageParams.ownerId ? pageParams.ownerId : null;
 
   const breadcrumbFor = () => {
     const navLabel = (key) => (window.PORTAL_NAV_ITEMS.find((n) => n.key === key) || {}).label || key;
@@ -445,6 +507,10 @@ function App() {
     if (page === 'recommendations') return [{ label: 'Recomendações' }];
     if (page === 'operations') return [{ label: 'Operações' }];
     if (page === 'operationDetail') return [{ label: 'Operações', onClick: () => navigate('operations', {}) }, { label: selectedOperation ? `#${selectedOperation.protocol}` : 'Operação' }];
+    if (page === 'admin') return [{ label: 'Administração' }];
+    if (page === 'adminUserDetail') return [{ label: 'Administração', onClick: () => navigate('admin', { tab: 'usuarios' }) }, { label: selectedAdminUser ? selectedAdminUser.name : 'Usuário' }];
+    if (page === 'adminRoleDetail') return [{ label: 'Administração', onClick: () => navigate('admin', { tab: 'perfis' }) }, { label: selectedAdminRole || 'Perfil' }];
+    if (page === 'adminBookDetail') return [{ label: 'Administração', onClick: () => navigate('admin', { tab: 'carteiras' }) }, { label: selectedAdminBookOwnerId ? `Carteira de ${window.PortalLib.OWNER_NAME_MAP[selectedAdminBookOwnerId] || selectedAdminBookOwnerId}` : 'Carteira' }];
     if (page === 'support') return [{ label: 'Central de suporte' }];
     if (page === 'simulacoes') return [{ label: 'Investimentos' }, { label: 'Simulador' }];
     if (page === 'planejamento') return [{ label: 'Planejamento' }];
@@ -504,7 +570,7 @@ function App() {
         simulations={simulations.filter((s) => s.clientId === selectedClient.id)}
         serviceRequests={serviceRequests.filter((r) => r.clientId === selectedClient.id)}
         holdingRelations={DATA.holdingRelations.filter((r) => r.pjClientId === selectedClient.id)}
-        allClients={DATA.clients}
+        allClients={clients}
         documents={DATA.clientDocuments.filter((d) => d.clientId === selectedClient.id)}
         accessLog={DATA.documentAccessLog.filter((a) => a.clientId === selectedClient.id)}
         bankingProfile={DATA.bankingProfiles.find((bp) => bp.clientId === selectedClient.id) || null}
@@ -570,7 +636,7 @@ function App() {
     );
   } else if (page === 'proposta') {
     const sim = proposalContext.simulationId ? simulations.find((s) => s.id === proposalContext.simulationId) : null;
-    const cli = DATA.clients.find((c) => c.id === proposalContext.clientId) || null;
+    const cli = clients.find((c) => c.id === proposalContext.clientId) || null;
     const cartItems = cart && cart.clientId === proposalContext.clientId ? cart.items : [];
     content = cli ? (
       <window.ProductJourney
@@ -619,7 +685,7 @@ function App() {
     content = (
       <SimulatorJourney
         simulation={openSimulationObj}
-        client={openSimulationObj.clientId ? DATA.clients.find((c) => c.id === openSimulationObj.clientId) : null}
+        client={openSimulationObj.clientId ? clients.find((c) => c.id === openSimulationObj.clientId) : null}
         clients={scopedClients}
         products={DATA.products}
         positions={openSimulationObj.clientId ? DATA.portfolioPositions.filter((p) => p.clientId === openSimulationObj.clientId) : []}
@@ -668,13 +734,60 @@ function App() {
     content = (
       <OperationDetailPage
         operation={selectedOperation}
-        client={DATA.clients.find((c) => c.id === selectedOperation.clientId)}
+        client={clients.find((c) => c.id === selectedOperation.clientId)}
         profile={profile}
         now={DATA.now}
         onBack={() => navigate('operations', {})}
         onPatch={patchOperation}
         onOpenTicketFor={openTicketModal}
         onOpenClient={openClient}
+      />
+    );
+  } else if (page === 'admin') {
+    content = (
+      <AdminPage
+        profile={profile}
+        users={portalUsers}
+        clients={clients}
+        orders={orders}
+        recommendations={recommendations}
+        operations={operations}
+        auditLog={adminAuditLog}
+        initialTab={pageParams && pageParams.tab}
+        onOpenUser={(id) => navigate('adminUserDetail', { userId: id })}
+        onOpenRole={(role) => navigate('adminRoleDetail', { role })}
+        onOpenBook={(ownerId) => navigate('adminBookDetail', { ownerId })}
+        onCreateUser={createPortalUser}
+        onSetUserStatus={setUserStatus}
+      />
+    );
+  } else if (page === 'adminUserDetail' && selectedAdminUser) {
+    content = (
+      <window.AdminUserDetailPage
+        user={selectedAdminUser}
+        clients={clients}
+        orders={orders}
+        recommendations={recommendations}
+        operations={operations}
+        onBack={() => navigate('admin', { tab: 'usuarios' })}
+        onSetUserStatus={setUserStatus}
+        onOpenBook={(ownerId) => navigate('adminBookDetail', { ownerId })}
+      />
+    );
+  } else if (page === 'adminRoleDetail' && selectedAdminRole) {
+    content = <window.AdminRoleDetailPage role={selectedAdminRole} users={portalUsers} onBack={() => navigate('admin', { tab: 'perfis' })} />;
+  } else if (page === 'adminBookDetail' && selectedAdminBookOwnerId) {
+    content = (
+      <window.AdminBookDetailPage
+        ownerId={selectedAdminBookOwnerId}
+        clients={clients}
+        orders={orders}
+        recommendations={recommendations}
+        operations={operations}
+        users={portalUsers}
+        onBack={() => navigate('admin', { tab: 'carteiras' })}
+        onTransferClient={transferClient}
+        onTransferClientsBulk={transferClientsBulk}
       />
     );
   } else if (page === 'support') {
@@ -698,7 +811,7 @@ function App() {
   const requestForClientDrawer = page === 'client' && openRequestId ? serviceRequests.find((r) => r.id === openRequestId) : null;
   // Fase 9 — chip "Cliente: X" na topbar enquanto há uma recomendação em
   // andamento (carrinho com cliente anexado), como no mockup de referência.
-  const activeCartClient = cart && cart.clientId ? DATA.clients.find((c) => c.id === cart.clientId) : null;
+  const activeCartClient = cart && cart.clientId ? clients.find((c) => c.id === cart.clientId) : null;
 
   return (
     <Shell
@@ -721,7 +834,7 @@ function App() {
       {orderForClientDrawer && (
         <window.OrderDetailDrawer
           order={orderForClientDrawer}
-          client={DATA.clients.find((c) => c.id === orderForClientDrawer.clientId)}
+          client={clients.find((c) => c.id === orderForClientDrawer.clientId)}
           canOperate={profile.permissions.canRetryOrders}
           onClose={() => setOpenOrderId(null)}
           onRetry={retryOrder}
@@ -734,11 +847,11 @@ function App() {
       {requestForClientDrawer && (
         <window.ServiceRequestDrawer
           request={requestForClientDrawer}
-          client={DATA.clients.find((c) => c.id === requestForClientDrawer.clientId)}
+          client={clients.find((c) => c.id === requestForClientDrawer.clientId)}
           canOperateDirectly={profile.permissions.canOperateDirectly}
           onClose={() => setOpenRequestId(null)}
           onAdvance={advanceServiceRequest}
-          onOpenTicket={() => openTicketModal(DATA.clients.find((c) => c.id === requestForClientDrawer.clientId), 'service', requestForClientDrawer.id, `Solicitação ${requestForClientDrawer.protocol}`)}
+          onOpenTicket={() => openTicketModal(clients.find((c) => c.id === requestForClientDrawer.clientId), 'service', requestForClientDrawer.id, `Solicitação ${requestForClientDrawer.protocol}`)}
         />
       )}
 

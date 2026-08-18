@@ -468,7 +468,124 @@
     alocador: 'Rafael Nunes',
     daily_banker: 'Camila Duarte',
     daily_banker_2: 'Diego Antunes',
+    rafael_almeida: 'Rafael Almeida',
+    renato_vieira: 'Renato Vieira',
   };
+
+  // ---------------------------------------------------------------------
+  // Jornada Admin — usuários internos, perfis/permissões e gestão de
+  // carteiras (Portal/pages/AdminPage.jsx, AdminDetailPages.jsx).
+  // ---------------------------------------------------------------------
+  const USER_STATUS_META = {
+    ativo: { label: 'Ativo', className: 'bg-success-light text-success-dark' },
+    bloqueado: { label: 'Bloqueado', className: 'bg-alert-light text-alert-dark' },
+  };
+
+  const ADMIN_AUDIT_ACTION_META = {
+    cliente_transferido: { label: 'Cliente transferido', icon: 'externalLink' },
+    permissao_concedida: { label: 'Permissão concedida', icon: 'check' },
+    permissao_removida: { label: 'Permissão removida', icon: 'x' },
+    usuario_criado: { label: 'Usuário criado', icon: 'userPlus' },
+    usuario_alterado: { label: 'Usuário alterado', icon: 'refresh' },
+    acesso_bloqueado: { label: 'Acesso bloqueado', icon: 'shield' },
+    acesso_desbloqueado: { label: 'Acesso desbloqueado', icon: 'shield' },
+  };
+
+  const ADMIN_FUNCTIONALITIES = ['Clientes', 'Simulador', 'Recomendações', 'Ordens', 'Operações', 'Administração'];
+
+  // Matriz por perfil: { ver, criar, alterar, executar } por funcionalidade —
+  // reflete as descrições qualitativas do Figma, não um dado ligado a
+  // `profiles.permissions` (que é o motor real de escopo do protótipo;
+  // esta matriz é só a vitrine de "o que cada perfil pode fazer").
+  const ROLE_DEFINITIONS = {
+    Consultor: {
+      description: 'Acesso total à gestão de carteira, simulador, prospecção e acompanhamento de relatórios de seus clientes associados.',
+      matrix: {
+        Clientes: { ver: true, criar: true, alterar: true, executar: false },
+        Simulador: { ver: true, criar: true, alterar: true, executar: false },
+        Recomendações: { ver: true, criar: true, alterar: false, executar: true },
+        Ordens: { ver: true, criar: true, alterar: false, executar: false },
+        Operações: { ver: true, criar: false, alterar: false, executar: false },
+        Administração: { ver: false, criar: false, alterar: false, executar: false },
+      },
+    },
+    Gestor: {
+      description: 'Acesso amplo. Visualiza as carteiras de todos os consultores sob sua gestão direta, além de aprovações de movimentações especiais.',
+      matrix: {
+        Clientes: { ver: true, criar: false, alterar: false, executar: false },
+        Simulador: { ver: true, criar: false, alterar: false, executar: false },
+        Recomendações: { ver: true, criar: false, alterar: false, executar: true },
+        Ordens: { ver: true, criar: false, alterar: false, executar: true },
+        Operações: { ver: true, criar: false, alterar: false, executar: false },
+        Administração: { ver: true, criar: false, alterar: false, executar: false },
+      },
+    },
+    'Daily Banker': {
+      description: 'Acesso focado em operações rotineiras, emissões rápidas e consultas de extrato de contas de suporte.',
+      matrix: {
+        Clientes: { ver: true, criar: false, alterar: false, executar: false },
+        Simulador: { ver: false, criar: false, alterar: false, executar: false },
+        Recomendações: { ver: false, criar: false, alterar: false, executar: false },
+        Ordens: { ver: false, criar: false, alterar: false, executar: false },
+        Operações: { ver: true, criar: false, alterar: true, executar: true },
+        Administração: { ver: false, criar: false, alterar: false, executar: false },
+      },
+    },
+    Backoffice: {
+      description: 'Nível operacional. Foco em onboarding, validação de documentos, aprovação cadastral e saneamento de pendências.',
+      matrix: {
+        Clientes: { ver: true, criar: false, alterar: true, executar: false },
+        Simulador: { ver: false, criar: false, alterar: false, executar: false },
+        Recomendações: { ver: false, criar: false, alterar: false, executar: false },
+        Ordens: { ver: true, criar: false, alterar: false, executar: false },
+        Operações: { ver: true, criar: false, alterar: true, executar: true },
+        Administração: { ver: false, criar: false, alterar: false, executar: false },
+      },
+    },
+    Administrador: {
+      description: 'Acesso mestre e irrestrito. Criação de novos acessos de colaboradores, atribuição de perfis e auditoria total.',
+      matrix: {
+        Clientes: { ver: true, criar: true, alterar: true, executar: true },
+        Simulador: { ver: true, criar: true, alterar: true, executar: true },
+        Recomendações: { ver: true, criar: true, alterar: true, executar: true },
+        Ordens: { ver: true, criar: true, alterar: true, executar: true },
+        Operações: { ver: true, criar: true, alterar: true, executar: true },
+        Administração: { ver: true, criar: true, alterar: true, executar: true },
+      },
+    },
+  };
+
+  // Blocos de permissões granulares usados no wizard "Novo usuário" (Etapa 2).
+  // `sensitive: true` exige a confirmação extra do Figma ("Confirmo que este
+  // usuário deve possuir essa permissão").
+  const NEW_USER_PERMISSION_GROUPS = [
+    { key: 'clientes', label: 'Clientes', items: [
+      { key: 'ver_clientes', label: 'Visualizar clientes' },
+      { key: 'editar_dados', label: 'Editar dados permitidos' },
+      { key: 'ver_documentos', label: 'Visualizar documentos' },
+      { key: 'transferir_clientes', label: 'Transferir clientes', sensitive: true },
+    ] },
+    { key: 'investimentos', label: 'Investimentos', items: [
+      { key: 'consultar_produtos', label: 'Consultar produtos' },
+      { key: 'criar_simulacoes', label: 'Criar simulações' },
+      { key: 'criar_recomendacoes', label: 'Criar recomendações' },
+      { key: 'enviar_recomendacao', label: 'Enviar recomendação' },
+      { key: 'executar_ordem', label: 'Executar ordem', sensitive: true },
+    ] },
+    { key: 'banking', label: 'Banking', items: [
+      { key: 'executar_bancarias', label: 'Executar operações bancárias', sensitive: true },
+    ] },
+    { key: 'operacoes', label: 'Operações', items: [
+      { key: 'ver_operacoes', label: 'Visualizar operações' },
+      { key: 'executar_operacoes', label: 'Executar operações', sensitive: true },
+    ] },
+    { key: 'relatorios', label: 'Relatórios', items: [
+      { key: 'gerar_relatorios', label: 'Gerar relatórios' },
+    ] },
+    { key: 'administracao', label: 'Administração', items: [
+      { key: 'gerenciar_usuarios', label: 'Gerenciar usuários e acessos', sensitive: true },
+    ] },
+  ];
 
   // Rótulos de segmento no vocabulário da referência visual (Cliente Novo.png).
   const SEGMENT_LABEL = { Standard: 'Retail', High: 'High Income', Private: 'Private', Corporate: 'Corporate', Wealth: 'Wealth' };
@@ -542,5 +659,10 @@
     TICKET_IMPACT_META,
     TICKET_CONTEXT_META,
     HOLDING_ROLE_META,
+    USER_STATUS_META,
+    ADMIN_AUDIT_ACTION_META,
+    ADMIN_FUNCTIONALITIES,
+    ROLE_DEFINITIONS,
+    NEW_USER_PERMISSION_GROUPS,
   };
 })();

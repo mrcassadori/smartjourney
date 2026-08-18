@@ -49,7 +49,7 @@
       role: 'Administrador',
       escritorio: 'Inter — Consultorias',
       scopeType: 'all',
-      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'planning', 'recommendations', 'operations', 'support'], canRetryOrders: true, canApprove: true, canViewConsolidated: true, canCreateBasket: true, canOperateDirectly: true },
+      permissions: { menu: ['home', 'clients', 'orders', 'onboarding', 'alerts', 'products', 'planning', 'recommendations', 'operations', 'support', 'admin'], canRetryOrders: true, canApprove: true, canViewConsolidated: true, canCreateBasket: true, canOperateDirectly: true },
     },
     {
       id: 'sem_vinculo',
@@ -824,5 +824,45 @@
     },
   ];
 
-  window.PORTAL_DATA = { now: NOW, profiles, clients, portfolioPositions, cashEvents, alerts, onboarding, orders, products, simulations, serviceRequests, operations, tickets, holdingRelations, clientDocuments, documentAccessLog, bankingProfiles, financialPlans, recommendations };
+  // ---------------------------------------------------------------------
+  // Jornada Admin — usuários internos (equipe) com acesso ao Portal.
+  // Independente de `profiles` (que é só o seletor de cenário de demo, com
+  // 6 entradas fixas) — aqui é o quadro completo de colaboradores. `ownerId`
+  // liga o usuário à mesma chave usada em `clients[].ownerId` quando ele é
+  // um consultor/daily banker com carteira própria (null = sem carteira).
+  // ---------------------------------------------------------------------
+  const portalUsers = [
+    { id: 'U01', name: 'Bianca Rocha', email: 'bianca.rocha@inter.com.br', role: 'Administrador', equipe: 'Inter — Consultorias', gestorId: null, ownerId: null, status: 'ativo', createdAt: '2023-02-01', lastAccessAt: NOW },
+    { id: 'U02', name: 'Fernanda Alves', email: 'fernanda.alves@inter.com.br', role: 'Administrador', equipe: 'Inter — Consultorias', gestorId: null, ownerId: null, status: 'ativo', createdAt: '2023-05-10', lastAccessAt: '2026-07-20T08:10:00-03:00' },
+    { id: 'U03', name: 'Patrícia Lemos', email: 'patricia.lemos@inter.com.br', role: 'Administrador', equipe: 'Inter — Consultorias', gestorId: null, ownerId: null, status: 'ativo', createdAt: '2024-01-20', lastAccessAt: '2026-07-19T17:40:00-03:00' },
+    { id: 'U04', name: 'Eduardo Prado', email: 'eduardo.prado@ticker.com.br', role: 'Gestor', equipe: 'Ticker Investimentos', gestorId: null, ownerId: null, status: 'ativo', createdAt: '2022-08-14', lastAccessAt: NOW },
+    { id: 'U05', name: 'Carlos Farias', email: 'carlos.farias@apencapital.com.br', role: 'Gestor', equipe: 'Åpen Capital', gestorId: null, ownerId: null, status: 'ativo', createdAt: '2022-11-02', lastAccessAt: '2026-07-20T07:30:00-03:00' },
+    { id: 'U06', name: 'Juliana Ramos', email: 'juliana.ramos@ticker.com.br', role: 'Gestor', equipe: 'Ticker Investimentos', gestorId: null, ownerId: null, status: 'ativo', createdAt: '2023-03-18', lastAccessAt: '2026-07-18T15:00:00-03:00' },
+    { id: 'U07', name: 'Marina Ferraz', email: 'marina.ferraz@apencapital.com.br', role: 'Consultor', equipe: 'Åpen Capital', gestorId: 'U05', ownerId: 'consultor', status: 'ativo', createdAt: '2021-06-01', lastAccessAt: NOW },
+    { id: 'U08', name: 'Bruno Castilho', email: 'bruno.castilho@apencapital.com.br', role: 'Consultor', equipe: 'Åpen Capital', gestorId: 'U05', ownerId: 'consultor_2', status: 'ativo', createdAt: '2022-02-14', lastAccessAt: '2026-07-19T18:20:00-03:00' },
+    { id: 'U09', name: 'Rafael Almeida', email: 'rafael.almeida@apencapital.com.br', role: 'Consultor', equipe: 'Åpen Capital', gestorId: 'U05', ownerId: 'rafael_almeida', status: 'ativo', createdAt: '2025-01-14', lastAccessAt: NOW },
+    { id: 'U10', name: 'Diego Antunes', email: 'diego.antunes@ticker.com.br', role: 'Consultor', equipe: 'Ticker Investimentos', gestorId: 'U04', ownerId: 'daily_banker_2', status: 'ativo', createdAt: '2023-09-05', lastAccessAt: '2026-07-20T08:00:00-03:00' },
+    { id: 'U11', name: 'Camila Duarte', email: 'camila.duarte@ticker.com.br', role: 'Daily Banker', equipe: 'Ticker Investimentos', gestorId: 'U04', ownerId: 'daily_banker', status: 'ativo', createdAt: '2021-11-20', lastAccessAt: NOW },
+    { id: 'U12', name: 'Renato Vieira', email: 'renato.vieira@ticker.com.br', role: 'Daily Banker', equipe: 'Ticker Investimentos', gestorId: 'U04', ownerId: 'renato_vieira', status: 'bloqueado', createdAt: '2024-06-11', lastAccessAt: '2026-06-30T09:00:00-03:00' },
+    { id: 'U13', name: 'Lucas Torres', email: 'lucas.torres@inter.com.br', role: 'Backoffice', equipe: 'Backoffice cadastral', gestorId: 'U02', ownerId: null, status: 'ativo', createdAt: '2023-07-22', lastAccessAt: '2026-07-20T07:50:00-03:00' },
+    { id: 'U14', name: 'Gabriel Pontes', email: 'gabriel.pontes@inter.com.br', role: 'Backoffice', equipe: 'Compliance', gestorId: 'U02', ownerId: null, status: 'ativo', createdAt: '2023-10-09', lastAccessAt: '2026-07-19T16:22:00-03:00' },
+    { id: 'U15', name: 'Pedro Barros', email: 'pedro.barros@inter.com.br', role: 'Backoffice', equipe: 'Backoffice cadastral', gestorId: 'U02', ownerId: null, status: 'bloqueado', createdAt: '2024-03-01', lastAccessAt: '2026-05-12T11:00:00-03:00' },
+  ];
+
+  // Trilha de auditoria da Administração — cresce em runtime conforme ações
+  // (criar usuário, bloquear/desbloquear, transferir cliente) acontecem.
+  const adminAuditLog = [
+    { id: 'AA01', date: '2026-07-20T11:45:00-03:00', action: 'permissao_concedida', target: 'Rafael Almeida', detail: 'Executar recomendações', actor: 'Fernanda Alves' },
+    { id: 'AA02', date: '2026-07-19T16:22:00-03:00', action: 'permissao_removida', target: 'Lucas Torres', detail: 'Visualizar carteira alheia', actor: 'Bianca Rocha' },
+    { id: 'AA03', date: '2026-07-18T09:15:00-03:00', action: 'acesso_bloqueado', target: 'Pedro Barros', detail: 'Bloqueio administrativo', actor: 'Fernanda Alves' },
+    { id: 'AA04', date: '2026-07-17T14:02:00-03:00', action: 'acesso_bloqueado', target: 'Renato Vieira', detail: 'Bloqueio administrativo — inatividade prolongada', actor: 'Patrícia Lemos' },
+    { id: 'AA05', date: '2026-07-16T17:40:00-03:00', action: 'usuario_alterado', target: 'Gabriel Pontes', detail: 'E-mail atualizado', actor: 'Fernanda Alves' },
+    { id: 'AA06', date: '2026-07-15T10:30:00-03:00', action: 'usuario_criado', target: 'Rafael Almeida', detail: 'Perfil Consultor', actor: 'Bianca Rocha' },
+    { id: 'AA07', date: '2026-07-14T15:12:00-03:00', action: 'cliente_transferido', target: 'Fernanda Quirino', detail: 'Marina Ferraz → Bruno Castilho (carteira atual)', actor: 'Carlos Farias' },
+    { id: 'AA08', date: '2026-07-12T08:50:00-03:00', action: 'permissao_concedida', target: 'Camila Duarte', detail: 'Executar operações bancárias', actor: 'Bianca Rocha' },
+    { id: 'AA09', date: '2026-07-10T13:20:00-03:00', action: 'usuario_alterado', target: 'Diego Antunes', detail: 'Equipe atualizada para Ticker Investimentos', actor: 'Juliana Ramos' },
+    { id: 'AA10', date: '2026-07-08T09:05:00-03:00', action: 'usuario_criado', target: 'Renato Vieira', detail: 'Perfil Daily Banker', actor: 'Bianca Rocha' },
+  ];
+
+  window.PORTAL_DATA = { now: NOW, profiles, clients, portfolioPositions, cashEvents, alerts, onboarding, orders, products, simulations, serviceRequests, operations, tickets, holdingRelations, clientDocuments, documentAccessLog, bankingProfiles, financialPlans, recommendations, portalUsers, adminAuditLog };
 })();

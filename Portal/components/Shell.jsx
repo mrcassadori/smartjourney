@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { key: 'relatorios', label: 'Relatórios', icon: 'fileText', comingSoon: true },
   { key: 'operacoes', label: 'Operações', icon: 'lifeBuoy', route: 'operations' },
   { key: 'suporte', label: 'Suporte', icon: 'helpCircle', route: 'support' },
+  { key: 'administracao', label: 'Administração', icon: 'shield', route: 'admin', permKey: 'admin' },
 ];
 
 // Mantidos só para registrar as chaves "em breve" em app.jsx (COMING_SOON_KEYS)
